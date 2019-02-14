@@ -9,10 +9,10 @@ use std::net::{TcpListener, TcpStream};
 
 use crate::interfaces::http::parse_http_request;
 use crate::interfaces::queries::*;
+use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
 use crate::storage::vkv::UnumVersionedKeyValueStore;
 use crate::storage::vkv::VersionedKeyValueStore;
-use crate::storage::kv::KeyValueEngine;
 
 trait DataStore {
     fn initialize(&mut self) -> ();
@@ -26,7 +26,7 @@ pub struct UnumDB {
 impl UnumDB {
     fn new() -> UnumDB {
         let mut db = UnumDB {
-//            store: UnumVersionedKeyValueStore::new(KeyValueEngine::Redis),
+            //            store: UnumVersionedKeyValueStore::new(KeyValueEngine::Redis),
             store: UnumVersionedKeyValueStore::new(KeyValueEngine::HashMap),
         };
         db

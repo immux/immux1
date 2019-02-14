@@ -35,12 +35,8 @@ impl KeyValueStore for HashMapStore {
             Some(hashmap) => {
                 match hashmap.insert(key.to_vec(), value.to_vec()) {
                     // Currently identical in both arms
-                    None => {
-                        Ok(QueryResponse { data: vec![] })
-                    }
-                    Some(old_value) => {
-                        Ok(QueryResponse { data: vec![] })
-                    }
+                    None => Ok(QueryResponse { data: vec![] }),
+                    Some(old_value) => Ok(QueryResponse { data: vec![] }),
                 }
             }
         }
@@ -48,11 +44,9 @@ impl KeyValueStore for HashMapStore {
     fn keys(&self, pattern: &str) -> Result<Vec<Vec<u8>>, QueryError> {
         match &self.hashmap {
             None => Err(QueryError {
-                error: String::from("HashMap: not initialized")
+                error: String::from("HashMap: not initialized"),
             }),
-            Some(hashmap) => {
-                unimplemented!()
-            }
+            Some(hashmap) => unimplemented!(),
         }
     }
 }
