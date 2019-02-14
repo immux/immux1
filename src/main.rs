@@ -15,7 +15,7 @@ use crate::storage::vkv::UnumVersionedKeyValueStore;
 use crate::storage::vkv::VersionedKeyValueStore;
 
 trait DataStore {
-    fn initialize(&mut self) -> ();
+    fn initialize(&mut self) -> Result<(), ()>;
     fn execute(&mut self, query: Query) -> QueryReturns;
 }
 
@@ -34,8 +34,11 @@ impl UnumDB {
 }
 
 impl DataStore for UnumDB {
-    fn initialize(&mut self) {
-        self.store.initialize();
+    fn initialize(&mut self) -> Result<(), ()> {
+        match self.store.initialize() {
+            Err(error) => Err(()),
+            Ok(result) => Ok(()),
+        }
     }
     fn execute(&mut self, query: Query) -> Result<QueryResponse, QueryError> {
         let result = match query {
