@@ -1,8 +1,8 @@
 use redis::Commands;
 
 use crate::errors::UnumError;
-use crate::storage::kv::KvResult;
 use crate::storage::kv::KeyValueStore;
+use crate::storage::kv::KvResult;
 
 pub struct RedisStore {
     pub redis_client: Option<redis::Client>,
@@ -19,15 +19,15 @@ impl KeyValueStore for RedisStore {
             Err(error) => {
                 eprintln!("data store initialize error: {}", error);
                 return Err(UnumError::InitializationFail);
-            },
+            }
             Ok(client) => {
                 let connection = client.get_connection();
                 self.redis_client = Some(client);
                 match connection {
                     Err(error) => {
                         eprintln!("connection error: {}", error);
-                        return Err(UnumError::InitializationFail)
-                    },
+                        return Err(UnumError::InitializationFail);
+                    }
                     Ok(connection) => {
                         self.redis_connection = Some(connection);
                         Ok(())
@@ -44,7 +44,7 @@ impl KeyValueStore for RedisStore {
                 let result = connection.get(key) as Result<Vec<u8>, redis::RedisError>;
                 match result {
                     Err(error) => Err(UnumError::ReadError),
-                    Ok(result) => Ok(result)
+                    Ok(result) => Ok(result),
                 }
             }
         }
@@ -57,7 +57,7 @@ impl KeyValueStore for RedisStore {
                 let result = connection.set(key, value) as Result<String, redis::RedisError>;
                 match result {
                     Err(error) => Err(UnumError::WriteError),
-                    Ok(result) => Ok(result.as_bytes().to_vec())
+                    Ok(result) => Ok(result.as_bytes().to_vec()),
                 }
             }
         }

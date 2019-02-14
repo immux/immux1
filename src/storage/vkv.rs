@@ -10,11 +10,11 @@ use crate::config::DB_VERSION;
 use crate::errors::UnumError;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
+use crate::storage::kv::hashmap::HashMapStore;
+use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
 use crate::storage::kv::KvResult;
-use crate::storage::kv::hashmap::HashMapStore;
-use crate::storage::kv::redis::RedisStore;
 
 pub type CommitHeight = u64;
 
@@ -102,20 +102,14 @@ impl UnumVersionedKeyValueStore {
                     return 0;
                 }
                 u8_array_to_u64(&[
-                    height[0],
-                    height[1],
-                    height[2],
-                    height[3],
-                    height[4],
-                    height[5],
-                    height[6],
+                    height[0], height[1], height[2], height[3], height[4], height[5], height[6],
                     height[7],
                 ])
             }
         }
     }
 
-    fn save_commit_height(&mut self) -> KvResult<Vec<u8>>  {
+    fn save_commit_height(&mut self) -> KvResult<Vec<u8>> {
         self.set_with_key_prefix(
             KeyPrefix::StandAlone,
             COMMIT_HEIGHT_KEY.as_bytes(),
@@ -260,7 +254,11 @@ pub trait VersionedKeyValueStore: KeyValueStore {
 }
 
 impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
-    fn get_at_version_number(&mut self, key: &[u8], target_height: CommitHeight) -> KvResult<Vec<u8>> {
+    fn get_at_version_number(
+        &mut self,
+        key: &[u8],
+        target_height: CommitHeight,
+    ) -> KvResult<Vec<u8>> {
         match self.get_meta_by_key(key) {
             None => Err(UnumError::ReadError),
             Some(index) => {
@@ -269,7 +267,7 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                         return self.get_value_by_hash(record.hash.clone());
                     }
                 }
-                return Err(UnumError::ReadError)
+                return Err(UnumError::ReadError);
             }
         }
     }

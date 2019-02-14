@@ -1,8 +1,8 @@
 mod config;
+mod errors;
 mod interfaces;
 mod storage;
 mod utils;
-mod errors;
 
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
@@ -50,14 +50,10 @@ impl DataStore for UnumDB {
         match result {
             Err(error) => {
                 return Err(QueryError {
-                    error: String::from("Something is off")
-                })
+                    error: String::from("Something is off"),
+                });
             }
-            Ok(result) => {
-                return Ok(QueryResponse {
-                    data: result
-                })
-            }
+            Ok(result) => return Ok(QueryResponse { data: result }),
         }
     }
 }

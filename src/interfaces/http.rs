@@ -1,7 +1,7 @@
 use crate::config;
 use crate::interfaces::queries::*;
 use std::collections::HashMap;
-use url::{Url};
+use url::Url;
 
 fn get_html_body(s: &str) -> &str {
     let newline_pos = s.find("\r\n\r\n");
