@@ -25,9 +25,11 @@ pub struct UnumDB {
 
 impl UnumDB {
     fn new() -> UnumDB {
-        let mut db = UnumDB {
-            //            store: UnumVersionedKeyValueStore::new(KeyValueEngine::Redis),
-            store: UnumVersionedKeyValueStore::new(KeyValueEngine::HashMap),
+        let db = UnumDB {
+            store: UnumVersionedKeyValueStore::new(
+                KeyValueEngine::HashMap
+//                KeyValueEngine::Redis
+            ),
         };
         db
     }
@@ -36,8 +38,8 @@ impl UnumDB {
 impl DataStore for UnumDB {
     fn initialize(&mut self) -> Result<(), ()> {
         match self.store.initialize() {
-            Err(error) => Err(()),
-            Ok(result) => Ok(()),
+            Err(_) => Err(()),
+            Ok(_) => Ok(()),
         }
     }
     fn execute(&mut self, query: Query) -> Result<QueryResponse, QueryError> {
@@ -97,11 +99,11 @@ pub fn handle_connection(mut stream: TcpStream, db: &mut UnumDB) {
             let stream_writing = stream.write(http_response.as_bytes());
             match stream_writing {
                 Err(error) => eprintln!("Stream writing error: {:?}", error),
-                Ok(bytes_written) => {
+                Ok(_bytes_written) => {
                     let flushing = stream.flush();
                     match flushing {
                         Err(error) => eprintln!("Stream flushing error: {:?}", error),
-                        Ok(done) => {
+                        Ok(_) => {
                             // Done
                         }
                     }
