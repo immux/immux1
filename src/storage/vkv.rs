@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::config::DB_VERSION;
-use crate::interfaces::queries::*;
+use crate::errors::UnumError;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
-use crate::storage::kv::hashmap::HashMapStore;
-use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
+use crate::storage::kv::KvResult;
+use crate::storage::kv::hashmap::HashMapStore;
+use crate::storage::kv::redis::RedisStore;
 
 pub type CommitHeight = u64;
 
@@ -74,7 +75,7 @@ impl UnumVersionedKeyValueStore {
         store
     }
 
-    fn get_with_key_prefix(&self, key_prefix: KeyPrefix, key: &[u8]) -> QueryReturns {
+    fn get_with_key_prefix(&self, key_prefix: KeyPrefix, key: &[u8]) -> KvResult<Vec<u8>> {
         let mut v: Vec<u8> = vec![key_prefix as u8];
         v.extend_from_slice(key);
         self.kv_engine.get(&v)
@@ -85,7 +86,7 @@ impl UnumVersionedKeyValueStore {
         key_prefix: KeyPrefix,
         key: &[u8],
         value: &[u8],
-    ) -> QueryReturns {
+    ) -> KvResult<Vec<u8>> {
         let mut v: Vec<u8> = vec![key_prefix as u8];
         v.extend_from_slice(key);
         self.kv_engine.set(&v, value)
@@ -96,25 +97,25 @@ impl UnumVersionedKeyValueStore {
         match height {
             Err(error) => 0,
             Ok(height) => {
-                if height.data.len() < 8 {
-                    println!("Unexpected height data len {}", height.data.len());
+                if height.len() < 8 {
+                    println!("Unexpected height data len {}", height.len());
                     return 0;
                 }
                 u8_array_to_u64(&[
-                    height.data[0],
-                    height.data[1],
-                    height.data[2],
-                    height.data[3],
-                    height.data[4],
-                    height.data[5],
-                    height.data[6],
-                    height.data[7],
+                    height[0],
+                    height[1],
+                    height[2],
+                    height[3],
+                    height[4],
+                    height[5],
+                    height[6],
+                    height[7],
                 ])
             }
         }
     }
 
-    fn save_commit_height(&mut self) -> QueryReturns {
+    fn save_commit_height(&mut self) -> KvResult<Vec<u8>>  {
         self.set_with_key_prefix(
             KeyPrefix::StandAlone,
             COMMIT_HEIGHT_KEY.as_bytes(),
@@ -122,11 +123,11 @@ impl UnumVersionedKeyValueStore {
         )
     }
 
-    fn save_value_by_hash(&mut self, value: &[u8]) -> QueryReturns {
+    fn save_value_by_hash(&mut self, value: &[u8]) -> KvResult<Vec<u8>> {
         self.set_with_key_prefix(KeyPrefix::HashToValue, &sha256(value), value)
     }
 
-    fn get_value_by_hash(&self, hash: Vec<u8>) -> QueryReturns {
+    fn get_value_by_hash(&self, hash: Vec<u8>) -> KvResult<Vec<u8>> {
         self.get_with_key_prefix(KeyPrefix::HashToValue, &hash)
     }
 
@@ -134,11 +135,10 @@ impl UnumVersionedKeyValueStore {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToMeta, key);
         match meta_bytes {
             Err(error) => {
-                eprintln!("index fetching error: {:?}", error);
                 return None;
             }
             Ok(meta_bytes) => {
-                let deserialized = deserialize::<EntryMeta>(&meta_bytes.data);
+                let deserialized = deserialize::<EntryMeta>(&meta_bytes);
                 if let Ok(meta) = deserialized {
                     return Some(meta);
                 } else {
@@ -148,7 +148,7 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    fn commit_set(&mut self, key: &[u8], value: &[u8]) -> QueryReturns {
+    fn commit_set(&mut self, key: &[u8], value: &[u8]) -> KvResult<Vec<u8>> {
         let existing_index = self.get_meta_by_key(key);
         match existing_index {
             None => {
@@ -163,9 +163,7 @@ impl UnumVersionedKeyValueStore {
                 };
                 let serialized = serialize(&new_meta);
                 match serialized {
-                    Err(error) => Err(QueryError {
-                        error: String::from("commit_set: Cannot serialize index"),
-                    }),
+                    Err(error) => Err(UnumError::SerializationFail),
                     Ok(serialized_meta) => {
                         println!("Saving new index on key {:?}", String::from_utf8_lossy(key));
                         return self.set_with_key_prefix(
@@ -199,12 +197,10 @@ impl UnumVersionedKeyValueStore {
         &mut self,
         primary_key: &[u8],
         new_meta: &EntryMeta,
-    ) -> QueryReturns {
+    ) -> KvResult<Vec<u8>> {
         let serialized = serialize(new_meta);
         match serialized {
-            Err(error) => Err(QueryError {
-                error: String::from("Cannot serialize existing index"),
-            }),
+            Err(error) => Err(UnumError::SerializationFail),
             Ok(serialized_meta) => {
                 println!(
                     "Updating existing index on key {:?}",
@@ -221,29 +217,22 @@ impl UnumVersionedKeyValueStore {
 }
 
 impl KeyValueStore for UnumVersionedKeyValueStore {
-    fn initialize(&mut self) {
+    fn initialize(&mut self) -> KvResult<()> {
         self.commit_height = self.get_commit_height();
+        Ok(())
     }
 
-    fn get(&self, key: &[u8]) -> QueryReturns {
+    fn get(&self, key: &[u8]) -> KvResult<Vec<u8>> {
         let index = self.get_meta_by_key(key);
         match index {
-            None => {
-                return Err(QueryError {
-                    error: String::from("Cannot get index"),
-                });
-            }
+            None => Err(UnumError::ReadError),
             Some(index) => {
                 let last_record = index.commit_records.last();
                 match last_record {
-                    None => {
-                        return Err(QueryError {
-                            error: String::from("Nonexistent last commit record on index"),
-                        });
-                    }
+                    None => Err(UnumError::ReadError),
                     Some(last_record) => {
                         let value = self.get_value_by_hash(last_record.hash.clone())?;
-                        let response = Ok(QueryResponse { data: value.data });
+                        let response = Ok(value);
                         return response;
                     }
                 }
@@ -251,56 +240,47 @@ impl KeyValueStore for UnumVersionedKeyValueStore {
         }
     }
 
-    fn set(&mut self, key: &[u8], value: &[u8]) -> QueryReturns {
+    fn set(&mut self, key: &[u8], value: &[u8]) -> KvResult<Vec<u8>> {
         self.commit_height += 1;
         self.save_commit_height()?;
         self.save_value_by_hash(value)?;
         self.commit_set(key, value)
     }
 
-    fn keys(&self, pattern: &str) -> Result<Vec<Vec<u8>>, QueryError> {
+    fn keys(&self, pattern: &str) -> KvResult<Vec<Vec<u8>>> {
         return self.kv_engine.keys(pattern);
     }
 }
 
 pub trait VersionedKeyValueStore: KeyValueStore {
-    fn get_at_version_number(&mut self, key: &[u8], version: CommitHeight) -> QueryReturns;
+    fn get_at_version_number(&mut self, key: &[u8], version: CommitHeight) -> KvResult<Vec<u8>>;
     fn get_latest_version_number(&self) -> CommitHeight;
-    fn revert_one(&mut self, extern_key: &[u8], target_height: CommitHeight) -> QueryReturns;
-    fn revert_all(&mut self, new_version: CommitHeight) -> QueryReturns;
+    fn revert_one(&mut self, extern_key: &[u8], target_height: CommitHeight) -> KvResult<Vec<u8>>;
+    fn revert_all(&mut self, new_version: CommitHeight) -> KvResult<Vec<u8>>;
 }
 
 impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
-    fn get_at_version_number(&mut self, key: &[u8], target_height: CommitHeight) -> QueryReturns {
+    fn get_at_version_number(&mut self, key: &[u8], target_height: CommitHeight) -> KvResult<Vec<u8>> {
         match self.get_meta_by_key(key) {
-            None => Err(QueryError {
-                error: String::from("get_at_version_number: Cannot get index"),
-            }),
+            None => Err(UnumError::ReadError),
             Some(index) => {
                 for record in index.commit_records.iter().rev() {
-                    dbg!(record.commit_height);
                     if record.commit_height <= target_height {
                         return self.get_value_by_hash(record.hash.clone());
                     }
                 }
-                return Err(QueryError {
-                    error: String::from("get_at_version_number: Cannot find proper commit record"),
-                });
+                return Err(UnumError::ReadError)
             }
         }
     }
     fn get_latest_version_number(&self) -> CommitHeight {
         self.commit_height
     }
-    fn revert_one(&mut self, primary_key: &[u8], target_height: CommitHeight) -> QueryReturns {
+    fn revert_one(&mut self, primary_key: &[u8], target_height: CommitHeight) -> KvResult<Vec<u8>> {
         match self.get_with_key_prefix(KeyPrefix::KeyToMeta, primary_key) {
-            Err(error) => Err(QueryError {
-                error: String::from("revert_one: cannot get data"),
-            }),
-            Ok(meta_bytes) => match deserialize::<EntryMeta>(&meta_bytes.data) {
-                Err(error) => Err(QueryError {
-                    error: String::from("revert_one: cannot deserialize"),
-                }),
+            Err(error) => Err(UnumError::WriteError),
+            Ok(meta_bytes) => match deserialize::<EntryMeta>(&meta_bytes) {
+                Err(error) => Err(UnumError::WriteError),
                 Ok(meta) => {
                     let mut last_valid_record_index = 0;
                     for record in meta.commit_records.iter() {
@@ -316,19 +296,19 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                         new_meta.commit_records.push(new_record);
                         return self.save_meta_key_primary_key(primary_key, &new_meta);
                     } else {
-                        Ok(QueryResponse { data: vec![] })
+                        Ok(vec![])
                     }
                 }
             },
         }
     }
-    fn revert_all(&mut self, target_height: CommitHeight) -> QueryReturns {
+    fn revert_all(&mut self, target_height: CommitHeight) -> KvResult<Vec<u8>> {
         self.commit_height += 1;
         self.save_commit_height()?;
         let meta_keys = self.get_all_keys_by_prefix(KeyPrefix::KeyToMeta);
         for key in meta_keys.iter() {
             self.revert_one(&key[1..], target_height)?;
         }
-        Ok(QueryResponse { data: vec![] })
+        Ok(vec![])
     }
 }

@@ -2,8 +2,8 @@ mod config;
 mod interfaces;
 mod storage;
 mod utils;
+mod errors;
 
-use std::collections;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
@@ -38,7 +38,7 @@ impl DataStore for UnumDB {
         self.store.initialize();
     }
     fn execute(&mut self, query: Query) -> Result<QueryResponse, QueryError> {
-        match query {
+        let result = match query {
             Query::GetKey(query) => self.store.get(&query.key),
             Query::SetKey(query) => self.store.set(&query.key, &query.value),
             Query::GetKeyAtHeight(query) => {
@@ -46,6 +46,18 @@ impl DataStore for UnumDB {
             }
             Query::RevertAll(query) => self.store.revert_all(query.height),
             Query::RevertByKey(query) => self.store.revert_one(&query.key, query.height),
+        };
+        match result {
+            Err(error) => {
+                return Err(QueryError {
+                    error: String::from("Something is off")
+                })
+            }
+            Ok(result) => {
+                return Ok(QueryResponse {
+                    data: result
+                })
+            }
         }
     }
 }
