@@ -68,7 +68,7 @@ pub fn handle_connection(mut stream: TcpStream, db: &mut UnumDB) {
     let stream_reading = stream.read(&mut buffer);
     match stream_reading {
         Err(error) => {
-            eprintln!("stream read errro: {:?}", error);
+            eprintln!("stream read error: {:?}", error);
             return;
         }
         Ok(bytes_read) => {
