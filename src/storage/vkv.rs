@@ -154,8 +154,7 @@ impl UnumVersionedKeyValueStore {
                     api_version: DB_VERSION,
                     commit_records: vec![first_commit_record],
                 };
-                let serialized = serialize(&new_meta);
-                match serialized {
+                match serialize(&new_meta) {
                     Err(error) => Err(UnumError::SerializationFail),
                     Ok(serialized_meta) => {
                         println!("Saving new index on key {:?}", String::from_utf8_lossy(key));
