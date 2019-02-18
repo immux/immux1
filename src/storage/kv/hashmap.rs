@@ -10,7 +10,7 @@ pub struct HashMapStore {
 
 impl KeyValueStore for HashMapStore {
     fn initialize(&mut self) -> KvResult<()> {
-        println!("Initalizing hashmap engine");
+        println!("Initializing hashmap engine");
         self.hashmap = Some(HashMap::new());
         Ok(())
     }
