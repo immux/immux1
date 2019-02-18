@@ -114,8 +114,7 @@ pub fn handle_connection(mut stream: TcpStream, db: &mut UnumDB) {
 }
 
 fn main() {
-    let listener = TcpListener::bind(config::HTTP_ENDPOINT);
-    match listener {
+    match TcpListener::bind(config::HTTP_ENDPOINT) {
         Err(error) => panic!(error),
         Ok(listener) => {
             let mut db = UnumDB::new();
