@@ -143,8 +143,7 @@ impl UnumVersionedKeyValueStore {
     }
 
     fn commit_set(&mut self, key: &[u8], value: &[u8]) -> KvResult<Vec<u8>> {
-        let existing_index = self.get_meta_by_key(key);
-        match existing_index {
+        match self.get_meta_by_key(key) {
             None => {
                 let first_commit_record = CommitRecord {
                     commit_height: self.get_commit_height(),
