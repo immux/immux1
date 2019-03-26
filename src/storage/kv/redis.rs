@@ -43,7 +43,7 @@ impl KeyValueStore for RedisStore {
             Some(connection) => {
                 let result = connection.get(key) as Result<Vec<u8>, redis::RedisError>;
                 match result {
-                    Err(error) => Err(UnumError::ReadError),
+                    Err(_error) => Err(UnumError::ReadError),
                     Ok(result) => Ok(result),
                 }
             }
@@ -56,7 +56,7 @@ impl KeyValueStore for RedisStore {
             Some(connection) => {
                 let result = connection.set(key, value) as Result<String, redis::RedisError>;
                 match result {
-                    Err(error) => Err(UnumError::WriteError),
+                    Err(_error) => Err(UnumError::WriteError),
                     Ok(result) => Ok(result.as_bytes().to_vec()),
                 }
             }
@@ -69,7 +69,7 @@ impl KeyValueStore for RedisStore {
             Some(connection) => {
                 let result = connection.keys(pattern) as Result<Vec<Vec<u8>>, redis::RedisError>;
                 match result {
-                    Err(error) => Err(UnumError::ReadError),
+                    Err(_error) => Err(UnumError::ReadError),
                     Ok(result) => Ok(result),
                 }
             }

@@ -95,7 +95,7 @@ impl UnumVersionedKeyValueStore {
     fn get_commit_height(&mut self) -> CommitHeight {
         let height = self.get_with_key_prefix(KeyPrefix::StandAlone, COMMIT_HEIGHT_KEY.as_bytes());
         match height {
-            Err(error) => 0,
+            Err(_error) => 0,
             Ok(height) => {
                 if height.len() < 8 {
                     println!("Unexpected height data len {}", height.len());
@@ -128,7 +128,7 @@ impl UnumVersionedKeyValueStore {
     fn get_meta_by_key(&self, key: &[u8]) -> Option<EntryMeta> {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToMeta, key);
         match meta_bytes {
-            Err(error) => {
+            Err(_error) => {
                 return None;
             }
             Ok(meta_bytes) => {
@@ -155,7 +155,7 @@ impl UnumVersionedKeyValueStore {
                     commit_records: vec![first_commit_record],
                 };
                 match serialize(&new_meta) {
-                    Err(error) => Err(UnumError::SerializationFail),
+                    Err(_error) => Err(UnumError::SerializationFail),
                     Ok(serialized_meta) => {
                         println!("Saving new index on key {:?}", String::from_utf8_lossy(key));
                         return self.set_with_key_prefix(
@@ -180,7 +180,7 @@ impl UnumVersionedKeyValueStore {
     fn get_all_keys_by_prefix(&mut self, prefix: KeyPrefix) -> Vec<Vec<u8>> {
         let pattern = format!("{}{}", prefix as u8 as char, "*");
         match self.kv_engine.keys(&pattern) {
-            Err(error) => return vec![],
+            Err(_error) => return vec![],
             Ok(keys) => keys,
         }
     }
@@ -192,7 +192,7 @@ impl UnumVersionedKeyValueStore {
     ) -> KvResult<Vec<u8>> {
         let serialized = serialize(new_meta);
         match serialized {
-            Err(error) => Err(UnumError::SerializationFail),
+            Err(_error) => Err(UnumError::SerializationFail),
             Ok(serialized_meta) => {
                 println!(
                     "Updating existing index on key {:?}",
@@ -274,9 +274,9 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
     }
     fn revert_one(&mut self, primary_key: &[u8], target_height: CommitHeight) -> KvResult<Vec<u8>> {
         match self.get_with_key_prefix(KeyPrefix::KeyToMeta, primary_key) {
-            Err(error) => Err(UnumError::WriteError),
+            Err(_error) => Err(UnumError::WriteError),
             Ok(meta_bytes) => match deserialize::<EntryMeta>(&meta_bytes) {
-                Err(error) => Err(UnumError::WriteError),
+                Err(_error) => Err(UnumError::WriteError),
                 Ok(meta) => {
                     let mut last_valid_record_index = 0;
                     for record in meta.commit_records.iter() {

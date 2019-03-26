@@ -25,7 +25,7 @@ pub fn parse_request_line(body: &str) -> (String, String) {
     if first_line_words.len() <= 2 {
         return (String::from(""), String::from(""));
     }
-    let (method, path, version) = (
+    let (method, path, _version) = (
         first_line_words[0],
         first_line_words[1],
         first_line_words[2],
@@ -58,7 +58,7 @@ pub fn parse_http_request(body: &str) -> Option<Query> {
         return None;
     }
     let (target_collection, target_id) = (segments[1], segments[2]);
-    let low_key = get_lowlevel_key(target_collection, target_id);
+    let _low_key = get_lowlevel_key(target_collection, target_id);
 
     match method.as_str() {
         "GET" => {

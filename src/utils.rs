@@ -1,7 +1,7 @@
 pub fn utf8_to_string(bytes: &[u8]) -> String {
     let result = std::str::from_utf8(bytes);
     match result {
-        Err(error) => String::from(""),
+        Err(_error) => String::from(""),
         Ok(s) => String::from(s),
     }
 }

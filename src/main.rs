@@ -1,6 +1,7 @@
 mod config;
 mod errors;
 mod interfaces;
+mod mongo;
 mod storage;
 mod utils;
 
@@ -9,6 +10,7 @@ use std::net::{TcpListener, TcpStream};
 
 use crate::interfaces::http::parse_http_request;
 use crate::interfaces::queries::*;
+use crate::mongo::parser::parse_mongo_wire_protocol_buffer;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
 use crate::storage::vkv::UnumVersionedKeyValueStore;
@@ -53,7 +55,7 @@ impl DataStore for UnumDB {
             Query::RevertByKey(query) => self.store.revert_one(&query.key, query.height),
         };
         match result {
-            Err(error) => {
+            Err(_error) => {
                 return Err(QueryError {
                     error: String::from("Something is off"),
                 });
@@ -62,6 +64,10 @@ impl DataStore for UnumDB {
         }
     }
 }
+
+use std::ascii::escape_default;
+use std::mem::size_of;
+use std::str;
 
 pub fn handle_connection(mut stream: TcpStream, db: &mut UnumDB) {
     let mut buffer = [0; 1024];
@@ -72,6 +78,7 @@ pub fn handle_connection(mut stream: TcpStream, db: &mut UnumDB) {
             return;
         }
         Ok(bytes_read) => {
+//            parse_mongo_wire_protocol_buffer(&buffer, bytes_read);
             let s = String::from_utf8_lossy(&buffer[..bytes_read]);
             let query = parse_http_request(&s);
             let response = match query {

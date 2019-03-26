@@ -30,15 +30,15 @@ impl KeyValueStore for HashMapStore {
                 match hashmap.insert(key.to_vec(), value.to_vec()) {
                     // Currently identical in both arms
                     None => Ok(vec![]),
-                    Some(old_value) => Ok(vec![]),
+                    Some(_old_value) => Ok(vec![]),
                 }
             }
         }
     }
-    fn keys(&self, pattern: &str) -> KvResult<Vec<Vec<u8>>> {
+    fn keys(&self, _pattern: &str) -> KvResult<Vec<Vec<u8>>> {
         match &self.hashmap {
             None => Err(UnumError::EngineNotInitialized),
-            Some(hashmap) => unimplemented!(),
+            Some(_hashmap) => unimplemented!(),
         }
     }
 }
