@@ -1,6 +1,7 @@
 mod config;
 mod errors;
 mod interfaces;
+mod mongo;
 mod storage;
 mod utils;
 
@@ -14,6 +15,8 @@ use crate::interfaces::instructions::Answer;
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::storage::kv::KeyValueEngine;
 
+use crate::mongo::parser::parse_mongo_wire_protocol_buffer;
+
 pub fn handle_connection(mut stream: TcpStream, core: &mut CoreStore) {
     let mut buffer = [0; 1024];
     match stream.read(&mut buffer) {
@@ -22,6 +25,7 @@ pub fn handle_connection(mut stream: TcpStream, core: &mut CoreStore) {
             return;
         }
         Ok(bytes_read) => {
+            parse_mongo_wire_protocol_buffer(&buffer, bytes_read);
             let mut http_response = String::from("HTTP/1.1 200 OK\r\n\r\n");
 
             let request_string = String::from_utf8_lossy(&buffer[..bytes_read]);
