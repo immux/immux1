@@ -2,6 +2,7 @@
 mod tests {
     use crate::mongo::header_parser::parse_msg_header;
     use crate::mongo::op_reply_parser::parse_op_reply;
+    use crate::mongo::op_reply_serializer::serialize_op_reply;
     use crate::mongo::utils::{parse_u64};
 
     fn get_bufer() -> &'static [u8] {
@@ -54,7 +55,6 @@ mod tests {
         assert_eq!(op_query.cursor_id, 0);
         assert_eq!(op_query.starting_from, 0);
         assert_eq!(op_query.number_returned, 1);
-        assert_eq!(op_query.documents.len(), (op_query.number_returned as usize));
         assert_eq!(op_query.documents[0].contains_key("ismaster"), true);
         assert_eq!(op_query.documents[0].contains_key("maxBsonObjectSize"), true);
         assert_eq!(op_query.documents[0].contains_key("maxMessageSizeBytes"), true);
@@ -65,5 +65,13 @@ mod tests {
         assert_eq!(op_query.documents[0].contains_key("maxWireVersion"), true);
         assert_eq!(op_query.documents[0].contains_key("readOnly"), true);
         assert_eq!(op_query.documents[0].contains_key("ok"), true);
+    }
+
+    #[test]
+    fn test_op_reply_serializer() {
+        let buffer = get_bufer();
+        let (header, next_buffer) = parse_msg_header(buffer).unwrap();
+        let op_query = parse_op_reply(header, next_buffer).unwrap();
+        assert_eq!(serialize_op_reply(&op_query), buffer.to_vec());
     }
 }

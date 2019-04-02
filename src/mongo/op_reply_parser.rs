@@ -10,7 +10,7 @@ pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> Result<OpRepl
     let (number_returned, next_buffer) = parse_u32(next_buffer)?;
     let mut documents = vec![];
     for _ in 0..number_returned {
-        let (document, next_buffer) = parse_bson_document(next_buffer).unwrap();
+        let (document, next_buffer) = parse_bson_document(next_buffer)?;
         documents.push(document);
     }
     Ok(OpReply {

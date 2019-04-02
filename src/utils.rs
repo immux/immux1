@@ -19,6 +19,15 @@ pub fn u64_to_u8_array(x: u64) -> [u8; 8] {
     [b0, b1, b2, b3, b4, b5, b6, b7]
 }
 
+pub fn u32_to_u8_array(x: u32) -> [u8; 4] {
+    let b3 = ((x >> 24) & 0xff) as u8;
+    let b2 = ((x >> 16) & 0xff) as u8;
+    let b1 = ((x >> 8) & 0xff) as u8;
+    let b0 = ((x >> 0) & 0xff) as u8;
+
+    [b0, b1, b2, b3]
+}
+
 pub fn u8_array_to_u64(data: &[u8; 8]) -> u64 {
     (((data[0] as u64) << 0)
         + ((data[1] as u64) << 8)
