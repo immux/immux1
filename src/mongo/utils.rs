@@ -60,3 +60,22 @@ pub fn parse_u32(buffer: &[u8]) -> Result<(u32, &[u8]), ParseError> {
         &read_u32,
     )
 }
+
+pub fn parse_u64(buffer: &[u8]) -> Result<(u64, &[u8]), ParseError> {
+    let read_u64: fn(&[u8]) -> Result<u64, ()> = |bytes: &[u8]| {
+        Ok(((bytes[0] as u64) << 0)
+            + ((bytes[1] as u64) << 8)
+            + ((bytes[2] as u64) << 16)
+            + ((bytes[3] as u64) << 24)
+            + ((bytes[4] as u64) << 32)
+            + ((bytes[5] as u64) << 40)
+            + ((bytes[6] as u64) << 48)
+            + ((bytes[7] as u64) << 56))
+    };
+    parse_field(
+        buffer,
+        U64_BYTE_SIZE,
+        ParseError::NotEnoughBufferSize,
+        &read_u64,
+    )
+}

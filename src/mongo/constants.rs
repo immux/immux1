@@ -1,4 +1,5 @@
 pub const U32_BYTE_SIZE: usize = 4;
+pub const U64_BYTE_SIZE: usize = 8;
 
 pub const MESSAGE_LENGTH_SIZE: usize = 4;
 pub const REQUEST_ID_SIZE: usize = 4;
