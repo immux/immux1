@@ -78,6 +78,8 @@ mod tests {
         assert_eq!(op_query.documents[0].contains_key("maxWireVersion"), true);
         assert_eq!(op_query.documents[0].contains_key("readOnly"), true);
         assert_eq!(op_query.documents[0].contains_key("ok"), true);
+        assert_eq!(op_query.documents[0].get_f64("ok").unwrap(), 1.0);
+        assert_eq!(op_query.documents[0].get_bool("readOnly").unwrap(), false);
     }
 
     #[test]
