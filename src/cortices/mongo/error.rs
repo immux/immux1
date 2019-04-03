@@ -6,6 +6,13 @@ pub enum MongoParserError {
     ParseBsonError(bson::DecoderError),
     NoZeroTrailingInCstringBuffer,
     NotEnoughBufferSize,
+    InputBufferError,
     UnimplementedOpCode(MongoOpCode),
     UnknownOpCode(u32),
+}
+
+#[derive(Debug)]
+pub enum MongoSerializeError {
+    InputObjectError,
+    SerializeBsonError(bson::EncoderError),
 }

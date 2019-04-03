@@ -4,3 +4,5 @@ pub mod ops;
 mod parser;
 pub mod transformer;
 mod utils;
+
+pub mod test;

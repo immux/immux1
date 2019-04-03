@@ -1,8 +1,9 @@
 // @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
 
-use crate::cortices::mongo::error::MongoParserError;
+use crate::declarations::errors::{UnumResult};
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
-use crate::cortices::mongo::utils::{parse_u32, pick_op_code};
+use crate::cortices::mongo::utils::{parse_u32, pick_op_code, get_op_code_value};
+use crate::utils::{u32_to_u8_array};
 
 #[derive(Debug)]
 pub struct MsgHeader {
@@ -19,7 +20,7 @@ pub struct MsgHeader {
     pub op_code: MongoOpCode,
 }
 
-pub fn parse_msg_header(buffer: &[u8]) -> Result<(MsgHeader, &[u8]), MongoParserError> {
+pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, &[u8])> {
     let (message_length, next_buffer) = parse_u32(buffer)?;
     let (request_id, next_buffer) = parse_u32(next_buffer)?;
     let (response_to, next_buffer) = parse_u32(next_buffer)?;
@@ -34,4 +35,13 @@ pub fn parse_msg_header(buffer: &[u8]) -> Result<(MsgHeader, &[u8]), MongoParser
         },
         next_buffer,
     ))
+}
+
+pub fn serialize_msg_header(message_header: &MsgHeader) -> Vec<u8> {
+    let mut res: Vec<u8> = Vec::new();
+    res.append(&mut u32_to_u8_array(message_header.message_length).to_vec());
+    res.append(&mut u32_to_u8_array(message_header.request_id).to_vec());
+    res.append(&mut u32_to_u8_array(message_header.response_to).to_vec());
+    res.append(&mut u32_to_u8_array(get_op_code_value(&message_header.op_code)).to_vec());
+    res
 }
