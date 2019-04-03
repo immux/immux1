@@ -6,4 +6,10 @@ pub enum ParseError {
     ParseBsonError(bson::DecoderError),
     NoZeroTrailingInCstringBuffer,
     NotEnoughBufferSize,
+    InputBufferError,
+}
+
+#[derive(Debug)]
+pub enum SerializeError {
+    InputObjectError,
 }
