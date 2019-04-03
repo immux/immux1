@@ -12,6 +12,6 @@ pub fn mongo_cortex(bytes: &[u8], core: &mut UnumCore) -> UnumResult<Option<Vec<
     let instruction = transform_mongo_op(&op)?;
     let answer = core.execute(&instruction)?;
     let op_reply = transform_answer_for_mongo(&answer)?;
-    let reply_bytes = serialize_op_reply(&op_reply);
+    let reply_bytes = serialize_op_reply(&op_reply)?;
     return Ok(Some(reply_bytes));
 }
