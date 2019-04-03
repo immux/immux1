@@ -1,7 +1,7 @@
 pub mod hashmap;
 pub mod redis;
 
-use crate::interfaces::result::UnumResult;
+use crate::declarations::errors::UnumResult;
 
 pub trait KeyValueStore {
     fn get(&self, key: &[u8]) -> UnumResult<Vec<u8>>;

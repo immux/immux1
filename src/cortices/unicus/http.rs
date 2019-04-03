@@ -1,6 +1,9 @@
 use crate::config;
-use crate::errors::UnumError;
-use crate::interfaces::instructions::*;
+use crate::declarations::errors::UnumError;
+use crate::declarations::instructions::{
+    GetInstruction, GetTargetSpec, Instruction, RevertAllInstruction, RevertInstruction,
+    RevertTargetSpec, SetInstruction, SetTargetSpec,
+};
 use std::collections::HashMap;
 use url::Url;
 

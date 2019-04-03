@@ -31,6 +31,35 @@ pub fn u8_array_to_u64(data: &[u8; 8]) -> u64 {
         .into()
 }
 
+pub fn u8_array_to_u32(data: &[u8; 4]) -> u32 {
+    (((data[0] as u32) << 0)
+        + ((data[1] as u32) << 8)
+        + ((data[2] as u32) << 16)
+        + ((data[3] as u32) << 24))
+        .into()
+}
+
+/**
+Print a byte array like this:
+0000 | 0d 01 00 00 00 00 00 00 00 00 00 00 d4 07 00 00
+0010 | 00 00 00 00 61 64 6d 69 6e 2e 24 63 6d 64 00 00
+0020 | 00 00 00 01 00 00 00 e6 00 00 00 10 69 73 4d 61
+**/
+pub fn pretty_dump(buffer: &[u8]) -> () {
+    let mut i = 0;
+    while i < buffer.len() {
+        if i % 16 == 0 {
+            if i > 0 {
+                print!("\n");
+            }
+            print!("{:04x} | ", i);
+        }
+        print!("{:02x} ", buffer[i]);
+        i += 1;
+    }
+    print!("\n");
+}
+
 /*
 pub fn u32_to_u8_array(x: u64) -> [u8; 4] {
     let b3 = ((x >> 24) & 0xff) as u8;

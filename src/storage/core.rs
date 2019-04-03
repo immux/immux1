@@ -1,6 +1,5 @@
-use crate::errors::UnumError;
-use crate::interfaces::instructions::{Answer, Instruction};
-use crate::interfaces::result::UnumResult;
+use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::instructions::{Answer, Instruction};
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::vkv::{UnumVersionedKeyValueStore, VersionedKeyValueStore};
 
@@ -13,7 +12,7 @@ pub struct UnumCore {
 }
 
 impl UnumCore {
-    pub fn new(engine_choice: KeyValueEngine) -> Result<UnumCore, UnumError> {
+    pub fn new(engine_choice: &KeyValueEngine) -> Result<UnumCore, UnumError> {
         let vkv = UnumVersionedKeyValueStore::new(engine_choice)?;
         let core = UnumCore { vkv };
         Ok(core)

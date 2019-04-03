@@ -8,11 +8,10 @@ use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 use crate::config::DB_VERSION;
-use crate::errors::UnumError;
-use crate::interfaces::instructions::{
+use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::instructions::{
     Answer, GetOkAnswer, Instruction, RevertAllOkAnswer, RevertOkAnswer, SetOkAnswer,
 };
-use crate::interfaces::result::UnumResult;
 use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::KeyValueEngine;
@@ -48,7 +47,7 @@ pub struct UnumVersionedKeyValueStore {
 }
 
 impl UnumVersionedKeyValueStore {
-    pub fn new(engine_choice: KeyValueEngine) -> Result<UnumVersionedKeyValueStore, UnumError> {
+    pub fn new(engine_choice: &KeyValueEngine) -> Result<UnumVersionedKeyValueStore, UnumError> {
         let engine: Box<KeyValueStore> = match engine_choice {
             KeyValueEngine::Redis => Box::new(RedisStore::new()?),
             KeyValueEngine::HashMap => Box::new(HashMapStore::new()),

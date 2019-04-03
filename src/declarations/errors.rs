@@ -1,3 +1,7 @@
+use crate::cortices::mongo::error::MongoParserError;
+use crate::cortices::tcp::TcpError;
+
+#[derive(Debug)]
 pub enum UnumError {
     InitializationFail,
     ReadError,
@@ -7,6 +11,22 @@ pub enum UnumError {
     DeserializationFail,
 
     UrlParseError,
+
+    Tcp(TcpError),
+
+    MongoParser(MongoParserError),
+}
+
+impl std::convert::From<MongoParserError> for UnumError {
+    fn from(error: MongoParserError) -> UnumError {
+        UnumError::MongoParser(error)
+    }
+}
+
+impl std::convert::From<TcpError> for UnumError {
+    fn from(error: TcpError) -> UnumError {
+        UnumError::Tcp(error)
+    }
 }
 
 pub fn explain_error(error: UnumError) -> &'static str {
@@ -17,5 +37,8 @@ pub fn explain_error(error: UnumError) -> &'static str {
         UnumError::DeserializationFail => "deserialization failed",
         UnumError::SerializationFail => "serialization failed",
         UnumError::UrlParseError => "url parse error",
+        _ => "Error with unspecified explanation",
     }
 }
+
+pub type UnumResult<T> = Result<T, UnumError>;
