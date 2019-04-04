@@ -1,7 +1,6 @@
 use redis::Commands;
 
-use crate::errors::UnumError;
-use crate::interfaces::result::UnumResult;
+use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::kv::KeyValueStore;
 
 pub struct RedisStore {

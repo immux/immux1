@@ -1,9 +1,11 @@
-extern crate bson;
+use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 
 #[derive(Debug)]
-pub enum ParseError {
+pub enum MongoParserError {
     CstringContainZeroByte,
     ParseBsonError(bson::DecoderError),
     NoZeroTrailingInCstringBuffer,
     NotEnoughBufferSize,
+    UnimplementedOpCode(MongoOpCode),
+    UnknownOpCode(u32),
 }
