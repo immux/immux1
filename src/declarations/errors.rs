@@ -24,6 +24,12 @@ impl std::convert::From<MongoParserError> for UnumError {
     }
 }
 
+impl std::convert::From<MongoSerializeError> for UnumError {
+    fn from(error: MongoSerializeError) -> UnumError {
+        UnumError::MongoSerializer(error)
+    }
+}
+
 impl std::convert::From<TcpError> for UnumError {
     fn from(error: TcpError) -> UnumError {
         UnumError::Tcp(error)
