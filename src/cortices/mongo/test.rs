@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn test_parse_op_reply() {
-        let buffer = OP_REPLY_BUFFER;
+        let buffer = OP_REPLY_FIXTURE;
         let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
         let op_query = parse_op_reply(header, next_buffer).unwrap();
         assert_eq!(op_query.response_flags, 8);
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_serialize_op_reply() {
-        let buffer = OP_REPLY_BUFFER;
+        let buffer = OP_REPLY_FIXTURE;
         let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
         let op_query = parse_op_reply(header, next_buffer).unwrap();
         let op_reply_buffer = serialize_op_reply(&op_query).unwrap();
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_parse_msg_header() {
-        let buffer = OP_QUERY_BUFFER;
+        let buffer = OP_QUERY_FIXTURE;
         let (message_header, _) = parse_msg_header(&buffer).unwrap();
         assert_eq!(message_header.message_length, 269);
         assert_eq!(message_header.request_id, 0);
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_parse_cstring() {
-        let buffer = OP_QUERY_BUFFER;
+        let buffer = OP_QUERY_FIXTURE;
         let (_, next_buffer) = parse_msg_header(&buffer).unwrap();
         let (_, next_buffer) = parse_u32(next_buffer).unwrap();
         let (res, _) = parse_cstring(next_buffer).unwrap();
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_parse_bson_document() {
-        let buffer = OP_QUERY_BUFFER;
+        let buffer = OP_QUERY_FIXTURE;
         let (_, next_buffer) = parse_msg_header(&buffer).unwrap();
         let (_, next_buffer) = parse_u32(next_buffer).unwrap();
         let (_, next_buffer) = parse_cstring(next_buffer).unwrap();
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_parse_op_query() {
-        let buffer = OP_QUERY_BUFFER;
+        let buffer = OP_QUERY_FIXTURE;
         let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
         let op_query = parse_op_query(header, next_buffer).unwrap();
         assert_eq!(op_query.flags, 0);
