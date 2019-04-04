@@ -1,3 +1,4 @@
+use crate::config::ConfigError;
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::tcp::TcpError;
 
@@ -12,10 +13,12 @@ pub enum UnumError {
 
     UrlParseError,
 
+    Config(ConfigError),
+
     Tcp(TcpError),
 
     MongoParser(MongoParserError),
-    MongoSerializer(MongoSerializeError)
+    MongoSerializer(MongoSerializeError),
 }
 
 impl std::convert::From<MongoParserError> for UnumError {
@@ -33,6 +36,12 @@ impl std::convert::From<MongoSerializeError> for UnumError {
 impl std::convert::From<TcpError> for UnumError {
     fn from(error: TcpError) -> UnumError {
         UnumError::Tcp(error)
+    }
+}
+
+impl std::convert::From<ConfigError> for UnumError {
+    fn from(error: ConfigError) -> UnumError {
+        UnumError::Config(error)
     }
 }
 

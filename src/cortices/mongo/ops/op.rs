@@ -10,6 +10,7 @@ use crate::cortices::mongo::ops::op_msg::OpMsg;
 use crate::cortices::mongo::ops::op_query::OpQuery;
 use crate::cortices::mongo::ops::op_reply::OpReply;
 use crate::cortices::mongo::ops::op_update::OpUpdate;
+use crate::declarations::errors::{UnumError, UnumResult};
 
 #[derive(Debug)]
 pub enum MongoOp {
