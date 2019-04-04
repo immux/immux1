@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use bson::Document;
 
-use crate::cortices::mongo::error::MongoParserError;
+use crate::declarations::errors::{UnumResult};
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::utils::{parse_bson_document, parse_cstring, parse_u32};
 
@@ -34,7 +34,7 @@ pub struct OpQuery {
 pub fn parse_op_query(
     message_header: MsgHeader,
     buffer: &[u8],
-) -> Result<OpQuery, MongoParserError> {
+) -> UnumResult<OpQuery> {
     let (flags, next_buffer) = parse_u32(buffer)?;
     let (full_collection_name, next_buffer) = parse_cstring(next_buffer)?;
     let (number_to_skip, next_buffer) = parse_u32(next_buffer)?;
