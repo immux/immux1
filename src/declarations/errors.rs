@@ -15,7 +15,7 @@ pub enum UnumError {
     Tcp(TcpError),
 
     MongoParser(MongoParserError),
-    MongoSerializer(MongoSerializeError)
+    MongoSerializer(MongoSerializeError),
 }
 
 impl std::convert::From<MongoParserError> for UnumError {

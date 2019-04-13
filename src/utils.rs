@@ -39,6 +39,22 @@ pub fn u8_array_to_u32(data: &[u8; 4]) -> u32 {
         .into()
 }
 
+pub fn get_bit_u32(input: u32, digit: u8) -> bool {
+    if digit < 32 {
+        input & (1u32 << digit) != 0
+    } else {
+        false
+    }
+}
+
+pub fn set_bit_u32(int: &mut u32, digit: u8, value: bool) {
+    if value {
+        *int |= 1u32 << digit;
+    } else {
+        *int &= !(1u32 << digit);
+    }
+}
+
 /**
 Print a byte array like this:
 0000 | 0d 01 00 00 00 00 00 00 00 00 00 00 d4 07 00 00
