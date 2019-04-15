@@ -10,6 +10,8 @@ pub const HEIGHT_QUERY_KEYWORD: &str = "height";
 pub const REVERT_QUERY_KEYWORD: &str = "revert";
 pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 
+pub const VERIFY_OPMSG_CHECKSUM: bool = false;
+
 const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::HashMap;
 
 struct UnumDBCommandlineOptions {
