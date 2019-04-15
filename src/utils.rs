@@ -68,3 +68,19 @@ pub fn u32_to_u8_array(x: u32) -> [u8; 4] {
 
     [b0, b1, b2, b3]
 }
+
+pub fn get_bit_u32(input: u32, digit: u8) -> bool {
+    if digit < 32 {
+        input & (1u32 << digit) != 0
+    } else {
+        false
+    }
+}
+
+pub fn set_bit_u32(int: &mut u32, digit: u8, value: bool) {
+    if value {
+        *int |= 1u32 << digit;
+    } else {
+        *int &= !(1u32 << digit);
+    }
+}
