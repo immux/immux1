@@ -1,0 +1,3 @@
+[submodule "test/mongo"]
+	path = test/mongo
+	url = https://github.com/mongodb/mongo
