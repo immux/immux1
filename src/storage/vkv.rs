@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
-use crate::config::DB_VERSION;
+use crate::config::UNUM_VERSION;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
     Answer, GetOkAnswer, Instruction, RevertAllOkAnswer, RevertOkAnswer, SetOkAnswer,
@@ -38,7 +38,7 @@ struct UpdateRecord {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Entry {
-    api_version: u8,
+    api_version: u32,
     pub updates: Vec<UpdateRecord>,
 }
 
@@ -183,13 +183,16 @@ impl UnumVersionedKeyValueStore {
                 };
 
                 let new_meta = Entry {
-                    api_version: DB_VERSION,
+                    api_version: UNUM_VERSION,
                     updates: vec![first_entry],
                 };
                 match serialize(&new_meta) {
                     Err(_error) => Err(UnumError::SerializationFail),
                     Ok(serialized_meta) => {
-                        println!("Saving new index on key {:?}", String::from_utf8_lossy(key));
+                        println!(
+                            "Saving new update on key {:?}",
+                            String::from_utf8_lossy(key)
+                        );
                         return self.set_with_key_prefix(
                             KeyPrefix::KeyToEntry,
                             key,

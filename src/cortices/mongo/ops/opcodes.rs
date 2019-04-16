@@ -10,7 +10,7 @@ pub const MONGO_OP_COMMAND_CODE: u32 = 2010;
 pub const MONGO_OP_COMMAND_REPLY_CODE: u32 = 2011;
 pub const MONGO_OP_MSG_CODE: u32 = 2013;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(u32)]
 pub enum MongoOpCode {
     OpReply = MONGO_OP_REPLY_CODE,

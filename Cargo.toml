@@ -10,3 +10,6 @@ bincode = "1.0"
 url = "1.7"
 redis = "0.10.0"
 bson = "0.13"
+
+# chrono is introduced to construct date for bson.rs. See issue #34.
+chrono = "0.4"

@@ -73,7 +73,7 @@ fn bind_tcp_port(
 
 pub fn setup_cortices(mut core: UnumCore, config: &UnumDBConfiguration) -> UnumResult<()> {
     // TODO(#30): bind_tcp_port() blocks; only the first takes effect
-    bind_tcp_port(config.mongo_endpoint, &mut core, &mongo_cortex)?;
-    bind_tcp_port(config.unicus_endpoint, &mut core, &unicus_cortex)?;
+    bind_tcp_port(&config.mongo_endpoint, &mut core, &mongo_cortex)?;
+    bind_tcp_port(&config.unicus_endpoint, &mut core, &unicus_cortex)?;
     return Ok(());
 }
