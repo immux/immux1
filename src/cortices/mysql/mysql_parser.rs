@@ -30,7 +30,7 @@ mod mysql_parser_tests {
         let insert_sql = "INSERT INTO Products \
                           (ProductName, Quantity, Manufacturer) \
                           VALUES \
-                          ('Pen', 10, 'Parker');";
+                          (Pen, 10, Parker);";
         let dialect = AnsiSqlDialect {};
         let sql_statements = parse_mysql_statement(insert_sql.to_string(), &dialect).unwrap();
         assert_eq!(sql_statements.len(), 1);
@@ -45,7 +45,9 @@ mod mysql_parser_tests {
                 assert_eq!(columns[1].to_string(), "Quantity");
                 assert_eq!(columns[2].to_string(), "Manufacturer");
                 assert_eq!(values.len(), 1);
+                assert_eq!(values[0][0].to_string(), "Pen");
                 assert_eq!(values[0][1].to_string(), "10");
+                assert_eq!(values[0][2].to_string(), "Parker");
             }
             _ => assert!(false, "This should be an insert sql statement!"),
         }

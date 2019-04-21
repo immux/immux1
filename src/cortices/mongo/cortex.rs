@@ -110,7 +110,10 @@ fn handle_exceptional_query(op: &MongoOp, core: &mut UnumCore) -> ExceptionQuery
     }
 }
 
-pub fn mongo_cortex(bytes: &[u8], core: &mut UnumCore) -> UnumResult<Option<Vec<u8>>> {
+pub fn mongo_cortex_process_incoming_message(
+    bytes: &[u8],
+    core: &mut UnumCore,
+) -> UnumResult<Option<Vec<u8>>> {
     pretty_dump(bytes);
     let op = parse_mongo_incoming_bytes(bytes)?;
     println!("Incoming op: {:#?}", op);
