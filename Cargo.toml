@@ -13,3 +13,6 @@ bson = "0.13"
 
 # chrono is introduced to construct date for bson.rs. See issue #34.
 chrono = "0.4"
+
+# sqlparser is introduced to parse sql statement, See issue #58
+sqlparser = "0.3.0"

@@ -133,16 +133,10 @@ mod utils_tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_parse_u8_error() {
         let buffer = [];
-        match parse_u8(&buffer) {
-            Ok(_) => {
-                assert!(false, "Empty buffer should return an error");
-            }
-            Err(_) => {
-                assert!(true);
-            }
-        }
+        parse_u8(&buffer).unwrap();
     }
 
     #[test]
@@ -154,15 +148,9 @@ mod utils_tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_parse_u64_error() {
-        match parse_u64(&[0x0d]) {
-            Ok(_) => {
-                assert!(false, "buffer size less then 8 should return an error");
-            }
-            Err(_) => {
-                assert!(true);
-            }
-        }
+        parse_u64(&[0x0d]).unwrap();
     }
 
     #[test]
@@ -174,14 +162,8 @@ mod utils_tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_parse_u32_error() {
-        match parse_u32(&[0x0d]) {
-            Ok(_) => {
-                assert!(false, "buffer size less then 4 should return an error");
-            }
-            Err(_) => {
-                assert!(true);
-            }
-        }
+        parse_u32(&[0x0d]).unwrap();
     }
 }

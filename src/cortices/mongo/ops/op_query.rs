@@ -103,16 +103,10 @@ mod op_query_tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_parse_cstring_error() {
         let buffer = [0x70, 0x70, 0x6c, 0x69];
-        match parse_cstring(&buffer) {
-            Ok((_, _)) => {
-                assert!(false, "buffer is not a legal format for cstring");
-            }
-            Err(_) => {
-                assert!(true);
-            }
-        }
+        parse_cstring(&buffer).unwrap();
     }
 
     #[test]
