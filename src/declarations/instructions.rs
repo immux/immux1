@@ -41,11 +41,21 @@ pub struct RevertAllInstruction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SwitchNamespaceInstruction {
+    pub new_namespace: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReadNamespaceInstruction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Instruction {
     Get(GetInstruction),
     Set(SetInstruction),
     Revert(RevertInstruction),
     RevertAll(RevertAllInstruction),
+    SwitchNamespace(SwitchNamespaceInstruction),
+    ReadNamespace(ReadNamespaceInstruction),
 }
 
 pub struct GetOkAnswer {
@@ -64,9 +74,19 @@ pub struct RevertAllOkAnswer {
     pub reverted_keys: Vec<Vec<u8>>,
 }
 
+pub struct SwitchNamespaceOkAnswer {
+    pub new_namespace: Vec<u8>,
+}
+
+pub struct ReadNamespaceOkAnswer {
+    pub namespace: Vec<u8>,
+}
+
 pub enum Answer {
     GetOk(GetOkAnswer),
     SetOk(SetOkAnswer),
     RevertOk(RevertOkAnswer),
     RevertAllOk(RevertAllOkAnswer),
+    SwitchNamespaceOk(SwitchNamespaceOkAnswer),
+    ReadNamespaceOk(ReadNamespaceOkAnswer),
 }

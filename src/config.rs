@@ -17,6 +17,9 @@ pub const MYSQL_ENDPOINT: &str = "127.0.0.1:3306";
 pub const HEIGHT_QUERY_KEYWORD: &str = "height";
 pub const REVERT_QUERY_KEYWORD: &str = "revert";
 pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
+pub const CHAIN_KEYWORD: &str = "chain";
+
+pub const DEFAULT_CHAIN_NAME: &str = "default";
 
 const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::HashMap;
 

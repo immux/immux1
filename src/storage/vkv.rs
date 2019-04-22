@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::config::UNUM_VERSION;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, GetOkAnswer, Instruction, RevertAllOkAnswer, RevertOkAnswer, SetOkAnswer,
+    Answer, GetOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer, RevertOkAnswer,
+    SetOkAnswer, SwitchNamespaceOkAnswer,
 };
 use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::redis::RedisStore;
@@ -47,10 +48,13 @@ pub struct UnumVersionedKeyValueStore {
 }
 
 impl UnumVersionedKeyValueStore {
-    pub fn new(engine_choice: &KeyValueEngine) -> Result<UnumVersionedKeyValueStore, UnumError> {
+    pub fn new(
+        engine_choice: &KeyValueEngine,
+        namespace: &[u8],
+    ) -> Result<UnumVersionedKeyValueStore, UnumError> {
         let engine: Box<KeyValueStore> = match engine_choice {
-            KeyValueEngine::Redis => Box::new(RedisStore::new()?),
-            KeyValueEngine::HashMap => Box::new(HashMapStore::new()),
+            KeyValueEngine::Redis => Box::new(RedisStore::new(namespace)?),
+            KeyValueEngine::HashMap => Box::new(HashMapStore::new(namespace)),
         };
         let store = UnumVersionedKeyValueStore { kv_engine: engine };
         Ok(store)
@@ -340,7 +344,9 @@ fn extract_affected_keys(
     while height >= target_height {
         if let Ok(instruction) = store.get_instruction_by_height(height) {
             match instruction {
-                Instruction::Get(_get) => (), // Noop
+                Instruction::SwitchNamespace(_switch_namespace) => (),
+                Instruction::ReadNamespace(_read_namespace) => (),
+                Instruction::Get(_get) => (),
                 Instruction::Set(set) => {
                     for target in set.targets {
                         affected_keys.push(target.key)
@@ -439,6 +445,22 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 return Ok(Answer::RevertAllOk(RevertAllOkAnswer {
                     reverted_keys: affected_keys,
                 }));
+            }
+            Instruction::SwitchNamespace(set_namespace) => {
+                match self
+                    .kv_engine
+                    .switch_namespace(&set_namespace.new_namespace)
+                {
+                    Err(error) => Err(error),
+                    Ok(_) => Ok(Answer::SwitchNamespaceOk(SwitchNamespaceOkAnswer {
+                        new_namespace: self.kv_engine.read_namespace().to_vec(),
+                    })),
+                }
+            }
+            Instruction::ReadNamespace(_get_namespace) => {
+                return Ok(Answer::ReadNamespaceOk(ReadNamespaceOkAnswer {
+                    namespace: self.kv_engine.read_namespace().to_vec(),
+                }))
             }
         }
     }
