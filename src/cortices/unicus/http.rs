@@ -1,8 +1,8 @@
 use crate::config;
 use crate::declarations::errors::UnumError;
 use crate::declarations::instructions::{
-    GetInstruction, GetTargetSpec, Instruction, RevertAllInstruction, RevertInstruction,
-    RevertTargetSpec, SetInstruction, SetTargetSpec,
+    GetInstruction, GetTargetSpec, Instruction, ReadNamespaceInstruction, RevertAllInstruction,
+    RevertInstruction, RevertTargetSpec, SetInstruction, SetTargetSpec, SwitchNamespaceInstruction,
 };
 use std::collections::HashMap;
 use url::Url;
@@ -52,6 +52,12 @@ impl UrlInformation {
             },
         }
     }
+    fn extract_string_query(&self, key: &str) -> Option<String> {
+        match self.queries.get(key) {
+            None => None,
+            Some(string) => Some(string.clone()),
+        }
+    }
 }
 
 pub fn parse_path(path: &str) -> Result<UrlInformation, UnumError> {
@@ -82,19 +88,24 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
 
     match method.as_str() {
         "GET" => {
-            let instruction = Instruction::Get(GetInstruction {
-                targets: vec![GetTargetSpec {
-                    key: low_key.into_bytes(),
-                    height: if let Ok(height) =
-                        url_info.extract_numeric_query(config::HEIGHT_QUERY_KEYWORD)
-                    {
-                        Some(height)
-                    } else {
-                        None
-                    },
-                }],
-            });
-            return Ok(instruction);
+            if let Some(namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
+                let instruction = Instruction::ReadNamespace(ReadNamespaceInstruction {});
+                return Ok(instruction);
+            } else {
+                let instruction = Instruction::Get(GetInstruction {
+                    targets: vec![GetTargetSpec {
+                        key: low_key.into_bytes(),
+                        height: if let Ok(height) =
+                            url_info.extract_numeric_query(config::HEIGHT_QUERY_KEYWORD)
+                        {
+                            Some(height)
+                        } else {
+                            None
+                        },
+                    }],
+                });
+                return Ok(instruction);
+            }
         }
         "PUT" => {
             if let Ok(height) = url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD) {
@@ -109,6 +120,11 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
                         key: low_key.into_bytes(),
                         height,
                     }],
+                });
+                return Ok(instruction);
+            } else if let Some(namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
+                let instruction = Instruction::SwitchNamespace(SwitchNamespaceInstruction {
+                    new_namespace: namespace.as_bytes().to_vec(),
                 });
                 return Ok(instruction);
             }

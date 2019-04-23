@@ -25,6 +25,9 @@ pub fn unicus_cortex(bytes: &[u8], core: &mut UnumCore) -> UnumResult<Option<Vec
                         http_response += &utils::utf8_to_string(&item)
                     }
                 }
+                Answer::ReadNamespaceOk(answer) => {
+                    http_response += &utils::utf8_to_string(&answer.namespace)
+                }
                 _ => http_response += "success",
             },
         },

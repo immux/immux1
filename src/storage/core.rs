@@ -12,8 +12,8 @@ pub struct UnumCore {
 }
 
 impl UnumCore {
-    pub fn new(engine_choice: &KeyValueEngine) -> Result<UnumCore, UnumError> {
-        let vkv = UnumVersionedKeyValueStore::new(engine_choice)?;
+    pub fn new(engine_choice: &KeyValueEngine, namespace: &[u8]) -> Result<UnumCore, UnumError> {
+        let vkv = UnumVersionedKeyValueStore::new(engine_choice, namespace)?;
         let core = UnumCore { vkv };
         Ok(core)
     }
