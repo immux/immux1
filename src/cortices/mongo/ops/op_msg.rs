@@ -268,7 +268,7 @@ mod op_msg_tests {
     ];
 
     #[test]
-    fn test_parse_op_msg_section_sequence() {
+    fn test_parse_op_msg_section_sequence() -> Result<(), String> {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
         let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
         let op_msg = parse_op_msg(header, next_buffer).unwrap();
@@ -277,7 +277,7 @@ mod op_msg_tests {
         assert_eq!(op_msg.sections.len(), 2);
         match &op_msg.sections[0] {
             Section::Single(_doc) => {
-                assert!(false, "The first section should be sequence type.");
+                return Err(String::from("The first section should be sequence type."));
             }
             Section::Sequence(document_sequence) => {
                 assert_eq!(document_sequence.documents.len(), 3);
@@ -295,9 +295,10 @@ mod op_msg_tests {
             Section::Single(doc) => {
                 assert!(doc.contains_key("insert"));
                 assert_eq!(doc.get_str("insert").unwrap(), "products");
+                Ok(())
             }
             Section::Sequence(_document_sequence) => {
-                assert!(false, "The second section should be single type.");
+                Err(String::from("The second section should be single type."))
             }
         }
     }
