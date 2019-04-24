@@ -11,6 +11,7 @@ use crate::cortices::mongo::ops::op_reply::{
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::cortices::mongo::parser::parse_mongo_incoming_bytes;
 use crate::cortices::mongo::transformer::{transform_answer_for_mongo, transform_mongo_op};
+use crate::cortices::Cortex;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::utils::pretty_dump;
@@ -110,7 +111,10 @@ fn handle_exceptional_query(op: &MongoOp, core: &mut UnumCore) -> ExceptionQuery
     }
 }
 
-pub fn mongo_cortex(bytes: &[u8], core: &mut UnumCore) -> UnumResult<Option<Vec<u8>>> {
+pub fn mongo_cortex_process_incoming_message(
+    bytes: &[u8],
+    core: &mut UnumCore,
+) -> UnumResult<Option<Vec<u8>>> {
     pretty_dump(bytes);
     let op = parse_mongo_incoming_bytes(bytes)?;
     println!("Incoming op: {:#?}", op);
@@ -129,3 +133,8 @@ pub fn mongo_cortex(bytes: &[u8], core: &mut UnumCore) -> UnumResult<Option<Vec<
         }
     };
 }
+
+pub const MONGO_CORTEX: Cortex = Cortex {
+    process_incoming_message: mongo_cortex_process_incoming_message,
+    process_first_connection: None,
+};

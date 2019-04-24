@@ -120,7 +120,7 @@ pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, &[u8])> {
 }
 
 #[cfg(test)]
-mod utils_tests {
+mod mongo_utils_tests {
     use crate::cortices::mongo::utils::{parse_u32, parse_u64, parse_u8};
 
     #[test]
