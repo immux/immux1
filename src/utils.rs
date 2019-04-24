@@ -55,6 +55,14 @@ pub fn set_bit_u32(int: &mut u32, digit: u8, value: bool) {
     }
 }
 
+pub fn set_bit_u16(int: &mut u16, digit: u8, value: bool) {
+    if value {
+        *int |= 1u16 << digit;
+    } else {
+        *int &= !(1u16 << digit);
+    }
+}
+
 /**
 Print a byte array like this:
 0000 | 0d 01 00 00 00 00 00 00 00 00 00 00 d4 07 00 00
@@ -83,4 +91,11 @@ pub fn u32_to_u8_array(x: u32) -> [u8; 4] {
     let b0 = ((x >> 0) & 0xff) as u8;
 
     [b0, b1, b2, b3]
+}
+
+pub fn u16_to_u8_array(x: u16) -> [u8; 2] {
+    let b1 = ((x >> 8) & 0xff) as u8;
+    let b0 = ((x >> 0) & 0xff) as u8;
+
+    [b0, b1]
 }

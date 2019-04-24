@@ -1,6 +1,6 @@
 use crate::config::ConfigError;
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
-use crate::cortices::mysql::error::MySQLParserError;
+use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
 
 #[derive(Debug)]
@@ -22,6 +22,7 @@ pub enum UnumError {
     MongoSerializer(MongoSerializeError),
 
     MySQLParser(MySQLParserError),
+    MySQLSerializer(MySQLSerializeError),
 }
 
 impl std::convert::From<MongoParserError> for UnumError {
@@ -39,6 +40,12 @@ impl std::convert::From<MongoSerializeError> for UnumError {
 impl std::convert::From<MySQLParserError> for UnumError {
     fn from(error: MySQLParserError) -> UnumError {
         UnumError::MySQLParser(error)
+    }
+}
+
+impl std::convert::From<MySQLSerializeError> for UnumError {
+    fn from(error: MySQLSerializeError) -> UnumError {
+        UnumError::MySQLSerializer(error)
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::cortices::unicus::http::parse_http_request;
+use crate::cortices::Cortex;
 use crate::declarations::errors::{explain_error, UnumResult};
 use crate::declarations::instructions::Answer;
 use crate::storage::core::{CoreStore, UnumCore};
@@ -35,3 +36,8 @@ pub fn unicus_cortex_process_incoming_message(
 
     return Ok(Some(http_response.into_bytes()));
 }
+
+pub const UNICUS_CORTEX: Cortex = Cortex {
+    process_incoming_message: unicus_cortex_process_incoming_message,
+    process_first_connection: None,
+};

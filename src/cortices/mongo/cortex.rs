@@ -11,6 +11,7 @@ use crate::cortices::mongo::ops::op_reply::{
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::cortices::mongo::parser::parse_mongo_incoming_bytes;
 use crate::cortices::mongo::transformer::{transform_answer_for_mongo, transform_mongo_op};
+use crate::cortices::Cortex;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::utils::pretty_dump;
@@ -132,3 +133,8 @@ pub fn mongo_cortex_process_incoming_message(
         }
     };
 }
+
+pub const MONGO_CORTEX: Cortex = Cortex {
+    process_incoming_message: mongo_cortex_process_incoming_message,
+    process_first_connection: None,
+};

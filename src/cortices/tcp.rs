@@ -2,7 +2,10 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
 use crate::config::UnumDBConfiguration;
-use crate::cortices::{get_mongo_cortex, get_mysql_cortex, get_unicus_cortex, Cortex};
+use crate::cortices::mongo::cortex::MONGO_CORTEX;
+use crate::cortices::mysql::cortex::MYSQL_CORTEX;
+use crate::cortices::unicus::cortex::UNICUS_CORTEX;
+use crate::cortices::Cortex;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::core::UnumCore;
 
@@ -51,7 +54,12 @@ fn handle_tcp_stream(
             Err(error) => return Err(error),
             Ok(success) => match success {
                 None => return Ok(()),
-                Some(data_to_client) => send_data_to_stream_with_flushing(&stream, data_to_client),
+                Some(data_to_client) => {
+                    match send_data_to_stream_with_flushing(&stream, data_to_client) {
+                        Ok(_) => {}
+                        Err(error) => return Err(error),
+                    }
+                }
             },
         };
     }
@@ -106,22 +114,22 @@ fn bind_tcp_port(
 
 pub fn setup_cortices(mut core: UnumCore, config: &UnumDBConfiguration) -> UnumResult<()> {
     //     TODO(#30): bind_tcp_port() blocks; only the first takes effect
-    bind_tcp_port(
-        &config.mysql_endpoint,
-        &mut core,
-        &get_mysql_cortex(),
-        BindMode::LongLive,
-    )?;
+    //    bind_tcp_port(
+    //        &config.mysql_endpoint,
+    //        &mut core,
+    //        &MYSQL_CORTEX,
+    //        BindMode::LongLive,
+    //    )?;
     bind_tcp_port(
         &config.mongo_endpoint,
         &mut core,
-        &get_mongo_cortex(),
+        &MONGO_CORTEX,
         BindMode::LongLive,
     )?;
     bind_tcp_port(
         &config.unicus_endpoint,
         &mut core,
-        &get_unicus_cortex(),
+        &UNICUS_CORTEX,
         BindMode::CloseAfterMessage,
     )?;
     return Ok(());
