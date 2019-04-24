@@ -20,8 +20,9 @@ pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 pub const CHAIN_KEYWORD: &str = "chain";
 
 pub const DEFAULT_CHAIN_NAME: &str = "default";
+pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
 
-const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::HashMap;
+const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
 
 const IS_MASTER: bool = true;
 const MAX_BSON_OBJECT_SIZE: u32 = 16777216;
@@ -57,7 +58,7 @@ fn parse_commandline_options(args: Vec<String>) -> UnumDBCommandlineOptions {
     options
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UnumDBConfiguration {
     pub unum_version: u32,
     pub engine_choice: KeyValueEngine,

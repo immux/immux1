@@ -15,6 +15,7 @@ use crate::declarations::instructions::{
 };
 use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::redis::RedisStore;
+use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
@@ -55,6 +56,7 @@ impl UnumVersionedKeyValueStore {
         let engine: Box<KeyValueStore> = match engine_choice {
             KeyValueEngine::Redis => Box::new(RedisStore::new(namespace)?),
             KeyValueEngine::HashMap => Box::new(HashMapStore::new(namespace)),
+            KeyValueEngine::Rocks => Box::new(RocksStore::new(namespace)?),
         };
         let store = UnumVersionedKeyValueStore { kv_engine: engine };
         Ok(store)
