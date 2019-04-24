@@ -1,5 +1,6 @@
 pub mod hashmap;
 pub mod redis;
+pub mod rocks;
 
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +13,9 @@ pub trait KeyValueStore {
     fn read_namespace(&self) -> &[u8];
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum KeyValueEngine {
     HashMap,
     Redis,
+    Rocks,
 }
