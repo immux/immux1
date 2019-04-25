@@ -21,13 +21,6 @@ use crate::utils::{pretty_dump, u32_to_u8_array};
 
 const ADMIN_QUERY: &str = "admin.$cmd";
 
-fn cstr_eq_str(cstr: &CStr, s: &str) -> bool {
-    match cstr.to_str() {
-        Err(_) => return false,
-        Ok(c) => return c == s,
-    }
-}
-
 fn make_bson_from_config(config: &UnumDBConfiguration) -> bson::Document {
     let mut document = bson::Document::new();
     document.insert("ismaster", config.is_master);
@@ -98,7 +91,7 @@ fn handle_exceptional_query(
 ) -> ExceptionQueryHandlerResult {
     match op {
         MongoOp::Query(op_query) => {
-            if cstr_eq_str(&op_query.full_collection_name, ADMIN_QUERY) {
+            if &op_query.full_collection_name == ADMIN_QUERY {
                 if let Ok(config) = load_config(core) {
                     let document = make_bson_from_config(&config);
                     let mut op_reply = OpReply {
@@ -204,7 +197,7 @@ fn handle_exceptional_query(
                             Err(error) => {
                                 return ExceptionQueryHandlerResult::Exceptional(Err(
                                     UnumError::ReadError,
-                                ))
+                                ));
                             }
                             Ok(addr) => {
                                 response_doc.insert("you", addr.to_string());

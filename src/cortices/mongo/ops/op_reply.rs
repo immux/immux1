@@ -2,7 +2,8 @@ use bson::Document;
 
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::ops::msg_header::{serialize_msg_header, MsgHeader};
-use crate::cortices::mongo::utils::{parse_bson_document, parse_u32, parse_u64};
+use crate::cortices::mongo::utils::parse_bson_document;
+use crate::cortices::utils::{parse_u32, parse_u64};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::utils::{get_bit_u32, set_bit_u32, u32_to_u8_array, u64_to_u8_array};
 
@@ -56,17 +57,28 @@ pub struct OpReply {
 
 pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpReply> {
     let mut index: usize = 0;
-    let (response_flags, offset) = parse_u32(&buffer[index..])?;
+    let (response_flags, offset) = parse_u32(
+        &buffer[index..],
+        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+    )?;
     index += offset;
-    let (cursor_id, offset) = parse_u64(&buffer[index..])?;
+    let (cursor_id, offset) = parse_u64(
+        &buffer[index..],
+        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+    )?;
     index += offset;
-    let (starting_from, offset) = parse_u32(&buffer[index..])?;
+    let (starting_from, offset) = parse_u32(
+        &buffer[index..],
+        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+    )?;
     index += offset;
-    let (number_returned, offset) = parse_u32(&buffer[index..])?;
+    let (number_returned, offset) = parse_u32(
+        &buffer[index..],
+        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+    )?;
     index += offset;
 
     let mut documents = vec![];
-    // TODO(#32)
     for _ in 0..number_returned {
         let (document, offset) = parse_bson_document(&buffer[index..])?;
         index += offset;

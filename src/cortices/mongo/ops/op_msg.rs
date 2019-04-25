@@ -1,12 +1,11 @@
 #![allow(dead_code)]
 
-use std::ffi::CString;
-
 use bson::Document;
 
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::ops::msg_header::{serialize_msg_header, MsgHeader};
-use crate::cortices::mongo::utils::{parse_bson_document, parse_cstring, parse_u32, parse_u8};
+use crate::cortices::mongo::utils::parse_bson_document;
+use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::utils::{get_bit_u32, set_bit_u32, u32_to_u8_array, u8_array_to_u32};
 use std::mem;
@@ -29,7 +28,7 @@ pub struct OpMsgFlags {
 /// @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#kind-1-document-sequence
 pub struct DocumentSequence {
     section_size: u32,
-    identifier: CString,
+    identifier: String,
     documents: Vec<Document>,
 }
 
@@ -58,7 +57,10 @@ pub struct OpMsg {
 
 pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMsg> {
     let mut index: usize = 0;
-    let (flags_bits_vec, offset) = parse_u32(&buffer)?;
+    let (flags_bits_vec, offset) = parse_u32(
+        &buffer,
+        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+    )?;
     index += offset;
     let check_sum_present = get_bit_u32(flags_bits_vec, CHECK_SUM_PRESENT_DIGIT);
     let more_to_come = get_bit_u32(flags_bits_vec, MORE_TO_COME_DIGIT);
@@ -76,7 +78,10 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
         {
             break;
         }
-        let (kind, offset) = parse_u8(&buffer[index..])?;
+        let (kind, offset) = parse_u8(
+            &buffer[index..],
+            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+        )?;
         index += offset;
         match kind {
             SINGLE_TYPE => {
@@ -85,13 +90,19 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
                 sections.push(Section::Single(doc));
             }
             SEQUENCE_TYPE => {
-                let (section_size, offset) = parse_u32(&buffer[index..])?;
+                let (section_size, offset) = parse_u32(
+                    &buffer[index..],
+                    UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+                )?;
                 index += offset;
-                let (identifier, offset) = parse_cstring(&buffer[index..])?;
+                let (identifier, offset) = parse_cstring(
+                    &buffer[index..],
+                    UnumError::MongoParser(MongoParserError::ParseStringError),
+                )?;
                 index += offset;
-                let mut bson_documents_size = (section_size as usize)
-                    - mem::size_of::<u32>()
-                    - identifier.as_bytes_with_nul().len();
+                let identifier_length = identifier.as_bytes().len() + 1;
+                let mut bson_documents_size =
+                    (section_size as usize) - mem::size_of::<u32>() - identifier_length;
                 let mut documents = Vec::new();
                 while bson_documents_size != 0 {
                     let bson_doc_size = u8_array_to_u32(&[
@@ -118,7 +129,13 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
         }
     }
     let checksum = if check_sum_present {
-        Some(parse_u32(&buffer[index..])?.0)
+        Some(
+            parse_u32(
+                &buffer[index..],
+                UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
+            )?
+            .0,
+        )
     } else {
         None
     };
@@ -168,7 +185,11 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> UnumResult<Vec<u8>> {
             Section::Sequence(document_sequence) => {
                 section_vec.push(SEQUENCE_TYPE);
                 section_vec.append(&mut u32_to_u8_array(document_sequence.section_size).to_vec());
-                section_vec.append(&mut document_sequence.identifier.as_bytes_with_nul().to_vec());
+
+                let mut identifier_vec = document_sequence.identifier.clone().into_bytes();
+                identifier_vec.push(0x00);
+                section_vec.append(&mut identifier_vec);
+
                 for doc in &document_sequence.documents {
                     match bson::encode_document(&mut section_vec, doc) {
                         Ok(_) => {}
