@@ -47,6 +47,7 @@ fn handle_tcp_stream(
     mut stream: TcpStream,
     core: &mut UnumCore,
     bind_mode: &BindMode,
+    config: &UnumDBConfiguration,
     cortex: &Cortex,
 ) -> UnumResult<()> {
     if let Some(process_first_connection_func) = cortex.process_first_connection {
@@ -68,23 +69,26 @@ fn handle_tcp_stream(
     loop {
         match stream.read(&mut buffer) {
             Err(error) => return Err(UnumError::Tcp(TcpError::TcpReadError(error))),
-            Ok(bytes_read) => {
-                match (cortex.process_incoming_message)(&buffer[..bytes_read], core) {
-                    Err(error) => return Err(error),
-                    Ok(success) => match success {
-                        None => return Ok(()),
-                        Some(data_to_client) => {
-                            match send_data_to_stream_with_flushing(&stream, data_to_client) {
-                                Err(error) => return Err(error),
-                                Ok(_) => match bind_mode {
-                                    BindMode::CloseAfterMessage => return Ok(()),
-                                    BindMode::LongLive => continue,
-                                },
-                            }
+            Ok(bytes_read) => match (cortex.process_incoming_message)(
+                &buffer[..bytes_read],
+                core,
+                &stream,
+                config,
+            ) {
+                Err(error) => return Err(error),
+                Ok(success) => match success {
+                    None => return Ok(()),
+                    Some(data_to_client) => {
+                        match send_data_to_stream_with_flushing(&stream, data_to_client) {
+                            Err(error) => return Err(error),
+                            Ok(_) => match bind_mode {
+                                BindMode::CloseAfterMessage => return Ok(()),
+                                BindMode::LongLive => continue,
+                            },
                         }
-                    },
-                }
-            }
+                    }
+                },
+            },
         }
     }
 }
@@ -92,8 +96,9 @@ fn handle_tcp_stream(
 fn bind_tcp_port(
     endpoint: &str,
     core: &mut UnumCore,
-    processor: &Cortex,
+    cortex: &Cortex,
     bind_mode: BindMode,
+    config: &UnumDBConfiguration,
 ) -> UnumResult<()> {
     match TcpListener::bind(endpoint) {
         Err(error) => Err(UnumError::Tcp(TcpError::TcpBindError(error))),
@@ -101,7 +106,8 @@ fn bind_tcp_port(
             for stream in listener.incoming() {
                 match stream {
                     Err(error) => return Err(UnumError::Tcp(TcpError::TcpStreamError(error))),
-                    Ok(stream) => match handle_tcp_stream(stream, core, &bind_mode, processor) {
+                    Ok(stream) => match handle_tcp_stream(stream, core, &bind_mode, config, cortex)
+                    {
                         Err(error) => eprintln!("TCP error: {:#?}", error),
                         Ok(_) => {}
                     },
@@ -125,12 +131,14 @@ pub fn setup_cortices(mut core: UnumCore, config: &UnumDBConfiguration) -> UnumR
         &mut core,
         &MONGO_CORTEX,
         BindMode::LongLive,
+        config,
     )?;
     bind_tcp_port(
         &config.unicus_endpoint,
         &mut core,
         &UNICUS_CORTEX,
         BindMode::CloseAfterMessage,
+        config,
     )?;
     return Ok(());
 }

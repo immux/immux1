@@ -1,3 +1,6 @@
+use std::net::TcpStream;
+
+use crate::config::UnumDBConfiguration;
 use crate::cortices::Cortex;
 use crate::declarations::errors::UnumResult;
 use crate::storage::core::UnumCore;
@@ -5,7 +8,9 @@ use crate::utils::pretty_dump;
 
 pub fn mysql_cortex_process_incoming_message(
     bytes: &[u8],
-    _core: &mut UnumCore,
+    core: &mut UnumCore,
+    stream: &TcpStream,
+    config: &UnumDBConfiguration,
 ) -> UnumResult<Option<Vec<u8>>> {
     pretty_dump(bytes);
     unimplemented!()
