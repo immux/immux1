@@ -57,7 +57,9 @@ pub struct OpMsg {
 }
 
 pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMsg> {
-    let (flags_bits_vec, mut next_buffer) = parse_u32(buffer)?;
+    let mut index: usize = 0;
+    let (flags_bits_vec, offset) = parse_u32(&buffer)?;
+    index += offset;
     let check_sum_present = get_bit_u32(flags_bits_vec, CHECK_SUM_PRESENT_DIGIT);
     let more_to_come = get_bit_u32(flags_bits_vec, MORE_TO_COME_DIGIT);
     let exhaust_allowed = get_bit_u32(flags_bits_vec, EXHAUST_ALLOWED_DIGIT);
@@ -69,37 +71,38 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
     let mut sections: Vec<Section> = Vec::new();
 
     loop {
-        if (check_sum_present && next_buffer.len() == mem::size_of::<u32>())
-            || (!check_sum_present && next_buffer.is_empty())
+        if (check_sum_present && index + mem::size_of::<u32>() == buffer.len())
+            || (!check_sum_present && index == buffer.len())
         {
             break;
         }
-        let (kind, the_rest) = parse_u8(next_buffer)?;
-        next_buffer = the_rest;
+        let (kind, offset) = parse_u8(&buffer[index..])?;
+        index += offset;
         match kind {
             SINGLE_TYPE => {
-                let (doc, the_rest) = parse_bson_document(&next_buffer)?;
-                next_buffer = the_rest;
+                let (doc, offset) = parse_bson_document(&buffer[index..])?;
+                index += offset;
                 sections.push(Section::Single(doc));
             }
             SEQUENCE_TYPE => {
-                let (section_size, the_rest) = parse_u32(&next_buffer)?;
-                let (identifier, the_rest) = parse_cstring(the_rest)?;
-                next_buffer = the_rest;
+                let (section_size, offset) = parse_u32(&buffer[index..])?;
+                index += offset;
+                let (identifier, offset) = parse_cstring(&buffer[index..])?;
+                index += offset;
                 let mut bson_documents_size = (section_size as usize)
                     - mem::size_of::<u32>()
                     - identifier.as_bytes_with_nul().len();
                 let mut documents = Vec::new();
                 while bson_documents_size != 0 {
                     let bson_doc_size = u8_array_to_u32(&[
-                        next_buffer[0],
-                        next_buffer[1],
-                        next_buffer[2],
-                        next_buffer[3],
+                        buffer[index],
+                        buffer[index + 1],
+                        buffer[index + 2],
+                        buffer[index + 3],
                     ]) as usize;
                     bson_documents_size -= bson_doc_size;
-                    let (doc, the_rest) = parse_bson_document(next_buffer)?;
-                    next_buffer = the_rest;
+                    let (doc, offset) = parse_bson_document(&buffer[index..])?;
+                    index += offset;
                     documents.push(doc);
                 }
                 let document_sequence = DocumentSequence {
@@ -115,7 +118,7 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
         }
     }
     let checksum = if check_sum_present {
-        Some(parse_u32(next_buffer)?.0)
+        Some(parse_u32(&buffer[index..])?.0)
     } else {
         None
     };
@@ -209,9 +212,11 @@ mod op_msg_tests {
 
     #[test]
     fn test_parse_op_msg_section_single() {
+        let mut index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_msg = parse_op_msg(header, next_buffer).unwrap();
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
         assert_eq!(op_msg.flags.exhaust_allowed, false);
         assert_eq!(op_msg.sections.len(), 1);
@@ -237,9 +242,11 @@ mod op_msg_tests {
 
     #[test]
     fn test_serialize_op_msg_section_single() {
+        let mut index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_msg = parse_op_msg(header, next_buffer).unwrap();
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
         assert_eq!(buffer.to_vec(), op_msg_vec);
     }
@@ -270,8 +277,10 @@ mod op_msg_tests {
     #[test]
     fn test_parse_op_msg_section_sequence() -> Result<(), String> {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_msg = parse_op_msg(header, next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
         assert_eq!(op_msg.flags.exhaust_allowed, false);
         assert_eq!(op_msg.sections.len(), 2);
@@ -306,8 +315,10 @@ mod op_msg_tests {
     #[test]
     fn test_serialize_op_msg_section_sequence() {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_msg = parse_op_msg(header, next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
         assert_eq!(buffer.to_vec(), op_msg_vec);
     }

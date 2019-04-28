@@ -7,20 +7,24 @@ use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::declarations::errors::{UnumError, UnumResult};
 
 pub fn parse_mongo_incoming_bytes(buffer: &[u8]) -> UnumResult<MongoOp> {
+    let mut index: usize = 0;
     match parse_msg_header(buffer) {
         Err(error) => Err(error),
-        Ok((header, remaining_buffer)) => match header.op_code {
-            MongoOpCode::OpQuery => match parse_op_query(header, remaining_buffer) {
-                Err(error) => Err(error),
-                Ok(op) => Ok(MongoOp::Query(op)),
-            },
-            MongoOpCode::OpMsg => match parse_op_msg(header, remaining_buffer) {
-                Err(error) => Err(error),
-                Ok(op) => Ok(MongoOp::Msg(op)),
-            },
-            _ => Err(UnumError::MongoParser(
-                MongoParserError::UnimplementedOpCode(header.op_code),
-            )),
-        },
+        Ok((header, offset)) => {
+            index += offset;
+            match header.op_code {
+                MongoOpCode::OpQuery => match parse_op_query(header, &buffer[index..]) {
+                    Err(error) => Err(error),
+                    Ok(op) => Ok(MongoOp::Query(op)),
+                },
+                MongoOpCode::OpMsg => match parse_op_msg(header, &buffer[index..]) {
+                    Err(error) => Err(error),
+                    Ok(op) => Ok(MongoOp::Msg(op)),
+                },
+                _ => Err(UnumError::MongoParser(
+                    MongoParserError::UnimplementedOpCode(header.op_code),
+                )),
+            }
+        }
     }
 }

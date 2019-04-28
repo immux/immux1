@@ -55,18 +55,24 @@ pub struct OpReply {
 }
 
 pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpReply> {
-    let (response_flags, next_buffer) = parse_u32(buffer)?;
-    let (cursor_id, next_buffer) = parse_u64(next_buffer)?;
-    let (starting_from, next_buffer) = parse_u32(next_buffer)?;
-    let (number_returned, mut next_buffer) = parse_u32(next_buffer)?;
+    let mut index: usize = 0;
+    let (response_flags, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (cursor_id, offset) = parse_u64(&buffer[index..])?;
+    index += offset;
+    let (starting_from, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (number_returned, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+
     let mut documents = vec![];
     // TODO(#32)
     for _ in 0..number_returned {
-        let (document, the_rest) = parse_bson_document(next_buffer)?;
-        next_buffer = the_rest;
+        let (document, offset) = parse_bson_document(&buffer[index..])?;
+        index += offset;
         documents.push(document);
     }
-    if next_buffer.len() != 0 {
+    if index != buffer.len() {
         return Err(UnumError::MongoParser(MongoParserError::InputBufferError));
     }
     Ok(OpReply {
@@ -252,8 +258,10 @@ mod op_reply_tests {
     #[test]
     fn test_parse_op_reply() {
         let buffer = OP_REPLY_FIXTURE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_query = parse_op_reply(header, next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_query = parse_op_reply(header, &buffer[index..]).unwrap();
         assert_eq!(op_query.response_flags, 8);
         assert_eq!(op_query.cursor_id, 0);
         assert_eq!(op_query.starting_from, 0);
@@ -287,8 +295,10 @@ mod op_reply_tests {
     #[test]
     fn test_serialize_op_reply() {
         let buffer = OP_REPLY_FIXTURE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_query = parse_op_reply(header, next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let op_query = parse_op_reply(header, &buffer[index..]).unwrap();
         let op_reply_buffer = serialize_op_reply(&op_query).unwrap();
         assert_eq!(op_reply_buffer, buffer.to_vec());
     }
