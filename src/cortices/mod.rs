@@ -8,6 +8,7 @@ pub mod mongo;
 pub mod mysql;
 pub mod tcp;
 pub mod unicus;
+pub mod utils;
 
 pub struct Cortex {
     process_incoming_message: fn(

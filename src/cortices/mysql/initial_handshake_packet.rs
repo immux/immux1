@@ -1,39 +1,12 @@
+use crate::cortices::mysql::capability_flags::{serialize_capability_flags, CapabilityFlags};
+use crate::cortices::mysql::character_set::get_character_set_value;
+use crate::cortices::mysql::character_set::CharacterSet;
 use crate::cortices::mysql::error::MySQLSerializeError::SerializeAuthPluginDataError;
-use crate::cortices::mysql::utils::{get_character_set_value, u32_to_u8_array_with_length_3};
+use crate::cortices::mysql::utils::u32_to_u8_array_with_length_3;
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::utils::{set_bit_u16, set_bit_u32, u16_to_u8_array, u32_to_u8_array};
-
-/// @see https://dev.mysql.com/doc/internals/en/capability-flags.html#packet-Protocol::CapabilityFlags
-pub struct CapabilityFlags {
-    pub client_long_password: bool,
-    pub client_found_rows: bool,
-    pub client_long_flag: bool,
-    pub client_connect_with_db: bool,
-    pub client_no_schema: bool,
-    pub client_compress: bool,
-    pub client_odbc: bool,
-    pub client_local_files: bool,
-    pub client_ignore_space: bool,
-    pub client_protocol_41: bool,
-    pub client_interactive: bool,
-    pub client_ssl: bool,
-    pub client_ignore_sigpipe: bool,
-    pub client_transactions: bool,
-    pub client_reserved: bool,
-    pub client_secure_connection: bool,
-    pub client_multi_statements: bool,
-    pub client_multi_results: bool,
-    pub client_ps_multi_results: bool,
-    pub client_plugin_auth: bool,
-    pub client_connect_attrs: bool,
-    pub client_plugin_auth_lenenc_client_data: bool,
-    pub client_can_handle_expired_passwords: bool,
-    pub client_session_track: bool,
-    pub client_deprecate_eof: bool,
-}
+use crate::utils::{set_bit_u16, u16_to_u8_array, u32_to_u8_array};
 
 /// @see https://dev.mysql.com/doc/internals/en/status-flags.html#packet-Protocol::StatusFlags
-
 pub struct ServerStatusFlags {
     pub intrans: bool,
     pub autocommit: bool,
@@ -49,20 +22,6 @@ pub struct ServerStatusFlags {
     pub ps_out_params: bool,
     pub intrans_readonly: bool,
     pub session_state_changed: bool,
-}
-
-/// @see https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-// Todo: character set contains too many options, here we just shows a few common character sets issue #60.
-pub const LATIN1_SWEDISH_CI: u8 = 8;
-pub const UTF8_GENERAL_CI: u8 = 33;
-pub const BINARY: u8 = 63;
-
-#[derive(Debug, Clone)]
-#[repr(u8)]
-pub enum CharacterSet {
-    Latin1SwedishCi = LATIN1_SWEDISH_CI,
-    Utf8GeneralCi = UTF8_GENERAL_CI,
-    Binary = BINARY,
 }
 
 pub struct InitialHandshakePacket {
@@ -94,45 +53,6 @@ pub fn serialize_status_flags(flags_struct: &ServerStatusFlags) -> u16 {
     set_bit_u16(&mut result, 11, flags_struct.ps_out_params);
     set_bit_u16(&mut result, 12, flags_struct.intrans_readonly);
     set_bit_u16(&mut result, 13, flags_struct.session_state_changed);
-
-    return result;
-}
-
-pub fn serialize_capability_flags(flags_struct: &CapabilityFlags) -> u32 {
-    let mut result: u32 = 0;
-    set_bit_u32(&mut result, 0, flags_struct.client_long_password);
-    set_bit_u32(&mut result, 1, flags_struct.client_found_rows);
-    set_bit_u32(&mut result, 2, flags_struct.client_long_flag);
-    set_bit_u32(&mut result, 3, flags_struct.client_connect_with_db);
-    set_bit_u32(&mut result, 4, flags_struct.client_no_schema);
-    set_bit_u32(&mut result, 5, flags_struct.client_compress);
-    set_bit_u32(&mut result, 6, flags_struct.client_odbc);
-    set_bit_u32(&mut result, 7, flags_struct.client_local_files);
-    set_bit_u32(&mut result, 8, flags_struct.client_ignore_space);
-    set_bit_u32(&mut result, 9, flags_struct.client_protocol_41);
-    set_bit_u32(&mut result, 10, flags_struct.client_interactive);
-    set_bit_u32(&mut result, 11, flags_struct.client_ssl);
-    set_bit_u32(&mut result, 12, flags_struct.client_ignore_sigpipe);
-    set_bit_u32(&mut result, 13, flags_struct.client_transactions);
-    set_bit_u32(&mut result, 14, flags_struct.client_reserved);
-    set_bit_u32(&mut result, 15, flags_struct.client_secure_connection);
-    set_bit_u32(&mut result, 16, flags_struct.client_multi_statements);
-    set_bit_u32(&mut result, 17, flags_struct.client_multi_results);
-    set_bit_u32(&mut result, 18, flags_struct.client_ps_multi_results);
-    set_bit_u32(&mut result, 19, flags_struct.client_plugin_auth);
-    set_bit_u32(&mut result, 20, flags_struct.client_connect_attrs);
-    set_bit_u32(
-        &mut result,
-        21,
-        flags_struct.client_plugin_auth_lenenc_client_data,
-    );
-    set_bit_u32(
-        &mut result,
-        22,
-        flags_struct.client_can_handle_expired_passwords,
-    );
-    set_bit_u32(&mut result, 23, flags_struct.client_session_track);
-    set_bit_u32(&mut result, 24, flags_struct.client_deprecate_eof);
 
     return result;
 }
@@ -218,10 +138,10 @@ pub fn serialize_initial_handshake_packet(
 #[cfg(test)]
 mod initial_handshake_packet_tests {
 
+    use crate::cortices::mysql::capability_flags::CapabilityFlags;
     use crate::cortices::mysql::initial_handshake_packet::{
-        serialize_auth_plugin_data, serialize_capability_flags, serialize_initial_handshake_packet,
-        serialize_status_flags, CapabilityFlags, CharacterSet, InitialHandshakePacket,
-        ServerStatusFlags,
+        serialize_auth_plugin_data, serialize_initial_handshake_packet, serialize_status_flags,
+        CharacterSet, InitialHandshakePacket, ServerStatusFlags,
     };
     use std::str;
 
@@ -244,38 +164,6 @@ mod initial_handshake_packet_tests {
             session_state_changed: false,
         };
         assert_eq!(serialize_status_flags(&status_flags), 0x0002);
-    }
-
-    #[test]
-    fn test_serialize_capability_flags() {
-        let capability_flags = CapabilityFlags {
-            client_long_password: true,
-            client_found_rows: true,
-            client_long_flag: true,
-            client_connect_with_db: true,
-            client_no_schema: true,
-            client_compress: true,
-            client_odbc: true,
-            client_local_files: true,
-            client_ignore_space: true,
-            client_protocol_41: true,
-            client_interactive: true,
-            client_ssl: true,
-            client_ignore_sigpipe: true,
-            client_transactions: true,
-            client_reserved: true,
-            client_secure_connection: true,
-            client_multi_statements: true,
-            client_multi_results: true,
-            client_ps_multi_results: true,
-            client_plugin_auth: true,
-            client_connect_attrs: true,
-            client_plugin_auth_lenenc_client_data: true,
-            client_can_handle_expired_passwords: true,
-            client_session_track: true,
-            client_deprecate_eof: true,
-        };
-        assert_eq!(serialize_capability_flags(&capability_flags), 33554431);
     }
 
     #[test]

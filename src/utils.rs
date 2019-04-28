@@ -39,6 +39,10 @@ pub fn u8_array_to_u32(data: &[u8; 4]) -> u32 {
         .into()
 }
 
+pub fn u8_array_to_u16(data: &[u8; 2]) -> u16 {
+    (((data[0] as u16) << 0) + ((data[1] as u16) << 8)).into()
+}
+
 pub fn get_bit_u32(input: u32, digit: u8) -> bool {
     if digit < 32 {
         input & (1u32 << digit) != 0

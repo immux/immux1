@@ -10,6 +10,7 @@ pub enum MongoParserError {
     UnimplementedOpCode(MongoOpCode),
     UnknownOpCode(u32),
     UnkownSectionKind,
+    ParseStringError,
 }
 
 #[derive(Debug)]

@@ -88,7 +88,7 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
 
     match method.as_str() {
         "GET" => {
-            if let Some(namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
+            if let Some(_namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
                 let instruction = Instruction::ReadNamespace(ReadNamespaceInstruction {});
                 return Ok(instruction);
             } else {
