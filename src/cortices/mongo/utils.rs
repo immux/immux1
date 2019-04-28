@@ -41,7 +41,7 @@ pub fn get_op_code_value(op_code: &MongoOpCode) -> u32 {
     }
 }
 
-pub fn parse_cstring(buffer: &[u8]) -> UnumResult<(CString, &[u8])> {
+pub fn parse_cstring(buffer: &[u8]) -> UnumResult<(CString, usize)> {
     match buffer.iter().position(|&r| r == b'\0') {
         None => Err(UnumError::MongoParser(
             MongoParserError::NoZeroTrailingInCstringBuffer,
@@ -59,36 +59,35 @@ pub fn parse_cstring(buffer: &[u8]) -> UnumResult<(CString, &[u8])> {
                     ));
                 }
                 Ok(value) => {
-                    let remaining_buffer = &buffer[terminal_index + 1..];
-                    return Ok((value, remaining_buffer));
+                    return Ok((value, terminal_index + 1));
                 }
             }
         }
     }
 }
 
-pub fn parse_bson_document(buffer: &[u8]) -> UnumResult<(bson::Document, &[u8])> {
+pub fn parse_bson_document(buffer: &[u8]) -> UnumResult<(bson::Document, usize)> {
     let (bson_size, _next_buffer) = parse_u32(buffer)?;
     match bson::decode_document(&mut &(*buffer)[0..(bson_size as usize)]) {
         Err(error) => Err(UnumError::MongoParser(MongoParserError::ParseBsonError(
             error,
         ))),
-        Ok(bson_document) => Ok((bson_document, &buffer[(bson_size as usize)..])),
+        Ok(bson_document) => Ok((bson_document, bson_size as usize)),
     }
 }
 
-pub fn parse_u8(buffer: &[u8]) -> UnumResult<(u8, &[u8])> {
+pub fn parse_u8(buffer: &[u8]) -> UnumResult<(u8, usize)> {
     let field_size = size_of::<u8>();
     if buffer.len() < field_size {
         Err(UnumError::MongoParser(
             MongoParserError::NotEnoughBufferSize,
         ))
     } else {
-        Ok((buffer[0], &buffer[field_size..]))
+        Ok((buffer[0], field_size))
     }
 }
 
-pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, &[u8])> {
+pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, usize)> {
     let field_size = size_of::<u32>();
     if buffer.len() < field_size {
         Err(UnumError::MongoParser(
@@ -97,12 +96,12 @@ pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, &[u8])> {
     } else {
         Ok((
             u8_array_to_u32(&[buffer[0], buffer[1], buffer[2], buffer[3]]),
-            &buffer[field_size..],
+            field_size,
         ))
     }
 }
 
-pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, &[u8])> {
+pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, usize)> {
     let field_size = size_of::<u64>();
     if buffer.len() < field_size {
         Err(UnumError::MongoParser(
@@ -114,7 +113,7 @@ pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, &[u8])> {
                 buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6],
                 buffer[7],
             ]),
-            &buffer[field_size..],
+            field_size,
         ))
     }
 }
@@ -127,9 +126,9 @@ mod mongo_utils_tests {
     fn test_parse_u8() {
         let buffer = [0x11];
         let res = parse_u8(&buffer);
-        let (num, next_buffer) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(17, num);
-        assert_eq!(next_buffer.len(), 0);
+        assert_eq!(offset, 1);
     }
 
     #[test]
@@ -142,9 +141,9 @@ mod mongo_utils_tests {
     #[test]
     fn test_parse_u64() {
         let res = parse_u64(&[0x0d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        let (num, next_buffer) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(269, num);
-        assert_eq!(next_buffer.len(), 0);
+        assert_eq!(offset, 8);
     }
 
     #[test]
@@ -156,9 +155,9 @@ mod mongo_utils_tests {
     #[test]
     fn test_parse_u32() {
         let res = parse_u32(&[0x0d, 0x01, 0x00, 0x00]);
-        let (num, next_buffer) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(269, num);
-        assert_eq!(next_buffer.len(), 0);
+        assert_eq!(offset, 4);
     }
 
     #[test]

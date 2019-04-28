@@ -32,15 +32,21 @@ pub struct OpQuery {
 }
 
 pub fn parse_op_query(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpQuery> {
-    let (flags, next_buffer) = parse_u32(buffer)?;
-    let (full_collection_name, next_buffer) = parse_cstring(next_buffer)?;
-    let (number_to_skip, next_buffer) = parse_u32(next_buffer)?;
-    let (number_to_return, next_buffer) = parse_u32(next_buffer)?;
-    let (query, next_buffer) = parse_bson_document(next_buffer)?;
-    let return_fields_selector = if next_buffer.is_empty() {
+    let mut index: usize = 0;
+    let (flags, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (full_collection_name, offset) = parse_cstring(&buffer[index..])?;
+    index += offset;
+    let (number_to_skip, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (number_to_return, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (query, offset) = parse_bson_document(&buffer[index..])?;
+    index += offset;
+    let return_fields_selector = if index == buffer.len() {
         None
     } else {
-        Some(parse_bson_document(next_buffer)?.0)
+        Some(parse_bson_document(&buffer[index..])?.0)
     };
     Ok(OpQuery {
         message_header,
@@ -96,9 +102,12 @@ mod op_query_tests {
     #[test]
     fn test_parse_cstring() {
         let buffer = OP_QUERY_FIXTURE;
-        let (_, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let (_, next_buffer) = parse_u32(next_buffer).unwrap();
-        let (res, _) = parse_cstring(next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (_, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
+        index += offset;
+        let (res, _) = parse_cstring(&buffer[index..]).unwrap();
         assert_eq!(res.to_str().unwrap(), "admin.$cmd");
     }
 
@@ -112,12 +121,18 @@ mod op_query_tests {
     #[test]
     fn test_parse_bson_document() {
         let buffer = OP_QUERY_FIXTURE;
-        let (_, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let (_, next_buffer) = parse_u32(next_buffer).unwrap();
-        let (_, next_buffer) = parse_cstring(next_buffer).unwrap();
-        let (_, next_buffer) = parse_u32(next_buffer).unwrap();
-        let (_, next_buffer) = parse_u32(next_buffer).unwrap();
-        let (doc, _) = parse_bson_document(next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (_, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_cstring(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
+        index += offset;
+        let (doc, _) = parse_bson_document(&buffer[index..]).unwrap();
         assert!(doc.contains_key("isMaster"));
         assert!(doc.contains_key("client"));
     }
@@ -125,8 +140,10 @@ mod op_query_tests {
     #[test]
     fn test_parse_op_query() {
         let buffer = OP_QUERY_FIXTURE;
-        let (header, next_buffer) = parse_msg_header(&buffer).unwrap();
-        let op_query = parse_op_query(header, next_buffer).unwrap();
+        let mut index: usize = 0;
+        let (header, offset) = parse_msg_header(&buffer).unwrap();
+        index += offset;
+        let op_query = parse_op_query(header, &buffer[index..]).unwrap();
         assert_eq!(op_query.flags, 0);
         assert_eq!(op_query.number_to_skip, 0);
         assert_eq!(op_query.number_to_return, 1);

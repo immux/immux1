@@ -20,11 +20,16 @@ pub struct MsgHeader {
     pub op_code: MongoOpCode,
 }
 
-pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, &[u8])> {
-    let (message_length, next_buffer) = parse_u32(buffer)?;
-    let (request_id, next_buffer) = parse_u32(next_buffer)?;
-    let (response_to, next_buffer) = parse_u32(next_buffer)?;
-    let (op_code_u32, next_buffer) = parse_u32(next_buffer)?;
+pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, usize)> {
+    let mut index: usize = 0;
+    let (message_length, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (request_id, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (response_to, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (op_code_u32, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
     let op_code = pick_op_code(op_code_u32)?;
     Ok((
         MsgHeader {
@@ -33,7 +38,7 @@ pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, &[u8])> {
             response_to,
             op_code,
         },
-        next_buffer,
+        index,
     ))
 }
 
