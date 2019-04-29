@@ -1,6 +1,7 @@
 mod config;
 mod cortices;
 mod declarations;
+mod executor;
 mod storage;
 mod utils;
 
@@ -21,7 +22,7 @@ fn initialize() -> UnumResult<()> {
 
 fn main() {
     match initialize() {
-        Err(error) => eprintln!("UnumDB: initialization failed: {:#?}", error),
+        Err(error) => eprintln!("UnumDB failed: {:#?}", error),
         Ok(_) => (),
     }
 }

@@ -57,25 +57,13 @@ pub struct OpReply {
 
 pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpReply> {
     let mut index: usize = 0;
-    let (response_flags, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (response_flags, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (cursor_id, offset) = parse_u64(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (cursor_id, offset) = parse_u64(&buffer[index..])?;
     index += offset;
-    let (starting_from, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (starting_from, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (number_returned, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (number_returned, offset) = parse_u32(&buffer[index..])?;
     index += offset;
 
     let mut documents = vec![];

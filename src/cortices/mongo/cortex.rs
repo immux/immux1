@@ -1,68 +1,31 @@
-use std::ffi::CStr;
 use std::net::TcpStream;
 
 use bson::{Bson, Document};
-use chrono::Utc;
 
 use crate::config::{load_config, UnumDBConfiguration};
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::ops::op::MongoOp;
-use crate::cortices::mongo::ops::op_msg::{serialize_op_msg, OpMsg, OpMsgFlags, Section};
+use crate::cortices::mongo::ops::op_msg::{serialize_op_msg, Section};
 use crate::cortices::mongo::ops::op_reply::{
     serialize_op_reply, serialize_op_reply_response_flags, OpReply, OpReplyResponseFlags,
 };
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::cortices::mongo::parser::parse_mongo_incoming_bytes;
-use crate::cortices::mongo::transformer::{transform_answer_for_mongo, transform_mongo_op};
+use crate::cortices::mongo::transformer::{
+    transform_mongo_op_to_command, transform_outcome_to_mongo_msg,
+};
+use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
 use crate::cortices::Cortex;
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::{CoreStore, UnumCore};
-use crate::utils::{pretty_dump, u32_to_u8_array};
+use crate::executor::execute::execute;
+use crate::storage::core::UnumCore;
+use crate::utils::u32_to_u8_array;
 
 const ADMIN_QUERY: &str = "admin.$cmd";
-
-fn make_bson_from_config(config: &UnumDBConfiguration) -> bson::Document {
-    let mut document = bson::Document::new();
-    document.insert("ismaster", config.is_master);
-    document.insert("maxBsonObjectSize", config.max_bson_object_size as i32);
-    document.insert(
-        "maxMessageSizeBytes",
-        config.max_message_size_in_bytes as i32,
-    );
-    document.insert("maxWriteBatchSize", config.max_write_batch_size as i32);
-    document.insert("localTime", Utc::now());
-    document.insert(
-        "logicalSessionTimeoutMinutes",
-        config.logical_session_timeout_minutes,
-    );
-    document.insert("minWireVersion", config.min_mongo_wire_version);
-    document.insert("maxWireVersion", config.max_mongo_wire_version);
-    document.insert("readOnly", config.read_only);
-    document.insert("ok", 1.0);
-    return document;
-}
 
 enum ExceptionQueryHandlerResult {
     NotExceptional,
     Exceptional(UnumResult<Option<Vec<u8>>>),
-}
-
-fn construct_single_doc_op_msg(doc: Document, incoming_header: &MsgHeader) -> OpMsg {
-    OpMsg {
-        message_header: MsgHeader {
-            message_length: 0,
-            request_id: 0,
-            response_to: incoming_header.request_id,
-            op_code: MongoOpCode::OpMsg,
-        },
-        flags: OpMsgFlags {
-            check_sum_present: false,
-            more_to_come: false,
-            exhaust_allowed: false,
-        },
-        sections: vec![Section::Single(doc)],
-        checksum: None,
-    }
 }
 
 // @see https://github.com/immux/immux/issues/37
@@ -94,7 +57,7 @@ fn handle_exceptional_query(
             if &op_query.full_collection_name == ADMIN_QUERY {
                 if let Ok(config) = load_config(core) {
                     let document = make_bson_from_config(&config);
-                    let mut op_reply = OpReply {
+                    let op_reply = OpReply {
                         message_header: MsgHeader {
                             message_length: 0,
                             request_id: 0,
@@ -194,7 +157,7 @@ fn handle_exceptional_query(
                         let mut response_doc = Document::new();
                         response_doc.insert("ok", 1);
                         match stream.peer_addr() {
-                            Err(error) => {
+                            Err(_error) => {
                                 return ExceptionQueryHandlerResult::Exceptional(Err(
                                     UnumError::ReadError,
                                 ));
@@ -204,27 +167,24 @@ fn handle_exceptional_query(
                             }
                         }
                         construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(1.0) = request_doc.get_f64("buildinfo") {
+                    } else if is_1(request_doc.get_f64("buildinfo")) {
                         let response_doc = construct_build_info(config);
                         construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(1.0) = request_doc.get_f64("buildInfo") {
+                    } else if is_1(request_doc.get_f64("buildInfo")) {
                         let response_doc = construct_build_info(config);
                         construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(target) = request_doc.get_str("getLog") {
+                    } else if let Ok(_target) = request_doc.get_str("getLog") {
                         let mut response_doc = Document::new();
                         response_doc.insert("totalLinesWritten", 0i32);
                         response_doc.insert("log", vec![]);
                         response_doc.insert("ok", 1.0);
                         construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(1.0) = request_doc.get_f64("getFreeMonitoringStatus") {
+                    } else if is_1(request_doc.get_f64("getFreeMonitoringStatus")) {
                         let mut response_doc = Document::new();
                         response_doc.insert("state", "undecided");
                         response_doc.insert("ok", 1.0);
                         construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(1.0) = request_doc.get_f64("isMaster") {
-                        let mut response_doc = make_bson_from_config(config);
-                        construct_reply_result(response_doc, &op_msg.message_header)
-                    } else if let Ok(1.0) = request_doc.get_f64("replSetGetStatus") {
+                    } else if is_1(request_doc.get_f64("replSetGetStatus")) {
                         let mut response_doc = Document::new();
                         response_doc.insert("ok", 1.0);
                         response_doc.insert("errmsg", "not running with --replSet");
@@ -253,10 +213,11 @@ pub fn mongo_cortex_process_incoming_message(
     match handle_exceptional_query(&op, core, &stream, config) {
         ExceptionQueryHandlerResult::Exceptional(result) => return result,
         ExceptionQueryHandlerResult::NotExceptional => {
-            let instruction = transform_mongo_op(&op)?;
-            let answer = core.execute(&instruction)?;
-            let op_reply = transform_answer_for_mongo(&answer)?;
-            match serialize_op_reply(&op_reply) {
+            let command = transform_mongo_op_to_command(&op)?;
+            let outcome = execute(command, core)?;
+            let op_msg = transform_outcome_to_mongo_msg(&outcome, config, &op)?;
+            println!("Response op: {:#?}", op_msg);
+            match serialize_op_with_computed_length(&op_msg, &serialize_op_msg) {
                 Err(error) => return Err(error),
                 Ok(reply_bytes) => {
                     return Ok(Some(reply_bytes));

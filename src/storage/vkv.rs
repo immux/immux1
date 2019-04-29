@@ -22,6 +22,12 @@ use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
 pub type InstructionHeight = u64;
 
+#[derive(Debug)]
+pub enum VkvError {
+    CannotGetEntry,
+    CannotSerializeEntry,
+}
+
 #[repr(u8)]
 enum KeyPrefix {
     StandAlone = 'x' as u8,
@@ -158,18 +164,18 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    fn get_entry(&self, key: &[u8]) -> Option<Entry> {
+    fn get_entry(&self, key: &[u8]) -> UnumResult<Entry> {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToEntry, key);
         match meta_bytes {
             Err(_error) => {
-                return None;
+                return Err(VkvError::CannotGetEntry.into());
             }
             Ok(meta_bytes) => {
                 let deserialized = deserialize::<Entry>(&meta_bytes);
                 if let Ok(meta) = deserialized {
-                    return Some(meta);
+                    return Ok(meta);
                 } else {
-                    return None;
+                    return Err(VkvError::CannotSerializeEntry.into());
                 }
             }
         }
@@ -182,7 +188,7 @@ impl UnumVersionedKeyValueStore {
         height: InstructionHeight,
     ) -> UnumResult<Vec<u8>> {
         match self.get_entry(key) {
-            None => {
+            Err(_err) => {
                 let first_entry = UpdateRecord {
                     height,
                     value: value.to_vec(),
@@ -207,7 +213,7 @@ impl UnumVersionedKeyValueStore {
                     }
                 }
             }
-            Some(mut existing_entry) => {
+            Ok(mut existing_entry) => {
                 let new_record = UpdateRecord {
                     height,
                     value: value.to_vec(),
@@ -242,8 +248,8 @@ impl UnumVersionedKeyValueStore {
         target_height: InstructionHeight,
     ) -> UnumResult<Vec<u8>> {
         match self.get_entry(key) {
-            None => Err(UnumError::ReadError),
-            Some(index) => {
+            Err(error) => Err(error),
+            Ok(index) => {
                 for record in index.updates.iter().rev() {
                     if record.height <= target_height {
                         return Ok(record.value.clone());
@@ -391,10 +397,8 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                         None => base_height,
                         Some(height) => height,
                     };
-                    match self.get_at_height(&target.key, target_height) {
-                        Err(_error) => return Err(UnumError::ReadError),
-                        Ok(result) => results.push(result),
-                    }
+                    let result = self.get_at_height(&target.key, target_height)?;
+                    results.push(result)
                 }
                 return Ok(Answer::GetOk(GetOkAnswer { items: results }));
             }

@@ -108,7 +108,7 @@ fn bind_tcp_port(
                     Err(error) => return Err(UnumError::Tcp(TcpError::TcpStreamError(error))),
                     Ok(stream) => match handle_tcp_stream(stream, core, &bind_mode, config, cortex)
                     {
-                        Err(error) => eprintln!("TCP error: {:#?}", error),
+                        Err(error) => return Err(error),
                         Ok(_) => {}
                     },
                 };

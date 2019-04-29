@@ -10,8 +10,8 @@ use std::net::TcpStream;
 pub fn unicus_cortex_process_incoming_message(
     bytes: &[u8],
     core: &mut UnumCore,
-    stream: &TcpStream,
-    config: &UnumDBConfiguration,
+    _stream: &TcpStream,
+    _config: &UnumDBConfiguration,
 ) -> UnumResult<Option<Vec<u8>>> {
     format!("bytes received: {}\n", bytes.len());
     let mut http_response = String::from("HTTP/1.1 200 OK\r\n\r\n");

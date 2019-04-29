@@ -22,7 +22,7 @@ pub const CHAIN_KEYWORD: &str = "chain";
 pub const DEFAULT_CHAIN_NAME: &str = "default";
 pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
 
-const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
+const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::HashMap;
 
 const IS_MASTER: bool = true;
 const MAX_BSON_OBJECT_SIZE: u32 = 16777216;

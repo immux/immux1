@@ -1,10 +1,9 @@
 // @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
 
-use crate::cortices::mongo::error::MongoParserError;
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::cortices::mongo::utils::{get_op_code_value, pick_op_code};
 use crate::cortices::utils::parse_u32;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::UnumResult;
 use crate::utils::u32_to_u8_array;
 
 #[derive(Debug, Clone)]
@@ -24,25 +23,13 @@ pub struct MsgHeader {
 
 pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, usize)> {
     let mut index: usize = 0;
-    let (message_length, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (message_length, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (request_id, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (request_id, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (response_to, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (response_to, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (op_code_u32, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (op_code_u32, offset) = parse_u32(&buffer[index..])?;
     index += offset;
     let op_code = pick_op_code(op_code_u32)?;
     Ok((

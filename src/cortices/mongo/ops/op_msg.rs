@@ -27,9 +27,9 @@ pub struct OpMsgFlags {
 #[derive(Debug)]
 /// @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#kind-1-document-sequence
 pub struct DocumentSequence {
-    section_size: u32,
-    identifier: String,
-    documents: Vec<Document>,
+    pub section_size: u32,
+    pub identifier: String,
+    pub documents: Vec<Document>,
 }
 
 #[derive(Debug)]
@@ -57,10 +57,7 @@ pub struct OpMsg {
 
 pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMsg> {
     let mut index: usize = 0;
-    let (flags_bits_vec, offset) = parse_u32(
-        &buffer,
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (flags_bits_vec, offset) = parse_u32(&buffer)?;
     index += offset;
     let check_sum_present = get_bit_u32(flags_bits_vec, CHECK_SUM_PRESENT_DIGIT);
     let more_to_come = get_bit_u32(flags_bits_vec, MORE_TO_COME_DIGIT);
@@ -78,10 +75,7 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
         {
             break;
         }
-        let (kind, offset) = parse_u8(
-            &buffer[index..],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )?;
+        let (kind, offset) = parse_u8(&buffer[index..])?;
         index += offset;
         match kind {
             SINGLE_TYPE => {
@@ -90,15 +84,9 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
                 sections.push(Section::Single(doc));
             }
             SEQUENCE_TYPE => {
-                let (section_size, offset) = parse_u32(
-                    &buffer[index..],
-                    UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-                )?;
+                let (section_size, offset) = parse_u32(&buffer[index..])?;
                 index += offset;
-                let (identifier, offset) = parse_cstring(
-                    &buffer[index..],
-                    UnumError::MongoParser(MongoParserError::ParseStringError),
-                )?;
+                let (identifier, offset) = parse_cstring(&buffer[index..])?;
                 index += offset;
                 let identifier_length = identifier.as_bytes().len() + 1;
                 let mut bson_documents_size =
@@ -124,18 +112,12 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
                 sections.push(Section::Sequence(document_sequence));
             }
             _ => {
-                return Err(UnumError::MongoParser(MongoParserError::UnkownSectionKind));
+                return Err(UnumError::MongoParser(MongoParserError::UnknownSectionKind));
             }
         }
     }
     let checksum = if check_sum_present {
-        Some(
-            parse_u32(
-                &buffer[index..],
-                UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-            )?
-            .0,
-        )
+        Some(parse_u32(&buffer[index..])?.0)
     } else {
         None
     };

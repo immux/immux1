@@ -1,7 +1,11 @@
 use crate::config::ConfigError;
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
+use crate::cortices::mongo::transformer::MongoTransformerError;
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
+use crate::cortices::utils::DeserializationError;
+use crate::executor::execute::ExecutorError;
+use crate::storage::vkv::VkvError;
 
 #[derive(Debug)]
 pub enum UnumError {
@@ -14,12 +18,19 @@ pub enum UnumError {
 
     UrlParseError,
 
+    VKV(VkvError),
+
     Config(ConfigError),
 
     Tcp(TcpError),
 
+    Executor(ExecutorError),
+
+    Deserialization(DeserializationError),
+
     MongoParser(MongoParserError),
     MongoSerializer(MongoSerializeError),
+    MongoTransformer(MongoTransformerError),
 
     MySQLParser(MySQLParserError),
     MySQLSerializer(MySQLSerializeError),
@@ -58,6 +69,30 @@ impl std::convert::From<TcpError> for UnumError {
 impl std::convert::From<ConfigError> for UnumError {
     fn from(error: ConfigError) -> UnumError {
         UnumError::Config(error)
+    }
+}
+
+impl std::convert::From<MongoTransformerError> for UnumError {
+    fn from(error: MongoTransformerError) -> UnumError {
+        UnumError::MongoTransformer(error)
+    }
+}
+
+impl std::convert::From<VkvError> for UnumError {
+    fn from(error: VkvError) -> UnumError {
+        UnumError::VKV(error)
+    }
+}
+
+impl std::convert::From<DeserializationError> for UnumError {
+    fn from(error: DeserializationError) -> UnumError {
+        UnumError::Deserialization(error)
+    }
+}
+
+impl std::convert::From<ExecutorError> for UnumError {
+    fn from(error: ExecutorError) -> UnumError {
+        UnumError::Executor(error)
     }
 }
 

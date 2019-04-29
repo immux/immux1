@@ -8,9 +8,9 @@ use crate::utils::pretty_dump;
 
 pub fn mysql_cortex_process_incoming_message(
     bytes: &[u8],
-    core: &mut UnumCore,
-    stream: &TcpStream,
-    config: &UnumDBConfiguration,
+    _core: &mut UnumCore,
+    _stream: &TcpStream,
+    _config: &UnumDBConfiguration,
 ) -> UnumResult<Option<Vec<u8>>> {
     pretty_dump(bytes);
     unimplemented!()

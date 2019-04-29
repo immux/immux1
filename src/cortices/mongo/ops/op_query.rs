@@ -1,10 +1,9 @@
 use bson::Document;
 
-use crate::cortices::mongo::error::MongoParserError;
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::UnumResult;
 
 /// @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#op-query
 #[derive(Debug)]
@@ -33,25 +32,13 @@ pub struct OpQuery {
 
 pub fn parse_op_query(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpQuery> {
     let mut index: usize = 0;
-    let (flags, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (flags, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (full_collection_name, offset) = parse_cstring(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::ParseStringError),
-    )?;
+    let (full_collection_name, offset) = parse_cstring(&buffer[index..])?;
     index += offset;
-    let (number_to_skip, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (number_to_skip, offset) = parse_u32(&buffer[index..])?;
     index += offset;
-    let (number_to_return, offset) = parse_u32(
-        &buffer[index..],
-        UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-    )?;
+    let (number_to_return, offset) = parse_u32(&buffer[index..])?;
     index += offset;
     let (query, offset) = parse_bson_document(&buffer[index..])?;
     index += offset;
@@ -74,12 +61,10 @@ pub fn parse_op_query(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<Op
 #[cfg(test)]
 mod op_query_tests {
 
-    use crate::cortices::mongo::error::MongoParserError;
     use crate::cortices::mongo::ops::msg_header::parse_msg_header;
     use crate::cortices::mongo::ops::op_query::parse_op_query;
     use crate::cortices::mongo::utils::{get_op_code_value, parse_bson_document};
     use crate::cortices::utils::{parse_cstring, parse_u32};
-    use crate::declarations::errors::UnumError;
 
     static OP_QUERY_FIXTURE: [u8; 269] = [
         0x0d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xd4, 0x07, 0x00,
@@ -118,29 +103,13 @@ mod op_query_tests {
         let mut index: usize = 0;
         let (_, offset) = parse_msg_header(&buffer[index..]).unwrap();
         index += offset;
-        let (_, offset) = parse_u32(
-            &buffer[index..],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
         index += offset;
-        let (_, offset) = parse_cstring(
-            &buffer[index..],
-            UnumError::MongoParser(MongoParserError::ParseStringError),
-        )
-        .unwrap();
+        let (_, offset) = parse_cstring(&buffer[index..]).unwrap();
         index += offset;
-        let (_, offset) = parse_u32(
-            &buffer[index..],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
         index += offset;
-        let (_, offset) = parse_u32(
-            &buffer[index..],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
         index += offset;
         let (doc, _) = parse_bson_document(&buffer[index..]).unwrap();
         assert!(doc.contains_key("isMaster"));

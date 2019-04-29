@@ -36,7 +36,7 @@ impl KeyValueStore for HashMapStore {
         }
     }
     fn set(&mut self, key: &[u8], value: &[u8]) -> UnumResult<Vec<u8>> {
-        let mut hashmap = &mut self.hashmaps[self.current_node].hashmap;
+        let hashmap = &mut self.hashmaps[self.current_node].hashmap;
         match hashmap.insert(key.to_vec(), value.to_vec()) {
             // Currently identical in both arms
             None => Ok(vec![]),
