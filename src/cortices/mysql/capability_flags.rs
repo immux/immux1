@@ -32,7 +32,7 @@ pub struct CapabilityFlags {
 }
 
 pub fn parse_capability_flags(buffer: &[u8]) -> UnumResult<(CapabilityFlags, usize)> {
-    let (capability_flags_vec, index_offset) = parse_u32(&buffer)?;
+    let (capability_flags_vec, offset) = parse_u32(&buffer)?;
     let client_long_password = get_bit_u32(capability_flags_vec, 0);
     let client_found_rows = get_bit_u32(capability_flags_vec, 1);
     let client_long_flag = get_bit_u32(capability_flags_vec, 2);
@@ -86,7 +86,7 @@ pub fn parse_capability_flags(buffer: &[u8]) -> UnumResult<(CapabilityFlags, usi
         client_session_track,
         client_deprecate_eof,
     };
-    Ok((capability_flags, index_offset))
+    Ok((capability_flags, offset))
 }
 
 pub fn serialize_capability_flags(flags_struct: &CapabilityFlags) -> u32 {
@@ -169,9 +169,8 @@ mod capability_flags_tests {
     #[test]
     fn test_parse_capability_flags() {
         let capability_flags_buffer = [0x85, 0xa6, 0xff, 0x01];
-        let (capability_flags, index_offset) =
-            parse_capability_flags(&capability_flags_buffer).unwrap();
-        assert_eq!(index_offset, 4);
+        let (capability_flags, offset) = parse_capability_flags(&capability_flags_buffer).unwrap();
+        assert_eq!(offset, 4);
         assert_eq!(capability_flags.client_long_password, true);
         assert_eq!(capability_flags.client_found_rows, false);
         assert_eq!(capability_flags.client_long_flag, true);

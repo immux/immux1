@@ -97,9 +97,9 @@ mod cortices_utils_tests {
     fn test_parse_u8() {
         let buffer = [0x11];
         let res = parse_u8(&buffer);
-        let (num, index_off_set) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(17, num);
-        assert_eq!(index_off_set, 1);
+        assert_eq!(offset, 1);
     }
 
     #[test]
@@ -112,9 +112,9 @@ mod cortices_utils_tests {
     #[test]
     fn test_parse_u64() {
         let res = parse_u64(&[0x0d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        let (num, index_off_set) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(269, num);
-        assert_eq!(index_off_set, 8);
+        assert_eq!(offset, 8);
     }
 
     #[test]
@@ -126,9 +126,9 @@ mod cortices_utils_tests {
     #[test]
     fn test_parse_u32() {
         let res = parse_u32(&[0x0d, 0x01, 0x00, 0x00]);
-        let (num, index_off_set) = res.unwrap();
+        let (num, offset) = res.unwrap();
         assert_eq!(269, num);
-        assert_eq!(index_off_set, 4);
+        assert_eq!(offset, 4);
     }
 
     #[test]
@@ -161,12 +161,12 @@ mod cortices_utils_tests {
     #[test]
     fn test_parse_cstring() {
         let buffer = OP_QUERY_FIXTURE;
-        let mut init_index: usize = 0;
-        let (_, index_offset) = parse_msg_header(&buffer[init_index..]).unwrap();
-        init_index += index_offset;
-        let (_, index_offset) = parse_u32(&buffer[init_index..]).unwrap();
-        init_index += index_offset;
-        let (res, _) = parse_cstring(&buffer[init_index..]).unwrap();
+        let mut index: usize = 0;
+        let (_, offset) = parse_msg_header(&buffer[index..]).unwrap();
+        index += offset;
+        let (_, offset) = parse_u32(&buffer[index..]).unwrap();
+        index += offset;
+        let (res, _) = parse_cstring(&buffer[index..]).unwrap();
         assert_eq!(res, "admin.$cmd");
     }
 

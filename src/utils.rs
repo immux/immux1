@@ -51,6 +51,14 @@ pub fn get_bit_u32(input: u32, digit: u8) -> bool {
     }
 }
 
+pub fn get_bit_u16(input: u16, digit: u8) -> bool {
+    if digit < 16 {
+        input & (1u16 << digit) != 0
+    } else {
+        false
+    }
+}
+
 pub fn set_bit_u32(int: &mut u32, digit: u8, value: bool) {
     if value {
         *int |= 1u32 << digit;

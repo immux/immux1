@@ -1,15 +1,26 @@
-use crate::cortices::mysql::capability_flags::{parse_capability_flags, CapabilityFlags};
-use crate::cortices::mysql::character_set::{parse_character_set, CharacterSet};
-use crate::cortices::mysql::error::MySQLParserError;
+use crate::cortices::mysql::capability_flags::{
+    parse_capability_flags, serialize_capability_flags, CapabilityFlags,
+};
+use crate::cortices::mysql::character_set::{
+    get_character_set_value, parse_character_set, CharacterSet,
+};
+use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
+use crate::cortices::mysql::utils::u32_to_u8_array_with_length_3;
 use crate::cortices::mysql::utils::{
     parse_length_encoded_integer, parse_string_with_fixed_length, parse_u32_with_length_3,
 };
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
+use crate::declarations::errors::UnumError::MySQLParser;
 use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::instructions::{
+    Answer, GetInstruction, GetTargetSpec, Instruction, SetInstruction, SetTargetSpec,
+};
+use crate::storage::core::{CoreStore, UnumCore};
+use crate::utils::u32_to_u8_array;
 use std::collections::HashMap;
 
 pub struct HandshakeResponse {
-    pub packet_length: u32,
+    pub payload_length: u32,
     pub packet_number: u8,
     pub capability_flags: CapabilityFlags,
     pub max_packet_size: u32,
@@ -21,60 +32,105 @@ pub struct HandshakeResponse {
     pub attribute: Option<HashMap<String, String>>,
 }
 
+const MYSQL_HANDSHAKE_RESPONSE_KEY: &str = "_MYSQL_HANDSHAKE_RESPONSE";
+
+pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult<()> {
+    let instruction = SetInstruction {
+        targets: vec![SetTargetSpec {
+            key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
+            value: buffer.to_vec(),
+        }],
+    };
+
+    match core.execute(&Instruction::Set(instruction)) {
+        Err(_error) => Err(UnumError::MySQLParser(
+            MySQLParserError::CannotSetClientStatus,
+        )),
+        Ok(_) => Ok(()),
+    }
+}
+
+pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeResponse> {
+    let instruction = GetInstruction {
+        targets: vec![GetTargetSpec {
+            key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
+            height: None,
+        }],
+    };
+    match core.execute(&Instruction::Get(instruction)) {
+        Err(_error) => {
+            return Err(UnumError::MySQLSerializer(
+                MySQLSerializeError::CannotReadClientStatus,
+            ));
+        }
+        Ok(answer) => match answer {
+            Answer::GetOk(get_answer) => {
+                let target = &get_answer.items[0];
+                let res = parse_handshake_response(target)?;
+                return Ok(res);
+            }
+            _ => {
+                return Err(UnumError::MySQLSerializer(
+                    MySQLSerializeError::CannotReadClientStatus,
+                ));
+            }
+        },
+    }
+}
+
 pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> {
-    let mut init_index: usize = 0;
-    let (packet_length, index_offset) = parse_u32_with_length_3(&buffer[init_index..])?;
-    init_index += index_offset;
-    let (packet_number, index_offset) = parse_u8(&buffer[init_index..])?;
-    init_index += index_offset;
-    let (capability_flags, index_offset) = parse_capability_flags(&buffer[init_index..])?;
-    init_index += index_offset;
-    let (max_packet_size, index_offset) = parse_u32(&buffer[init_index..])?;
-    init_index += index_offset;
-    let (character_set, index_offset) = parse_character_set(&buffer[init_index..])?;
-    init_index += index_offset;
+    let mut index: usize = 0;
+    let (payload_length, offset) = parse_u32_with_length_3(&buffer[index..])?;
+    index += offset;
+    let (packet_number, offset) = parse_u8(&buffer[index..])?;
+    index += offset;
+    let (capability_flags, offset) = parse_capability_flags(&buffer[index..])?;
+    index += offset;
+    let (max_packet_size, offset) = parse_u32(&buffer[index..])?;
+    index += offset;
+    let (character_set, offset) = parse_character_set(&buffer[index..])?;
+    index += offset;
     let reserved_bytes_length = 23;
-    init_index += reserved_bytes_length;
-    let (user_name, index_offset) = parse_cstring(&buffer[init_index..])?;
-    init_index += index_offset;
+    index += reserved_bytes_length;
+    let (user_name, offset) = parse_cstring(&buffer[index..])?;
+    index += offset;
 
     let mut auth_response = None;
     if capability_flags.client_plugin_auth_lenenc_client_data {
-        let (string_length, index_offset) = parse_length_encoded_integer(&buffer[init_index..])?;
-        init_index += index_offset;
-        let (val, index_offset) =
-            parse_string_with_fixed_length(&buffer[init_index..], string_length)?;
+        let (string_length, offset) = parse_length_encoded_integer(&buffer[index..])?;
+        index += offset;
+        let (val, offset) = parse_string_with_fixed_length(&buffer[index..], string_length)?;
         auth_response = Some(val);
-        init_index += index_offset;
+        index += offset;
     } else if capability_flags.client_secure_connection {
-        init_index += 1;
-        let (val, index_offset) = parse_string_with_fixed_length(&buffer[init_index..], 1)?;
+        index += 1;
+        let (val, offset) = parse_string_with_fixed_length(&buffer[index..], 1)?;
         auth_response = Some(val);
-        init_index += index_offset;
+        index += offset;
     } else {
-        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
+        let (val, offset) = parse_cstring(&buffer[index..])?;
         auth_response = Some(val);
-        init_index += index_offset;
+        index += offset;
     }
 
     let mut database = None;
     if capability_flags.client_connect_with_db {
-        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
+        let (val, offset) = parse_cstring(&buffer[index..])?;
         database = Some(val);
-        init_index += index_offset;
+        index += offset;
     }
 
     let mut auth_plugin_name = None;
     if capability_flags.client_plugin_auth {
-        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
+        let (val, offset) = parse_cstring(&buffer[index..])?;
         auth_plugin_name = Some(val);
-        init_index += index_offset;
+        index += offset;
     }
 
     let mut attribute_hash_map = HashMap::new();
     if capability_flags.client_connect_attrs {
-        let (hash_map_length, index_offset) = parse_length_encoded_integer(&buffer[init_index..])?;
-        init_index += index_offset;
+        let (hash_map_length, offset) = parse_length_encoded_integer(&buffer[index..])?;
+        index += offset;
 
         let mut current_length = 0;
 
@@ -83,26 +139,24 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
             if current_length == hash_map_length {
                 break;
             }
-            let (key_length, index_offset) = parse_length_encoded_integer(&buffer[init_index..])?;
-            init_index += index_offset;
-            current_length += index_offset;
-            let (key, index_offset) =
-                parse_string_with_fixed_length(&buffer[init_index..], key_length)?;
-            init_index += index_offset;
-            current_length += index_offset;
+            let (key_length, offset) = parse_length_encoded_integer(&buffer[index..])?;
+            index += offset;
+            current_length += offset;
+            let (key, offset) = parse_string_with_fixed_length(&buffer[index..], key_length)?;
+            index += offset;
+            current_length += offset;
 
-            let (val_length, index_offset) = parse_length_encoded_integer(&buffer[init_index..])?;
-            init_index += index_offset;
-            current_length += index_offset;
-            let (val, index_offset) =
-                parse_string_with_fixed_length(&buffer[init_index..], val_length)?;
-            init_index += index_offset;
-            current_length += index_offset;
+            let (val_length, offset) = parse_length_encoded_integer(&buffer[index..])?;
+            index += offset;
+            current_length += offset;
+            let (val, offset) = parse_string_with_fixed_length(&buffer[index..], val_length)?;
+            index += offset;
+            current_length += offset;
 
             attribute_hash_map.insert(key, val);
         }
 
-        if init_index != buffer.len() {
+        if index != buffer.len() {
             return Err(UnumError::MySQLParser(MySQLParserError::InputBufferError));
         }
     }
@@ -114,7 +168,7 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
     };
 
     let handshake_response = HandshakeResponse {
-        packet_length,
+        payload_length,
         packet_number,
         capability_flags,
         max_packet_size,
@@ -153,7 +207,7 @@ mod handshake_response_41_tests {
     fn test_parse_handshake_response() {
         let buffer = HANDSHAKE_RESPONSE_FIXTURE;
         let handshake_response = parse_handshake_response(&buffer).unwrap();
-        assert_eq!(handshake_response.packet_length, 167);
+        assert_eq!(handshake_response.payload_length, 167);
         assert_eq!(handshake_response.packet_number, 1);
         assert_eq!(handshake_response.max_packet_size, 16777216);
         assert_eq!(handshake_response.user_name, "root");

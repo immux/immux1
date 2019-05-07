@@ -7,10 +7,19 @@ pub enum MySQLParserError {
     CstringContainZeroByte,
     ParseStringError,
     InputBufferError,
+    CannotSetClientStatus,
+    CannotSetServerStatusFlags,
 }
 
 #[derive(Debug)]
 pub enum MySQLSerializeError {
     SerializeAuthPluginDataError,
+    SerializeInitialHandshakePacketError,
     PacketSizeTooLarge,
+    SerializeAuthSwitchRequestError,
+    SerializePluginDataError(std::num::ParseIntError),
+    CannotReadClientStatus,
+    CannotReadServerStatusFlags,
+    LengthEncodedIntegerTooLarge,
+    MissingFieldInStruct,
 }
