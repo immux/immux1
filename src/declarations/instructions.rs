@@ -58,30 +58,37 @@ pub enum Instruction {
     ReadNamespace(ReadNamespaceInstruction),
 }
 
+#[derive(Debug)]
 pub struct GetOkAnswer {
     pub items: Vec<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct SetOkAnswer {
     pub items: Vec<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct RevertOkAnswer {
     pub items: Vec<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct RevertAllOkAnswer {
     pub reverted_keys: Vec<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct SwitchNamespaceOkAnswer {
     pub new_namespace: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub struct ReadNamespaceOkAnswer {
     pub namespace: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub enum Answer {
     GetOk(GetOkAnswer),
     SetOk(SetOkAnswer),

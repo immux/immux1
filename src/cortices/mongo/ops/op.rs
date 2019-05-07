@@ -11,7 +11,6 @@ use crate::cortices::mongo::ops::op_query::OpQuery;
 use crate::cortices::mongo::ops::op_reply::OpReply;
 use crate::cortices::mongo::ops::op_update::OpUpdate;
 
-
 #[derive(Debug)]
 pub enum MongoOp {
     Reply(OpReply),

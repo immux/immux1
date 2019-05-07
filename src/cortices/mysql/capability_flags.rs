@@ -1,6 +1,5 @@
-use crate::cortices::mysql::error::MySQLParserError;
 use crate::cortices::utils::parse_u32;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::UnumResult;
 use crate::utils::{get_bit_u32, set_bit_u32};
 
 /// @see https://dev.mysql.com/doc/internals/en/capability-flags.html#packet-Protocol::CapabilityFlags
@@ -33,10 +32,7 @@ pub struct CapabilityFlags {
 }
 
 pub fn parse_capability_flags(buffer: &[u8]) -> UnumResult<(CapabilityFlags, usize)> {
-    let (capability_flags_vec, index_offset) = parse_u32(
-        &buffer,
-        UnumError::MySQLParser(MySQLParserError::NotEnoughBufferSize),
-    )?;
+    let (capability_flags_vec, index_offset) = parse_u32(&buffer)?;
     let client_long_password = get_bit_u32(capability_flags_vec, 0);
     let client_found_rows = get_bit_u32(capability_flags_vec, 1);
     let client_long_flag = get_bit_u32(capability_flags_vec, 2);

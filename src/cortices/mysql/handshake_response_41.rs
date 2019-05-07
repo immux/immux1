@@ -25,26 +25,17 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
     let mut init_index: usize = 0;
     let (packet_length, index_offset) = parse_u32_with_length_3(&buffer[init_index..])?;
     init_index += index_offset;
-    let (packet_number, index_offset) = parse_u8(
-        &buffer[init_index..],
-        UnumError::MySQLParser(MySQLParserError::NotEnoughBufferSize),
-    )?;
+    let (packet_number, index_offset) = parse_u8(&buffer[init_index..])?;
     init_index += index_offset;
     let (capability_flags, index_offset) = parse_capability_flags(&buffer[init_index..])?;
     init_index += index_offset;
-    let (max_packet_size, index_offset) = parse_u32(
-        &buffer[init_index..],
-        UnumError::MySQLParser(MySQLParserError::NotEnoughBufferSize),
-    )?;
+    let (max_packet_size, index_offset) = parse_u32(&buffer[init_index..])?;
     init_index += index_offset;
     let (character_set, index_offset) = parse_character_set(&buffer[init_index..])?;
     init_index += index_offset;
     let reserved_bytes_length = 23;
     init_index += reserved_bytes_length;
-    let (user_name, index_offset) = parse_cstring(
-        &buffer[init_index..],
-        UnumError::MySQLParser(MySQLParserError::ParseStringError),
-    )?;
+    let (user_name, index_offset) = parse_cstring(&buffer[init_index..])?;
     init_index += index_offset;
 
     let mut auth_response = None;
@@ -61,30 +52,21 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
         auth_response = Some(val);
         init_index += index_offset;
     } else {
-        let (val, index_offset) = parse_cstring(
-            &buffer[init_index..],
-            UnumError::MySQLParser(MySQLParserError::ParseStringError),
-        )?;
+        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
         auth_response = Some(val);
         init_index += index_offset;
     }
 
     let mut database = None;
     if capability_flags.client_connect_with_db {
-        let (val, index_offset) = parse_cstring(
-            &buffer[init_index..],
-            UnumError::MySQLParser(MySQLParserError::ParseStringError),
-        )?;
+        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
         database = Some(val);
         init_index += index_offset;
     }
 
     let mut auth_plugin_name = None;
     if capability_flags.client_plugin_auth {
-        let (val, index_offset) = parse_cstring(
-            &buffer[init_index..],
-            UnumError::MySQLParser(MySQLParserError::ParseStringError),
-        )?;
+        let (val, index_offset) = parse_cstring(&buffer[init_index..])?;
         auth_plugin_name = Some(val);
         init_index += index_offset;
     }

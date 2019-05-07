@@ -1,0 +1,37 @@
+use crate::declarations::commands::{Outcome, SelectCommand, SelectCondition, SelectOutcome};
+use crate::declarations::errors::UnumResult;
+use crate::declarations::instructions::{Answer, GetInstruction, GetTargetSpec, Instruction};
+use crate::executor::execute::ExecutorError;
+use crate::executor::shared::get_id_list;
+use crate::storage::core::{CoreStore, UnumCore};
+
+pub fn execute_select(select: SelectCommand, core: &mut UnumCore) -> UnumResult<Outcome> {
+    println!("Executing select {:#?}", select);
+
+    let grouping = &select.grouping;
+    let key_list = get_id_list(grouping, core);
+
+    let mut values: Vec<Vec<u8>> = Vec::new();
+    for key in key_list {
+        println!("reading key {:#?}", key);
+        let get_instruction = GetInstruction {
+            targets: vec![GetTargetSpec { key, height: None }],
+        };
+        match core.execute(&Instruction::Get(get_instruction)) {
+            Err(error) => return Err(error),
+            Ok(Answer::GetOk(answer)) => {
+                let value = answer.items[0].clone();
+                println!("Using select.condition {:?}", select.condition);
+                let matched = match select.condition {
+                    SelectCondition::UnconditionalMatch => true,
+                    SelectCondition::JSCode(_js_code) => unimplemented!(),
+                };
+                if matched {
+                    values.push(value);
+                }
+            }
+            Ok(answer) => return Err(ExecutorError::UnexpectedAnswerType(answer).into()),
+        }
+    }
+    Ok(Outcome::Select(SelectOutcome { values }))
+}

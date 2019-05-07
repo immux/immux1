@@ -1,21 +1,41 @@
-use crate::declarations::errors::{UnumError, UnumResult};
-use crate::utils::{u8_array_to_u32, u8_array_to_u64};
+use crate::declarations::errors::UnumResult;
+use crate::utils::{u8_array_to_u16, u8_array_to_u32, u8_array_to_u64};
 use std::ffi::CString;
 use std::mem::size_of;
 
-pub fn parse_u8(buffer: &[u8], error: UnumError) -> UnumResult<(u8, usize)> {
+#[derive(Debug)]
+pub enum DeserializationError {
+    InsufficientDataWidthU8,
+    InsufficientDataWidthU16,
+    InsufficientDataWidthU32,
+    InsufficientDataWidthU64,
+    CStringMissingTerminalNull,
+    CStringInputContainsInternalNull,
+    StringInputContainsInvalidUtf8,
+}
+
+pub fn parse_u8(buffer: &[u8]) -> UnumResult<(u8, usize)> {
     let field_size = size_of::<u8>();
     if buffer.len() < field_size {
-        return Err(error);
+        return Err(DeserializationError::InsufficientDataWidthU8.into());
     } else {
         Ok((buffer[0], field_size))
     }
 }
 
-pub fn parse_u32(buffer: &[u8], error: UnumError) -> UnumResult<(u32, usize)> {
+pub fn parse_u16(buffer: &[u8]) -> UnumResult<(u16, usize)> {
+    let field_size = size_of::<u16>();
+    if buffer.len() < field_size {
+        return Err(DeserializationError::InsufficientDataWidthU16.into());
+    } else {
+        Ok((u8_array_to_u16(&[buffer[0], buffer[1]]), field_size))
+    }
+}
+
+pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, usize)> {
     let field_size = size_of::<u32>();
     if buffer.len() < field_size {
-        return Err(error);
+        return Err(DeserializationError::InsufficientDataWidthU32.into());
     } else {
         Ok((
             u8_array_to_u32(&[buffer[0], buffer[1], buffer[2], buffer[3]]),
@@ -24,10 +44,10 @@ pub fn parse_u32(buffer: &[u8], error: UnumError) -> UnumResult<(u32, usize)> {
     }
 }
 
-pub fn parse_u64(buffer: &[u8], error: UnumError) -> UnumResult<(u64, usize)> {
+pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, usize)> {
     let field_size = size_of::<u64>();
     if buffer.len() < field_size {
-        return Err(error);
+        return Err(DeserializationError::InsufficientDataWidthU64.into());
     } else {
         Ok((
             u8_array_to_u64(&[
@@ -39,10 +59,10 @@ pub fn parse_u64(buffer: &[u8], error: UnumError) -> UnumResult<(u64, usize)> {
     }
 }
 
-pub fn parse_cstring(buffer: &[u8], error: UnumError) -> UnumResult<(String, usize)> {
+pub fn parse_cstring(buffer: &[u8]) -> UnumResult<(String, usize)> {
     match buffer.iter().position(|&r| r == b'\0') {
         None => {
-            return Err(error);
+            return Err(DeserializationError::CStringMissingTerminalNull.into());
         }
         Some(terminal_index) => {
             let new_value = if terminal_index == 0 {
@@ -52,14 +72,14 @@ pub fn parse_cstring(buffer: &[u8], error: UnumError) -> UnumResult<(String, usi
             };
             match new_value {
                 Err(_nulerror) => {
-                    return Err(error);
+                    return Err(DeserializationError::CStringInputContainsInternalNull.into());
                 }
                 Ok(value) => match value.to_str() {
                     Ok(val) => {
                         return Ok((val.to_string(), terminal_index + 1));
                     }
                     Err(_) => {
-                        return Err(error);
+                        return Err(DeserializationError::StringInputContainsInvalidUtf8.into());
                     }
                 },
             }
@@ -69,18 +89,14 @@ pub fn parse_cstring(buffer: &[u8], error: UnumError) -> UnumResult<(String, usi
 
 #[cfg(test)]
 mod cortices_utils_tests {
-    use crate::cortices::mongo::error::MongoParserError;
+
     use crate::cortices::mongo::ops::msg_header::parse_msg_header;
     use crate::cortices::utils::{parse_cstring, parse_u32, parse_u64, parse_u8};
-    use crate::declarations::errors::UnumError;
 
     #[test]
     fn test_parse_u8() {
         let buffer = [0x11];
-        let res = parse_u8(
-            &buffer,
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        );
+        let res = parse_u8(&buffer);
         let (num, index_off_set) = res.unwrap();
         assert_eq!(17, num);
         assert_eq!(index_off_set, 1);
@@ -90,19 +106,12 @@ mod cortices_utils_tests {
     #[should_panic]
     fn test_parse_u8_error() {
         let buffer = [];
-        parse_u8(
-            &buffer,
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        parse_u8(&buffer).unwrap();
     }
 
     #[test]
     fn test_parse_u64() {
-        let res = parse_u64(
-            &[0x0d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        );
+        let res = parse_u64(&[0x0d, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
         let (num, index_off_set) = res.unwrap();
         assert_eq!(269, num);
         assert_eq!(index_off_set, 8);
@@ -111,19 +120,12 @@ mod cortices_utils_tests {
     #[test]
     #[should_panic]
     fn test_parse_u64_error() {
-        parse_u64(
-            &[0x0d],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        parse_u64(&[0x0d]).unwrap();
     }
 
     #[test]
     fn test_parse_u32() {
-        let res = parse_u32(
-            &[0x0d, 0x01, 0x00, 0x00],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        );
+        let res = parse_u32(&[0x0d, 0x01, 0x00, 0x00]);
         let (num, index_off_set) = res.unwrap();
         assert_eq!(269, num);
         assert_eq!(index_off_set, 4);
@@ -132,11 +134,7 @@ mod cortices_utils_tests {
     #[test]
     #[should_panic]
     fn test_parse_u32_error() {
-        parse_u32(
-            &[0x0d],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        parse_u32(&[0x0d]).unwrap();
     }
 
     static OP_QUERY_FIXTURE: [u8; 269] = [
@@ -166,17 +164,9 @@ mod cortices_utils_tests {
         let mut init_index: usize = 0;
         let (_, index_offset) = parse_msg_header(&buffer[init_index..]).unwrap();
         init_index += index_offset;
-        let (_, index_offset) = parse_u32(
-            &buffer[init_index..],
-            UnumError::MongoParser(MongoParserError::NotEnoughBufferSize),
-        )
-        .unwrap();
+        let (_, index_offset) = parse_u32(&buffer[init_index..]).unwrap();
         init_index += index_offset;
-        let (res, _) = parse_cstring(
-            &buffer[init_index..],
-            UnumError::MongoParser(MongoParserError::ParseStringError),
-        )
-        .unwrap();
+        let (res, _) = parse_cstring(&buffer[init_index..]).unwrap();
         assert_eq!(res, "admin.$cmd");
     }
 
@@ -184,10 +174,6 @@ mod cortices_utils_tests {
     #[should_panic]
     fn test_parse_cstring_error() {
         let buffer = [0x70, 0x70, 0x6c, 0x69];
-        parse_cstring(
-            &buffer,
-            UnumError::MongoParser(MongoParserError::ParseStringError),
-        )
-        .unwrap();
+        parse_cstring(&buffer).unwrap();
     }
 }
