@@ -1,31 +1,14 @@
 use crate::cortices::mysql::capability_flags::{serialize_capability_flags, CapabilityFlags};
 use crate::cortices::mysql::character_set::get_character_set_value;
 use crate::cortices::mysql::character_set::CharacterSet;
-use crate::cortices::mysql::error::MySQLSerializeError::SerializeAuthPluginDataError;
-use crate::cortices::mysql::utils::u32_to_u8_array_with_length_3;
+use crate::cortices::mysql::error::MySQLSerializeError;
+use crate::cortices::mysql::server_status_flags::{serialize_status_flags, ServerStatusFlags};
+use crate::cortices::mysql::utils::{u32_to_u8_array_with_length_3, MYSQL_PACKET_HEADER_LENGTH};
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::utils::{set_bit_u16, u16_to_u8_array, u32_to_u8_array};
-
-/// @see https://dev.mysql.com/doc/internals/en/status-flags.html#packet-Protocol::StatusFlags
-pub struct ServerStatusFlags {
-    pub intrans: bool,
-    pub autocommit: bool,
-    pub more_results_exists: bool,
-    pub no_good_index_used: bool,
-    pub no_index_used: bool,
-    pub cursor_exists: bool,
-    pub last_row_sent: bool,
-    pub db_dropped: bool,
-    pub no_backslash_escapes: bool,
-    pub metadata_changed: bool,
-    pub query_was_slow: bool,
-    pub ps_out_params: bool,
-    pub intrans_readonly: bool,
-    pub session_state_changed: bool,
-}
+use crate::utils::{u16_to_u8_array, u32_to_u8_array};
 
 pub struct InitialHandshakePacket {
-    pub packet_length: u32,
+    pub payload_length: u32,
     pub packet_number: u8,
     pub protocol_version: u8,
     pub server_version: String,
@@ -37,30 +20,12 @@ pub struct InitialHandshakePacket {
     pub auth_plugin_name: String,
 }
 
-pub fn serialize_status_flags(flags_struct: &ServerStatusFlags) -> u16 {
-    let mut result: u16 = 0;
-    set_bit_u16(&mut result, 0, flags_struct.intrans);
-    set_bit_u16(&mut result, 1, flags_struct.autocommit);
-    set_bit_u16(&mut result, 2, flags_struct.more_results_exists);
-    set_bit_u16(&mut result, 3, flags_struct.no_good_index_used);
-    set_bit_u16(&mut result, 4, flags_struct.no_index_used);
-    set_bit_u16(&mut result, 5, flags_struct.cursor_exists);
-    set_bit_u16(&mut result, 6, flags_struct.last_row_sent);
-    set_bit_u16(&mut result, 7, flags_struct.db_dropped);
-    set_bit_u16(&mut result, 8, flags_struct.no_backslash_escapes);
-    set_bit_u16(&mut result, 9, flags_struct.metadata_changed);
-    set_bit_u16(&mut result, 10, flags_struct.query_was_slow);
-    set_bit_u16(&mut result, 11, flags_struct.ps_out_params);
-    set_bit_u16(&mut result, 12, flags_struct.intrans_readonly);
-    set_bit_u16(&mut result, 13, flags_struct.session_state_changed);
-
-    return result;
-}
-
 pub fn serialize_auth_plugin_data(auth_plugin_data: String) -> UnumResult<(Vec<u8>, Vec<u8>)> {
     let auth_plugin_data_vec = auth_plugin_data.into_bytes();
     if auth_plugin_data_vec.is_empty() {
-        return Err(UnumError::MySQLSerializer(SerializeAuthPluginDataError));
+        return Err(UnumError::MySQLSerializer(
+            MySQLSerializeError::SerializeAuthPluginDataError,
+        ));
     }
     let mut auth_plugin_data_part1 = Vec::new();
     let mut auth_plugin_data_part2 = Vec::new();
@@ -89,7 +54,7 @@ pub fn serialize_initial_handshake_packet(
 ) -> UnumResult<Vec<u8>> {
     let mut res = Vec::new();
     res.append(
-        &mut u32_to_u8_array_with_length_3(initial_handshake_packet.packet_length)?.to_vec(),
+        &mut u32_to_u8_array_with_length_3(initial_handshake_packet.payload_length)?.to_vec(),
     );
     res.push(initial_handshake_packet.packet_number);
     res.push(initial_handshake_packet.protocol_version);
@@ -132,6 +97,12 @@ pub fn serialize_initial_handshake_packet(
         res.append(&mut auth_plugin_name_vec);
     }
 
+    if res.len() - MYSQL_PACKET_HEADER_LENGTH != initial_handshake_packet.payload_length as usize {
+        return Err(UnumError::MySQLSerializer(
+            MySQLSerializeError::SerializeInitialHandshakePacketError,
+        ));
+    }
+
     Ok(res)
 }
 
@@ -140,31 +111,10 @@ mod initial_handshake_packet_tests {
 
     use crate::cortices::mysql::capability_flags::CapabilityFlags;
     use crate::cortices::mysql::initial_handshake_packet::{
-        serialize_auth_plugin_data, serialize_initial_handshake_packet, serialize_status_flags,
-        CharacterSet, InitialHandshakePacket, ServerStatusFlags,
+        serialize_auth_plugin_data, serialize_initial_handshake_packet, CharacterSet,
+        InitialHandshakePacket, ServerStatusFlags,
     };
     use std::str;
-
-    #[test]
-    fn test_serialize_status_flags() {
-        let status_flags = ServerStatusFlags {
-            intrans: false,
-            autocommit: true,
-            more_results_exists: false,
-            no_good_index_used: false,
-            no_index_used: false,
-            cursor_exists: false,
-            last_row_sent: false,
-            db_dropped: false,
-            no_backslash_escapes: false,
-            metadata_changed: false,
-            query_was_slow: false,
-            ps_out_params: false,
-            intrans_readonly: false,
-            session_state_changed: false,
-        };
-        assert_eq!(serialize_status_flags(&status_flags), 0x0002);
-    }
 
     #[test]
     fn test_serialize_auth_plugin_data() {
@@ -178,7 +128,7 @@ mod initial_handshake_packet_tests {
 
     #[test]
     fn test_serialize_initial_handshake_packet() {
-        let packet_length = 78;
+        let payload_length = 74;
         let packet_number = 0;
         let protocol_version = 10;
         let server_version = "8.0.15".to_string();
@@ -231,7 +181,7 @@ mod initial_handshake_packet_tests {
         let auth_plugin_name = "caching_sha2_password".to_string();
 
         let initial_handshake_packet = InitialHandshakePacket {
-            packet_length,
+            payload_length,
             packet_number,
             protocol_version,
             server_version,
@@ -244,8 +194,9 @@ mod initial_handshake_packet_tests {
         };
 
         let res = serialize_initial_handshake_packet(initial_handshake_packet).unwrap();
+
         //        packet's length;
-        assert_eq!(res[0], 0x4e);
+        assert_eq!(res[0], 0x4a);
         //        protocol version.
         assert_eq!(res[4], 0x0a);
         //        connection id.

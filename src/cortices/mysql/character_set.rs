@@ -41,9 +41,9 @@ pub fn pick_character_set(character_set_value: u8) -> UnumResult<CharacterSet> {
 }
 
 pub fn parse_character_set(buffer: &[u8]) -> UnumResult<(CharacterSet, usize)> {
-    let (character_set_value, index_offset) = parse_u8(&buffer)?;
+    let (character_set_value, offset) = parse_u8(&buffer)?;
     let character_set = pick_character_set(character_set_value)?;
-    Ok((character_set, index_offset))
+    Ok((character_set, offset))
 }
 
 #[cfg(test)]
