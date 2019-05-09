@@ -1,6 +1,6 @@
 use crate::config::UnumDBConfiguration;
 use crate::cortices::unicus::http::parse_http_request;
-use crate::cortices::Cortex;
+use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{explain_error, UnumResult};
 use crate::declarations::instructions::Answer;
 use crate::storage::core::{CoreStore, UnumCore};
@@ -12,7 +12,7 @@ pub fn unicus_cortex_process_incoming_message(
     core: &mut UnumCore,
     _stream: &TcpStream,
     _config: &UnumDBConfiguration,
-) -> UnumResult<Option<Vec<u8>>> {
+) -> UnumResult<CortexResponse> {
     format!("bytes received: {}\n", bytes.len());
     let mut http_response = String::from("HTTP/1.1 200 OK\r\n\r\n");
 
@@ -41,7 +41,7 @@ pub fn unicus_cortex_process_incoming_message(
         },
     };
 
-    return Ok(Some(http_response.into_bytes()));
+    Ok(CortexResponse::Send(http_response.into_bytes()))
 }
 
 pub const UNICUS_CORTEX: Cortex = Cortex {
