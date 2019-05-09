@@ -19,7 +19,7 @@ use crate::cortices::mysql::server_status_flags::{
     save_server_status_flags, serialize_status_flags, ServerStatusFlags,
 };
 use crate::cortices::mysql::utils::{get_packet_number, ConnectionStatePhase};
-use crate::cortices::Cortex;
+use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::utils::{pretty_dump, u16_to_u8_array};
@@ -31,7 +31,7 @@ pub fn mysql_cortex_process_incoming_message(
     core: &mut UnumCore,
     _stream: &TcpStream,
     _config: &UnumDBConfiguration,
-) -> UnumResult<Option<Vec<u8>>> {
+) -> UnumResult<CortexResponse> {
     pretty_dump(bytes);
 
     match get_packet_number(&bytes)? {
@@ -55,7 +55,7 @@ pub fn mysql_cortex_process_incoming_message(
             };
 
             let res = serialize_auth_switch_request(auth_switch_request).unwrap();
-            return Ok(Some(res));
+            return Ok(CortexResponse::Send(res));
         }
         ConnectionStatePhase::AuthSwitchResponse => {
             let auth_switch_response = parse_auth_switch_response(&bytes)?;
@@ -81,13 +81,13 @@ pub fn mysql_cortex_process_incoming_message(
             };
 
             let ok_packet_vec = serialize_ok_packet(ok_packet, core, true)?;
-            let res = return Ok(Some(ok_packet_vec));
+            let res = return Ok(CortexResponse::Send(ok_packet_vec));
         }
         _ => unimplemented!(),
     }
 }
 
-pub fn mysql_cortex_process_first_connection(core: &mut UnumCore) -> UnumResult<Option<Vec<u8>>> {
+pub fn mysql_cortex_process_first_connection(core: &mut UnumCore) -> UnumResult<CortexResponse> {
     let payload_length = 74;
     let packet_number = 0;
     let protocol_version = 10;
@@ -165,7 +165,7 @@ pub fn mysql_cortex_process_first_connection(core: &mut UnumCore) -> UnumResult<
     }
 
     let res = serialize_initial_handshake_packet(initial_handshake_packet).unwrap();
-    return Ok(Some(res));
+    return Ok(CortexResponse::Send(res));
 }
 
 pub const MYSQL_CORTEX: Cortex = Cortex {

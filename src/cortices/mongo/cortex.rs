@@ -15,7 +15,7 @@ use crate::cortices::mongo::transformer::{
     transform_mongo_op_to_command, transform_outcome_to_mongo_msg,
 };
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
-use crate::cortices::Cortex;
+use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::executor::execute::execute;
 use crate::storage::core::UnumCore;
@@ -25,7 +25,7 @@ const ADMIN_QUERY: &str = "admin.$cmd";
 
 enum ExceptionQueryHandlerResult {
     NotExceptional,
-    Exceptional(UnumResult<Option<Vec<u8>>>),
+    Exceptional(UnumResult<CortexResponse>),
 }
 
 // @see https://github.com/immux/immux/issues/37
@@ -79,7 +79,9 @@ fn handle_exceptional_query(
                         Err(_error) => ExceptionQueryHandlerResult::Exceptional(Err(
                             UnumError::SerializationFail,
                         )),
-                        Ok(data) => ExceptionQueryHandlerResult::Exceptional(Ok(Some(data))),
+                        Ok(data) => {
+                            ExceptionQueryHandlerResult::Exceptional(Ok(CortexResponse::Send(data)))
+                        }
                     }
                 } else {
                     return ExceptionQueryHandlerResult::NotExceptional;
@@ -89,17 +91,29 @@ fn handle_exceptional_query(
             }
         }
         MongoOp::Msg(op_msg) => {
-            fn construct_reply_result(
+            fn construct_reply_result_of_response_type(
                 response_doc: Document,
                 incoming_header: &MsgHeader,
+                response_type: &Fn(Vec<u8>) -> CortexResponse,
             ) -> ExceptionQueryHandlerResult {
                 let reply = construct_single_doc_op_msg(response_doc, incoming_header);
                 match serialize_op_with_computed_length(&reply, &serialize_op_msg) {
                     Err(_error) => {
                         ExceptionQueryHandlerResult::Exceptional(Err(UnumError::SerializationFail))
                     }
-                    Ok(data) => ExceptionQueryHandlerResult::Exceptional(Ok(Some(data))),
+                    Ok(data) => ExceptionQueryHandlerResult::Exceptional(Ok(response_type(data))),
                 }
+            }
+
+            fn construct_reply_result(
+                response_doc: Document,
+                incoming_header: &MsgHeader,
+            ) -> ExceptionQueryHandlerResult {
+                construct_reply_result_of_response_type(
+                    response_doc,
+                    incoming_header,
+                    &CortexResponse::Send,
+                )
             }
 
             fn construct_build_info(config: &UnumDBConfiguration) -> Document {
@@ -191,6 +205,14 @@ fn handle_exceptional_query(
                         response_doc.insert("code", 76i32);
                         response_doc.insert("codeName", "NoReplicationEnabled");
                         construct_reply_result(response_doc, &op_msg.message_header)
+                    } else if request_doc.contains_key("endSessions") {
+                        let mut response_doc = Document::new();
+                        response_doc.insert("ok", 1.0);
+                        construct_reply_result_of_response_type(
+                            response_doc,
+                            &op_msg.message_header,
+                            &CortexResponse::SendThenDisconnect,
+                        )
                     } else {
                         return ExceptionQueryHandlerResult::NotExceptional;
                     }
@@ -207,7 +229,7 @@ pub fn mongo_cortex_process_incoming_message(
     core: &mut UnumCore,
     stream: &TcpStream,
     config: &UnumDBConfiguration,
-) -> UnumResult<Option<Vec<u8>>> {
+) -> UnumResult<CortexResponse> {
     let op = parse_mongo_incoming_bytes(bytes)?;
     println!("Incoming op: {:#?}", op);
     match handle_exceptional_query(&op, core, &stream, config) {
@@ -220,7 +242,7 @@ pub fn mongo_cortex_process_incoming_message(
             match serialize_op_with_computed_length(&op_msg, &serialize_op_msg) {
                 Err(error) => return Err(error),
                 Ok(reply_bytes) => {
-                    return Ok(Some(reply_bytes));
+                    return Ok(CortexResponse::Send(reply_bytes));
                 }
             }
         }
