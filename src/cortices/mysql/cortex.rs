@@ -8,9 +8,7 @@ use crate::cortices::mysql::auth_switch_response::parse_auth_switch_response;
 use crate::cortices::mysql::capability_flags::CapabilityFlags;
 use crate::cortices::mysql::character_set::CharacterSet;
 use crate::cortices::mysql::error::MySQLParserError;
-use crate::cortices::mysql::handshake_response_41::{
-    parse_handshake_response, save_handshake_response,
-};
+use crate::cortices::mysql::handshake_response_41::save_handshake_response;
 use crate::cortices::mysql::initial_handshake_packet::{
     serialize_initial_handshake_packet, InitialHandshakePacket,
 };
@@ -21,7 +19,7 @@ use crate::cortices::mysql::server_status_flags::{
 use crate::cortices::mysql::utils::{get_packet_number, ConnectionStatePhase};
 use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::UnumCore;
 use crate::utils::{pretty_dump, u16_to_u8_array};
 
 const MYSQL_CLIENT_CONFIG_KEY: &str = "_MYSQL_CLIENT_CONFIG";

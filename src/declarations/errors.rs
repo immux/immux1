@@ -5,6 +5,7 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::utils::DeserializationError;
 use crate::executor::execute::ExecutorError;
+use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::VkvError;
 
 #[derive(Debug)]
@@ -34,6 +35,8 @@ pub enum UnumError {
 
     MySQLParser(MySQLParserError),
     MySQLSerializer(MySQLSerializeError),
+
+    Transaction(TransactionError),
 }
 
 impl std::convert::From<MongoParserError> for UnumError {
@@ -93,6 +96,12 @@ impl std::convert::From<DeserializationError> for UnumError {
 impl std::convert::From<ExecutorError> for UnumError {
     fn from(error: ExecutorError) -> UnumError {
         UnumError::Executor(error)
+    }
+}
+
+impl std::convert::From<TransactionError> for UnumError {
+    fn from(error: TransactionError) -> UnumError {
+        UnumError::Transaction(error)
     }
 }
 

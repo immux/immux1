@@ -1,7 +1,6 @@
-use crate::cortices::mysql::error::MySQLParserError;
 use crate::cortices::mysql::utils::parse_u32_with_length_3;
 use crate::cortices::utils::{parse_cstring, parse_u8};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::UnumResult;
 
 pub struct AuthSwitchResponse {
     pub payload_length: u32,

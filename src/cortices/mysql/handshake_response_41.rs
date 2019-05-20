@@ -1,22 +1,15 @@
-use crate::cortices::mysql::capability_flags::{
-    parse_capability_flags, serialize_capability_flags, CapabilityFlags,
-};
-use crate::cortices::mysql::character_set::{
-    get_character_set_value, parse_character_set, CharacterSet,
-};
+use crate::cortices::mysql::capability_flags::{parse_capability_flags, CapabilityFlags};
+use crate::cortices::mysql::character_set::{parse_character_set, CharacterSet};
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
-use crate::cortices::mysql::utils::u32_to_u8_array_with_length_3;
 use crate::cortices::mysql::utils::{
     parse_length_encoded_integer, parse_string_with_fixed_length, parse_u32_with_length_3,
 };
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
-use crate::declarations::errors::UnumError::MySQLParser;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, GetInstruction, GetTargetSpec, Instruction, SetInstruction, SetTargetSpec,
+    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, Instruction, SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, UnumCore};
-use crate::utils::u32_to_u8_array;
 use std::collections::HashMap;
 
 pub struct HandshakeResponse {
@@ -35,14 +28,14 @@ pub struct HandshakeResponse {
 const MYSQL_HANDSHAKE_RESPONSE_KEY: &str = "_MYSQL_HANDSHAKE_RESPONSE";
 
 pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult<()> {
-    let instruction = SetInstruction {
+    let instruction = AtomicSetInstruction {
         targets: vec![SetTargetSpec {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
             value: buffer.to_vec(),
         }],
     };
 
-    match core.execute(&Instruction::Set(instruction)) {
+    match core.execute(&Instruction::AtomicSet(instruction)) {
         Err(_error) => Err(UnumError::MySQLParser(
             MySQLParserError::CannotSetClientStatus,
         )),
@@ -51,13 +44,13 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult
 }
 
 pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeResponse> {
-    let instruction = GetInstruction {
+    let instruction = AtomicGetInstruction {
         targets: vec![GetTargetSpec {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
             height: None,
         }],
     };
-    match core.execute(&Instruction::Get(instruction)) {
+    match core.execute(&Instruction::AtomicGet(instruction)) {
         Err(_error) => {
             return Err(UnumError::MySQLSerializer(
                 MySQLSerializeError::CannotReadClientStatus,

@@ -2,8 +2,10 @@ use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::instructions::Instruction::InTransactionSet;
 use crate::declarations::instructions::{
-    Answer, GetInstruction, GetTargetSpec, Instruction, SetInstruction, SetTargetSpec,
+    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, InTransactionSetInstruction,
+    Instruction, SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::storage::kv::KeyValueEngine;
@@ -105,13 +107,13 @@ pub fn save_config(config: &UnumDBConfiguration, core: &mut UnumCore) -> UnumRes
     match serialize(&config) {
         Err(_error) => return Err(UnumError::Config(ConfigError::CannotSerialize)),
         Ok(data) => {
-            let instruction = SetInstruction {
+            let instruction = AtomicSetInstruction {
                 targets: vec![SetTargetSpec {
                     key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
                     value: data,
                 }],
             };
-            match core.execute(&Instruction::Set(instruction)) {
+            match core.execute(&Instruction::AtomicSet(instruction)) {
                 Err(_error) => Err(UnumError::Config(ConfigError::CannotSet)),
                 Ok(_) => Ok(()),
             }
@@ -120,13 +122,13 @@ pub fn save_config(config: &UnumDBConfiguration, core: &mut UnumCore) -> UnumRes
 }
 
 pub fn load_config(core: &mut UnumCore) -> UnumResult<UnumDBConfiguration> {
-    let instruction = GetInstruction {
+    let instruction = AtomicGetInstruction {
         targets: vec![GetTargetSpec {
             key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
             height: None,
         }],
     };
-    match core.execute(&Instruction::Get(instruction)) {
+    match core.execute(&Instruction::AtomicGet(instruction)) {
         Err(_error) => return Err(UnumError::Config(ConfigError::CannotRead)),
         Ok(answer) => match answer {
             Answer::GetOk(get_answer) => {

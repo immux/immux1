@@ -1,6 +1,6 @@
 use crate::declarations::commands::{InsertCommand, InsertOutcome, Outcome};
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::declarations::instructions::{Answer, Instruction, SetInstruction, SetTargetSpec};
+use crate::declarations::instructions::{Answer, AtomicSetInstruction, Instruction, SetTargetSpec};
 use crate::executor::execute::ExecutorError;
 use crate::executor::shared::{get_id_list, get_kv_key, set_id_list};
 use crate::storage::core::{CoreStore, UnumCore};
@@ -17,7 +17,7 @@ pub fn execute_insert(insert: InsertCommand, core: &mut UnumCore) -> UnumResult<
     );
     set_id_list(grouping, core, &key_list)?;
 
-    let store_data = SetInstruction {
+    let store_data = AtomicSetInstruction {
         targets: insert
             .targets
             .iter()
@@ -27,18 +27,18 @@ pub fn execute_insert(insert: InsertCommand, core: &mut UnumCore) -> UnumResult<
             })
             .collect(),
     };
-    match core.execute(&Instruction::Set(store_data)) {
+    match core.execute(&Instruction::AtomicSet(store_data)) {
         Err(error) => return Err(error),
         Ok(answer) => match answer {
             Answer::SetOk(answer) => {
                 return Ok(Outcome::Insert(InsertOutcome {
                     count: answer.items.len(),
-                }))
+                }));
             }
             _ => {
                 return Err(UnumError::Executor(ExecutorError::UnexpectedAnswerType(
                     answer,
-                )))
+                )));
             }
         },
     }
