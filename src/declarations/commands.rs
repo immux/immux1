@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertCommandSpec {
     pub id: Vec<u8>,
-    pub grouping: Vec<u8>,
     pub value: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertCommand {
+    pub grouping: Vec<u8>,
     pub targets: Vec<InsertCommandSpec>,
 }
 

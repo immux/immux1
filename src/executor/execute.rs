@@ -70,13 +70,13 @@ mod executor_test {
             .map(|datum| InsertCommandSpec {
                 id: vec![1, 2, 3, *datum],
                 value: vec![1, 2, 3, *datum],
-                grouping: grouping.to_vec(),
             })
             .collect();
 
         assert!(specs.len() > 0);
 
         let insert_command = Command::Insert(InsertCommand {
+            grouping: grouping.to_vec(),
             targets: specs.clone(),
         });
         match UnumCore::new(&KeyValueEngine::HashMap, default_chain) {
