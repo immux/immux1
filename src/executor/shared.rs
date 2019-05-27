@@ -7,9 +7,7 @@ use crate::declarations::instructions::{
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, UnumCore};
 
-// TODO(#78): Implement a key algorithm that doesn't create duplications.
-
-pub const SEPARATOR: u8 = '/' as u8;
+pub const SEPARATORS: &[u8] = &['/' as u8, '/' as u8];
 pub const ID_LIST_KEY: &[u8] = &[
     'i' as u8, 'd' as u8, '_' as u8, 'l' as u8, 'i' as u8, 's' as u8, 't' as u8,
 ];
@@ -19,7 +17,7 @@ pub type KeyList = Vec<Vec<u8>>;
 pub fn get_kv_key(collection: &[u8], key: &[u8]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
     result.extend_from_slice(collection);
-    result.push(SEPARATOR);
+    result.extend_from_slice(SEPARATORS);
     result.extend_from_slice(key);
     result
 }
