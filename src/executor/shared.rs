@@ -78,14 +78,14 @@ mod executor_shared_functions_test {
         let collection = "collection";
         let id = "id";
         let kv_key = get_kv_key(collection.as_bytes(), id.as_bytes());
-        assert_eq!(kv_key, "collection/id".as_bytes());
+        assert_eq!(kv_key, "collection//id".as_bytes());
     }
 
     #[test]
     fn test_get_id_list_key() {
         let collection = "collection";
         let kv_key = get_id_list_key(collection.as_bytes());
-        assert_eq!(kv_key, "collection/id_list".as_bytes());
+        assert_eq!(kv_key, "collection//id_list".as_bytes());
     }
 
     #[test]
