@@ -111,3 +111,149 @@ pub fn u16_to_u8_array(x: u16) -> [u8; 2] {
 
     [b0, b1]
 }
+
+#[cfg(test)]
+mod utils_test {
+    use crate::utils::{
+        get_bit_u16, get_bit_u32, set_bit_u16, set_bit_u32, u16_to_u8_array, u32_to_u8_array,
+        u64_to_u8_array, u8_array_to_u16, u8_array_to_u32, u8_array_to_u64, utf8_to_string,
+    };
+
+    #[test]
+    fn test_utf8_to_string() {
+        assert_eq!(utf8_to_string(&[255]), "");
+        assert_eq!(utf8_to_string(&[104, 101, 108, 108, 111]), "hello");
+    }
+
+    // test u64 conversions
+
+    #[test]
+    fn test_u64_to_u8_array() {
+        assert_eq!(u64_to_u8_array(0), [0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            u64_to_u8_array(std::u32::MAX.into()),
+            [255, 255, 255, 255, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            u64_to_u8_array(std::u64::MAX),
+            [255, 255, 255, 255, 255, 255, 255, 255]
+        );
+    }
+
+    #[test]
+    fn test_u8_array_to_u64() {
+        assert_eq!(0, u8_array_to_u64(&[0, 0, 0, 0, 0, 0, 0, 0]));
+        assert_eq!(
+            std::u32::MAX as u64,
+            u8_array_to_u64(&[255, 255, 255, 255, 0, 0, 0, 0])
+        );
+        assert_eq!(
+            std::u64::MAX,
+            u8_array_to_u64(&[255, 255, 255, 255, 255, 255, 255, 255])
+        );
+    }
+
+    #[test]
+    fn spot_check_u64_array_reversibility() {
+        let large_prime = 67280421310721;
+        for i in (0..std::u64::MAX).step_by(large_prime) {
+            assert_eq!(u8_array_to_u64(&u64_to_u8_array(i)), i)
+        }
+    }
+
+    // test u32 conversions
+
+    #[test]
+    fn test_u32_to_u8_array() {
+        assert_eq!(u32_to_u8_array(0), [0, 0, 0, 0]);
+        assert_eq!(u32_to_u8_array(std::u16::MAX.into()), [255, 255, 0, 0]);
+        assert_eq!(u32_to_u8_array(std::u32::MAX), [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn test_u8_array_to_u32() {
+        assert_eq!(0, u8_array_to_u32(&[0, 0, 0, 0]));
+        assert_eq!(std::u16::MAX as u32, u8_array_to_u32(&[255, 255, 0, 0]));
+        assert_eq!(std::u32::MAX, u8_array_to_u32(&[255, 255, 255, 255]));
+    }
+
+    #[test]
+    fn spot_check_u32_array_reversibility() {
+        let large_prime = 6700417;
+        for i in (0..std::u32::MAX).step_by(large_prime) {
+            assert_eq!(u8_array_to_u32(&u32_to_u8_array(i)), i)
+        }
+    }
+
+    // test u16 conversions
+    #[test]
+    fn test_u16_to_u8_array() {
+        assert_eq!(u32_to_u8_array(0), [0, 0, 0, 0]);
+        assert_eq!(u32_to_u8_array(std::u16::MAX.into()), [255, 255, 0, 0]);
+        assert_eq!(u32_to_u8_array(std::u32::MAX), [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn test_u8_array_to_u16() {
+        assert_eq!(0, u8_array_to_u16(&[0, 0]));
+        assert_eq!(std::u8::MAX as u16, u8_array_to_u16(&[255, 0]));
+        assert_eq!(std::u16::MAX, u8_array_to_u16(&[255, 255]));
+    }
+
+    #[test]
+    fn spot_check_u16_array_reversibility() {
+        let prime = 8191;
+        for i in (0..std::u16::MAX).step_by(prime) {
+            assert_eq!(u8_array_to_u16(&u16_to_u8_array(i)), i)
+        }
+    }
+
+    #[test]
+    fn test_get_bit_u32() {
+        for digit in 0..32 {
+            assert_eq!(get_bit_u32(0, digit), false);
+            assert_eq!(get_bit_u32(std::u32::MAX, digit), true);
+        }
+        assert_eq!(get_bit_u32(std::u32::MAX, 100), false);
+    }
+
+    #[test]
+    fn test_get_bit_u16() {
+        for digit in 0..16 {
+            assert_eq!(get_bit_u16(0, digit), false);
+            assert_eq!(get_bit_u16(std::u16::MAX, digit), true);
+        }
+        assert_eq!(get_bit_u16(std::u16::MAX, 100), false);
+    }
+
+    #[test]
+    fn test_set_bit_u32() {
+        let mut data = 0u32;
+
+        for i in 0..32 {
+            set_bit_u32(&mut data, i, true);
+        }
+        assert_eq!(data, std::u32::MAX);
+
+        for i in 0..32 {
+            set_bit_u32(&mut data, i, false);
+        }
+        assert_eq!(data, 0);
+    }
+
+    #[test]
+    fn test_set_bit_u16() {
+        let mut data = 0u16;
+
+        for i in 0..16 {
+            set_bit_u16(&mut data, i, true);
+        }
+        assert_eq!(data, std::u16::MAX);
+
+        for i in 0..16 {
+            set_bit_u16(&mut data, i, false);
+        }
+        assert_eq!(data, 0);
+    }
+
+}
