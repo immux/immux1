@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use bson::Document;
 
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
