@@ -5,18 +5,20 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::unicus::http::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
-use crate::executor::execute::ExecutorError;
+use crate::executor::errors::ExecutorError;
+use crate::storage::kv::hashmap::HashmapStorageEngineError;
+use crate::storage::kv::redis::RedisEngineError;
+use crate::storage::kv::rocks::RocksEngineError;
 use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::VkvError;
 
 #[derive(Debug)]
 pub enum UnumError {
-    InitializationFail,
-    ReadError,
-    WriteError,
+    RedisEngine(RedisEngineError),
+    RocksEngine(RocksEngineError),
+    HashmapEngine(HashmapStorageEngineError),
 
     SerializationFail,
-    DeserializationFail,
 
     HttpParser(HttpParsingError),
 
@@ -106,21 +108,27 @@ impl std::convert::From<TransactionError> for UnumError {
     }
 }
 
-impl std::convert::From<HttpParsingError> for UnumError {
-    fn from(error: HttpParsingError) -> UnumError {
-        UnumError::HttpParser(error)
+impl std::convert::From<RedisEngineError> for UnumError {
+    fn from(error: RedisEngineError) -> UnumError {
+        UnumError::RedisEngine(error)
     }
 }
 
-pub fn explain_error(error: UnumError) -> &'static str {
-    match error {
-        UnumError::InitializationFail => "initialization failed",
-        UnumError::ReadError => "read error",
-        UnumError::WriteError => "write error",
-        UnumError::DeserializationFail => "deserialization failed",
-        UnumError::SerializationFail => "serialization failed",
-        UnumError::UrlParseError => "url parse error",
-        _ => "Error with unspecified explanation",
+impl std::convert::From<RocksEngineError> for UnumError {
+    fn from(error: RocksEngineError) -> UnumError {
+        UnumError::RocksEngine(error)
+    }
+}
+
+impl std::convert::From<HashmapStorageEngineError> for UnumError {
+    fn from(error: HashmapStorageEngineError) -> UnumError {
+        UnumError::HashmapEngine(error)
+    }
+}
+
+impl std::convert::From<HttpParsingError> for UnumError {
+    fn from(error: HttpParsingError) -> UnumError {
+        UnumError::HttpParser(error)
     }
 }
 

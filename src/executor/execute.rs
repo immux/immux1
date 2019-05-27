@@ -6,12 +6,6 @@ use crate::executor::pick_chain_executor::execute_pick_chain;
 use crate::executor::select_executor::execute_select;
 use crate::storage::core::UnumCore;
 
-#[derive(Debug)]
-pub enum ExecutorError {
-    UnexpectedAnswerType(Answer),
-    UnimplementedSelectCondition(SelectCondition),
-}
-
 pub fn execute(command: Command, core: &mut UnumCore) -> UnumResult<Outcome> {
     match command {
         Command::PickChain(pick_chain) => execute_pick_chain(pick_chain, core),

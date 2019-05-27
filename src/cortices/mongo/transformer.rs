@@ -21,9 +21,9 @@ pub enum MongoTransformerError {
     UnimplementedWhereCondition(Bson),
     UnexpectedFilterDocument(Document),
     UnimplementedCommand,
-    UnexpectedLastSection(last_section),
+    UnexpectedLastSection,
     NoSections,
-    UnimplementedOp(MongoOp),
+    UnimplementedOp,
 }
 
 fn encode_document(doc: &Document) -> UnumResult<Vec<u8>> {
@@ -105,38 +105,42 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> UnumResult<Command> {
                                             };
                                             Ok(Command::Select(command))
                                         }
-                                        _ => MongoTransformerError::UnimplementedWhereCondition(
-                                            where_condition.to_owned(),
-                                        ),
+                                        _ => {
+                                            Err(MongoTransformerError::UnimplementedWhereCondition(
+                                                where_condition.to_owned(),
+                                            )
+                                            .into())
+                                        }
                                     }
                                 } else {
-                                    MongoTransformerError::UnexpectedFilterDocument(
+                                    Err(MongoTransformerError::UnexpectedFilterDocument(
                                         filter.to_owned(),
                                     )
+                                    .into())
                                 }
                             } else {
-                                MongoTransformerError::UnexpectedInputShape
+                                Err(MongoTransformerError::UnexpectedInputShape.into())
                             }
                         } else {
-                            MongoTransformerError::UnimplementedCommand
+                            Err(MongoTransformerError::UnimplementedCommand.into())
                         }
                     }
-                    _ => MongoTransformerError::UnexpectedLastSection(last_section),
+                    _ => Err(MongoTransformerError::UnexpectedLastSection.into()),
                 }
             } else {
-                MongoTransformerError::NoSections
+                Err(MongoTransformerError::NoSections.into())
             }
         }
-        _ => MongoTransformerError::UnimplementedOp(op.into()),
+        _ => Err(MongoTransformerError::UnimplementedOp.into()),
     }
 }
 
-fn get_header_from_op(op: &MongoOp) -> MsgHeader {
+fn get_header_from_op(op: &MongoOp) -> Result<MsgHeader, MongoTransformerError> {
     match op {
-        MongoOp::Msg(msg) => msg.message_header.clone(),
-        MongoOp::Reply(reply) => reply.message_header.clone(),
-        MongoOp::Query(query) => query.message_header.clone(),
-        _ => MongoTransformerError::UnimplementedOp(op.into()),
+        MongoOp::Msg(msg) => Ok(msg.message_header.clone()),
+        MongoOp::Reply(reply) => Ok(reply.message_header.clone()),
+        MongoOp::Query(query) => Ok(query.message_header.clone()),
+        _ => Err(MongoTransformerError::UnimplementedOp),
     }
 }
 
@@ -145,7 +149,7 @@ pub fn transform_outcome_to_mongo_msg(
     config: &UnumDBConfiguration,
     incoming_op: &MongoOp,
 ) -> UnumResult<OpMsg> {
-    let header = get_header_from_op(&incoming_op);
+    let header = get_header_from_op(&incoming_op)?;
     match outcome {
         Outcome::PickChain(_ok) => {
             let result = make_bson_from_config(config);

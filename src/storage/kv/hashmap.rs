@@ -3,6 +3,11 @@ use std::collections::HashMap;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::kv::KeyValueStore;
 
+#[derive(Debug)]
+pub enum HashmapStorageEngineError {
+    NotFound,
+}
+
 pub struct HashmapNode {
     pub name: Vec<u8>,
     pub hashmap: HashMap<Vec<u8>, Vec<u8>>,
@@ -31,7 +36,7 @@ impl KeyValueStore for HashMapStore {
     fn get(&self, key: &[u8]) -> UnumResult<Vec<u8>> {
         let node = &self.hashmaps[self.current_node];
         match node.hashmap.get(key) {
-            None => Err(UnumError::ReadError),
+            None => Err(HashmapStorageEngineError::NotFound.into()),
             Some(value) => Ok(value.to_vec()),
         }
     }

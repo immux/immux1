@@ -10,6 +10,7 @@ use crate::declarations::instructions::{
     SetTargetSpec, SwitchNamespaceInstruction,
 };
 
+#[derive(Debug)]
 pub enum HttpParsingError {
     UrlParsingError,
     BodyParsingError,
@@ -53,9 +54,9 @@ pub struct UrlInformation {
 impl UrlInformation {
     fn extract_numeric_query(&self, key: &str) -> Result<u64, UnumError> {
         match self.queries.get(key) {
-            None => Err(UnumError::UrlParseError),
+            None => Err(HttpParsingError::UrlParsingError.into()),
             Some(string) => match string.parse::<u64>() {
-                Err(_error) => Err(UnumError::UrlParseError),
+                Err(_error) => Err(HttpParsingError::UrlParsingError.into()),
                 Ok(value) => Ok(value),
             },
         }
@@ -68,10 +69,10 @@ impl UrlInformation {
     }
 }
 
-pub fn parse_path(path: &str) -> Result<UrlInformation, UnumError> {
+pub fn parse_path(path: &str) -> Result<UrlInformation, HttpParsingError> {
     let path_to_parse = format!("{}{}", "http://127.0.0.1", path);
     match Url::parse(&path_to_parse) {
-        Err(_error) => Err(UnumError::UrlParseError),
+        Err(_error) => Err(HttpParsingError::UrlParsingError.into()),
         Ok(parse) => {
             let url_queries: HashMap<_, _> = parse.query_pairs().into_owned().collect();
             Ok(UrlInformation {
@@ -82,7 +83,7 @@ pub fn parse_path(path: &str) -> Result<UrlInformation, UnumError> {
     }
 }
 
-pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
+pub fn parse_http_request(message: &str) -> Result<Instruction, HttpParsingError> {
     let (method, full_path) = parse_request_line(message);
     let url_info = parse_path(&full_path)?;
 
@@ -145,6 +146,6 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
             });
             Ok(instruction)
         }
-        _ => HttpParsingError::BodyParsingError,
+        _ => Err(HttpParsingError::BodyParsingError.into()),
     }
 }

@@ -1,7 +1,7 @@
 use crate::config::UnumDBConfiguration;
 use crate::cortices::unicus::http::parse_http_request;
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{explain_error, UnumResult};
+use crate::declarations::errors::UnumResult;
 use crate::declarations::instructions::Answer;
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::utils;
@@ -25,7 +25,6 @@ pub fn unicus_cortex_process_incoming_message(
         Ok(instruction) => match core.execute(&instruction) {
             Err(error) => {
                 http_response += "instruction execution error";
-                http_response += explain_error(error)
             }
             Ok(answer) => match answer {
                 Answer::GetOk(answer) => {

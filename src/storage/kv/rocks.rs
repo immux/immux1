@@ -1,10 +1,18 @@
 use std::ffi::OsString;
 
-use rocksdb::DB;
+use rocksdb::{Error as RocksError, DB};
 
 use crate::config::DEFAULT_PERMANENCE_PATH;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::storage::kv::KeyValueStore;
+
+#[derive(Debug)]
+pub enum RocksEngineError {
+    InitializationError(RocksError),
+    NotFound,
+    GetError(RocksError),
+    PutError(RocksError),
+}
 
 pub struct RocksStore {
     namespace: Vec<u8>,
@@ -22,7 +30,7 @@ fn get_data_dir(namespace: &[u8]) -> OsString {
 
 fn get_new_db(namespace: &[u8]) -> UnumResult<DB> {
     match DB::open_default(get_data_dir(namespace)) {
-        Err(_err) => Err(UnumError::InitializationFail),
+        Err(error) => Err(RocksEngineError::InitializationError(error).into()),
         Ok(db) => Ok(db),
     }
 }
@@ -42,14 +50,14 @@ impl KeyValueStore for RocksStore {
     fn get(&self, key: &[u8]) -> UnumResult<Vec<u8>> {
         match self.db.get(key) {
             Ok(Some(value)) => Ok(value.to_vec()),
-            Ok(None) => Err(UnumError::ReadError),
-            Err(_error) => Err(UnumError::ReadError),
+            Ok(None) => Err(RocksEngineError::NotFound.into()),
+            Err(error) => Err(RocksEngineError::GetError(error).into()),
         }
     }
     fn set(&mut self, key: &[u8], value: &[u8]) -> UnumResult<Vec<u8>> {
         match self.db.put(key, value) {
-            Err(_error) => Err(UnumError::WriteError),
-            Ok(_) => Ok(vec![]),
+            Err(error) => Err(RocksEngineError::PutError(error).into()),
+            Ok(_null) => Ok(vec![]),
         }
     }
     fn switch_namespace(&mut self, namespace: &[u8]) -> UnumResult<()> {
