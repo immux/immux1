@@ -4,7 +4,7 @@
 
 use std::cmp::Ordering;
 
-use bincode::{deserialize, serialize};
+use bincode::{deserialize, serialize, Error as BincodeError};
 use serde::{Deserialize, Serialize};
 
 use crate::config::UNUM_VERSION;
@@ -28,7 +28,14 @@ pub type InstructionHeight = u64;
 pub enum VkvError {
     CannotGetEntry,
     CannotSerializeEntry,
+    CannotSerializeInstructionMeta(BincodeError),
     UnexpectedInstruction,
+    DeserializationFail,
+    GetInstructionRecordFail,
+    GetInstructionMetaFail,
+    GetHeightFail,
+    SuitableRevertVersionNotFound,
+    SaveInstructionRecordFail,
 }
 
 #[repr(u8)]
@@ -126,7 +133,7 @@ impl UnumVersionedKeyValueStore {
         instruction_record: &InstructionRecord,
     ) -> UnumResult<Vec<u8>> {
         match serialize(instruction_record) {
-            Err(_error) => Err(UnumError::SerializationFail),
+            Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
             Ok(serialized_instruction_record) => self.set_with_key_prefix(
                 KeyPrefix::HeightToInstruction,
                 &u64_to_u8_array(height),
@@ -140,10 +147,10 @@ impl UnumVersionedKeyValueStore {
         height: InstructionHeight,
     ) -> UnumResult<InstructionRecord> {
         match self.get_with_key_prefix(KeyPrefix::HeightToInstruction, &u64_to_u8_array(height)) {
-            Err(_error) => Err(UnumError::ReadError),
+            Err(_error) => Err(VkvError::GetInstructionRecordFail.into()),
             Ok(instruction_record_bytes) => {
                 match deserialize::<InstructionRecord>(&instruction_record_bytes) {
-                    Err(_error) => Err(UnumError::DeserializationFail),
+                    Err(_error) => Err(VkvError::DeserializationFail.into()),
                     Ok(instruction_record) => Ok(instruction_record),
                 }
             }
@@ -170,7 +177,7 @@ impl UnumVersionedKeyValueStore {
         instruction_meta: &InstructionMeta,
     ) -> UnumResult<Vec<u8>> {
         match serialize(instruction_meta) {
-            Err(_error) => Err(UnumError::SerializationFail),
+            Err(_error) => Err(VkvError::CannotSerializeInstructionMeta(_error).into()),
             Ok(serialized_instruction) => self.set_with_key_prefix(
                 KeyPrefix::HeightToInstructionMeta,
                 &u64_to_u8_array(height),
@@ -185,9 +192,9 @@ impl UnumVersionedKeyValueStore {
     ) -> UnumResult<InstructionMeta> {
         match self.get_with_key_prefix(KeyPrefix::HeightToInstructionMeta, &u64_to_u8_array(height))
         {
-            Err(_error) => Err(UnumError::ReadError),
+            Err(_error) => Err(VkvError::GetInstructionMetaFail.into()),
             Ok(meta_bytes) => match deserialize::<InstructionMeta>(&meta_bytes) {
-                Err(_error) => Err(UnumError::DeserializationFail),
+                Err(_error) => Err(VkvError::DeserializationFail.into()),
                 Ok(meta) => Ok(meta),
             },
         }
@@ -252,7 +259,7 @@ impl UnumVersionedKeyValueStore {
                     updates: vec![first_entry],
                 };
                 match serialize(&new_meta) {
-                    Err(_error) => Err(UnumError::SerializationFail),
+                    Err(error) => Err(VkvError::CannotSerializeInstructionMeta(error).into()),
                     Ok(serialized_meta) => {
                         println!(
                             "Saving new update on key {:?}",
@@ -281,7 +288,7 @@ impl UnumVersionedKeyValueStore {
     fn save_entry_by_key(&mut self, primary_key: &[u8], new_entry: &Entry) -> UnumResult<Vec<u8>> {
         let serialized = serialize(new_entry);
         match serialized {
-            Err(_error) => Err(UnumError::SerializationFail),
+            Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
             Ok(serialized_meta) => {
                 println!(
                     "Updating existing index on key {:?}",
@@ -329,7 +336,7 @@ impl UnumVersionedKeyValueStore {
                         return Ok(record.value.clone());
                     }
                 }
-                return Err(UnumError::ReadError);
+                return Err(VkvError::GetHeightFail.into());
             }
         }
     }
@@ -341,9 +348,9 @@ impl UnumVersionedKeyValueStore {
         next_height: InstructionHeight,
     ) -> UnumResult<Vec<u8>> {
         match self.get_with_key_prefix(KeyPrefix::KeyToEntry, primary_key) {
-            Err(_error) => Err(UnumError::WriteError),
+            Err(_error) => Err(VkvError::CannotGetEntry.into()),
             Ok(meta_bytes) => match deserialize::<Entry>(&meta_bytes) {
-                Err(_error) => Err(UnumError::WriteError),
+                Err(_error) => Err(VkvError::DeserializationFail.into()),
                 Ok(meta) => {
                     let mut target_update_index = 0;
                     let mut found = false;
@@ -364,7 +371,7 @@ impl UnumVersionedKeyValueStore {
                         new_meta.updates.push(new_record);
                         return self.save_entry_by_key(primary_key, &new_meta);
                     } else {
-                        Err(UnumError::WriteError)
+                        Err(VkvError::SuitableRevertVersionNotFound.into())
                     }
                 }
             },
@@ -490,11 +497,11 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 };
                 if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
                 {
-                    return Err(UnumError::WriteError);
+                    return Err(VkvError::SaveInstructionRecordFail.into());
                 }
                 for target in set.targets.iter() {
                     match self.execute_set(&target.key, &target.value, height) {
-                        Err(_error) => return Err(UnumError::WriteError),
+                        Err(error) => return Err(error),
                         Ok(result) => results.push(result),
                     }
                 }
@@ -509,11 +516,11 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 };
                 if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
                 {
-                    return Err(UnumError::WriteError);
+                    return Err(VkvError::SaveInstructionRecordFail.into());
                 }
                 for target in revert.targets.iter() {
                     match self.revert_one(&target.key, target.height, height) {
-                        Err(_error) => return Err(UnumError::WriteError),
+                        Err(error) => return Err(error),
                         Ok(result) => results.push(result),
                     }
                 }

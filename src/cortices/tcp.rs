@@ -28,14 +28,12 @@ fn send_data_to_stream_with_flushing(
     data_to_client: Vec<u8>,
 ) -> UnumResult<()> {
     match stream.write(&data_to_client) {
-        Err(error) => {
-            return Err(UnumError::Tcp(TcpError::TcpWriteError(error)));
-        }
+        Err(error) => return Err((TcpError::TcpWriteError(error).into())),
         Ok(_bytes_written) => {
             let flushing = stream.flush();
             match flushing {
                 Err(error) => {
-                    return Err(UnumError::Tcp(TcpError::TcpFlushError(error)));
+                    return Err(TcpError::TcpFlushError(error).into());
                 }
                 Ok(_) => return Ok(()),
             }

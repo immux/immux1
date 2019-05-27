@@ -1,7 +1,7 @@
 use crate::declarations::commands::{Outcome, PickChainCommand, PickChainOutcome};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{Answer, Instruction, SwitchNamespaceInstruction};
-use crate::executor::execute::ExecutorError;
+use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, UnumCore};
 
 pub fn execute_pick_chain(

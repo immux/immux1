@@ -15,10 +15,12 @@ use crate::cortices::mongo::transformer::{
     transform_mongo_op_to_command, transform_outcome_to_mongo_msg,
 };
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
+use crate::cortices::tcp::TcpError;
 use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::executor::execute::execute;
 use crate::storage::core::UnumCore;
+use crate::storage::vkv::VkvError;
 use crate::utils::u32_to_u8_array;
 
 const ADMIN_QUERY: &str = "admin.$cmd";
@@ -76,9 +78,7 @@ fn handle_exceptional_query(
                         documents: vec![document],
                     };
                     match serialize_op_with_computed_length(&op_reply, &serialize_op_reply) {
-                        Err(_error) => ExceptionQueryHandlerResult::Exceptional(Err(
-                            UnumError::SerializationFail,
-                        )),
+                        Err(error) => ExceptionQueryHandlerResult::Exceptional(Err(error)),
                         Ok(data) => {
                             ExceptionQueryHandlerResult::Exceptional(Ok(CortexResponse::Send(data)))
                         }
@@ -98,9 +98,7 @@ fn handle_exceptional_query(
             ) -> ExceptionQueryHandlerResult {
                 let reply = construct_single_doc_op_msg(response_doc, incoming_header);
                 match serialize_op_with_computed_length(&reply, &serialize_op_msg) {
-                    Err(_error) => {
-                        ExceptionQueryHandlerResult::Exceptional(Err(UnumError::SerializationFail))
-                    }
+                    Err(error) => ExceptionQueryHandlerResult::Exceptional(Err(error)),
                     Ok(data) => ExceptionQueryHandlerResult::Exceptional(Ok(response_type(data))),
                 }
             }
@@ -171,9 +169,9 @@ fn handle_exceptional_query(
                         let mut response_doc = Document::new();
                         response_doc.insert("ok", 1);
                         match stream.peer_addr() {
-                            Err(_error) => {
+                            Err(error) => {
                                 return ExceptionQueryHandlerResult::Exceptional(Err(
-                                    UnumError::ReadError,
+                                    TcpError::TcpStreamError(error).into(),
                                 ));
                             }
                             Ok(addr) => {

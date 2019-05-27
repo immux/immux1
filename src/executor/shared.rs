@@ -4,6 +4,7 @@ use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
     Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, Instruction, SetTargetSpec,
 };
+use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, UnumCore};
 
 // TODO(#78): Implement a key algorithm that doesn't create duplications.
@@ -52,7 +53,7 @@ pub fn get_id_list(grouping: &[u8], core: &mut UnumCore) -> Vec<Vec<u8>> {
 pub fn set_id_list(grouping: &[u8], core: &mut UnumCore, id_list: &[Vec<u8>]) -> UnumResult<()> {
     let id_list_key = get_id_list_key(grouping);
     match serialize(&id_list) {
-        Err(_error) => return Err(UnumError::SerializationFail),
+        Err(_error) => return Err(ExecutorError::CannotSerialize.into()),
         Ok(data) => {
             let update_key_list = AtomicSetInstruction {
                 targets: vec![SetTargetSpec {

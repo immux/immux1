@@ -1,7 +1,7 @@
 use crate::declarations::commands::{Outcome, SelectCommand, SelectCondition, SelectOutcome};
 use crate::declarations::errors::UnumResult;
 use crate::declarations::instructions::{Answer, AtomicGetInstruction, GetTargetSpec, Instruction};
-use crate::executor::execute::ExecutorError;
+use crate::executor::errors::ExecutorError;
 use crate::executor::shared::get_id_list;
 use crate::storage::core::{CoreStore, UnumCore};
 
@@ -25,9 +25,10 @@ pub fn execute_select(select: SelectCommand, core: &mut UnumCore) -> UnumResult<
                 let matched = match select.condition {
                     SelectCondition::UnconditionalMatch => true,
                     SelectCondition::JSCode(js_code) => {
-                        ExecutorError::UnimplementedSelectCondition(SelectCondition::JSCode(
-                            js_code,
-                        ))
+                        return Err(ExecutorError::UnimplementedSelectCondition(
+                            SelectCondition::JSCode(js_code),
+                        )
+                        .into())
                     }
                 };
                 if matched {
