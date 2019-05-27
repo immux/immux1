@@ -62,12 +62,14 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> UnumResult<Command> {
                                         for doc in &sequence.documents {
                                             let spec = InsertCommandSpec {
                                                 id: get_obj_id(doc, "_id")?,
-                                                grouping: collection.as_bytes().to_vec(),
                                                 value: encode_document(doc)?,
                                             };
                                             targets.push(spec)
                                         }
-                                        let instruction = InsertCommand { targets };
+                                        let instruction = InsertCommand {
+                                            targets,
+                                            grouping: collection.as_bytes().to_vec(),
+                                        };
                                         Ok(Command::Insert(instruction))
                                     }
                                     Section::Single(_doc) => {
@@ -268,11 +270,11 @@ mod mongo_command_transformer_tests {
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::Insert(insert)) => {
                 assert_eq!(data.len(), insert.targets.len());
+                assert_eq!(insert.grouping, collection.as_bytes());
                 let mut i = 0;
                 while i < data.len() {
                     let datum = data[i];
                     let target = insert.targets[i].clone();
-                    assert_eq!(target.grouping, collection.as_bytes());
                     let doc_bytes = target.value.clone();
                     match bson::decode_document(&mut doc_bytes.as_slice()) {
                         Err(error) => panic!("Failed to parse document bytes: {:#?}", error),
