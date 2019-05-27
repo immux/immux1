@@ -8,6 +8,7 @@ use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 use crate::config::UNUM_VERSION;
+use crate::declarations::errors::UnumError::Transaction;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
     Answer, GetOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer, RevertOkAnswer,
@@ -18,6 +19,7 @@ use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
+use crate::storage::tkv::TransactionError;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
 pub type InstructionHeight = u64;
@@ -26,6 +28,7 @@ pub type InstructionHeight = u64;
 pub enum VkvError {
     CannotGetEntry,
     CannotSerializeEntry,
+    UnexpectedInstruction,
 }
 
 #[repr(u8)]
@@ -36,10 +39,17 @@ enum KeyPrefix {
     KeyToEntry = 'e' as u8,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct InstructionRecord {
+    pub instruction: Instruction,
+    pub deleted: bool,
+}
+
 const COMMIT_HEIGHT_KEY: &str = "commit-height";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct UpdateRecord {
+    deleted: bool,
     height: InstructionHeight,
     value: Vec<u8>,
 }
@@ -102,7 +112,7 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    fn set_height(&mut self, height: InstructionHeight) -> UnumResult<Vec<u8>> {
+    pub fn set_height(&mut self, height: InstructionHeight) -> UnumResult<Vec<u8>> {
         self.set_with_key_prefix(
             KeyPrefix::StandAlone,
             COMMIT_HEIGHT_KEY.as_bytes(),
@@ -110,29 +120,48 @@ impl UnumVersionedKeyValueStore {
         )
     }
 
-    fn save_instruction_by_height(
+    fn save_instruction_record_by_height(
         &mut self,
         height: InstructionHeight,
-        instruction: &Instruction,
+        instruction_record: &InstructionRecord,
     ) -> UnumResult<Vec<u8>> {
-        match serialize(instruction) {
+        match serialize(instruction_record) {
             Err(_error) => Err(UnumError::SerializationFail),
-            Ok(serialized_instruction) => self.set_with_key_prefix(
+            Ok(serialized_instruction_record) => self.set_with_key_prefix(
                 KeyPrefix::HeightToInstruction,
                 &u64_to_u8_array(height),
-                &serialized_instruction,
+                &serialized_instruction_record,
             ),
         }
     }
 
-    fn get_instruction_by_height(&self, height: InstructionHeight) -> UnumResult<Instruction> {
+    fn get_instruction_record_by_height(
+        &self,
+        height: InstructionHeight,
+    ) -> UnumResult<InstructionRecord> {
         match self.get_with_key_prefix(KeyPrefix::HeightToInstruction, &u64_to_u8_array(height)) {
             Err(_error) => Err(UnumError::ReadError),
-            Ok(instruction_bytes) => match deserialize::<Instruction>(&instruction_bytes) {
-                Err(_error) => Err(UnumError::DeserializationFail),
-                Ok(instruction) => Ok(instruction),
-            },
+            Ok(instruction_record_bytes) => {
+                match deserialize::<InstructionRecord>(&instruction_record_bytes) {
+                    Err(_error) => Err(UnumError::DeserializationFail),
+                    Ok(instruction_record) => Ok(instruction_record),
+                }
+            }
         }
+    }
+
+    pub fn invalidate_instruction_record_after_height(
+        &mut self,
+        target_height: InstructionHeight,
+    ) -> UnumResult<()> {
+        let mut height = self.get_height();
+        while height > target_height {
+            let mut instruction_recrod = self.get_instruction_record_by_height(height)?;
+            instruction_recrod.deleted = true;
+            self.save_instruction_record_by_height(height, &instruction_recrod);
+            height -= 1;
+        }
+        return Ok(());
     }
 
     fn save_instruction_meta_by_height(
@@ -164,6 +193,29 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
+    pub fn invalidate_instruction_meta_after_height(
+        &mut self,
+        target_height: InstructionHeight,
+    ) -> UnumResult<()> {
+        let mut height = self.get_height();
+        while height >= target_height {
+            match self.get_instruction_meta_by_height(height) {
+                Err(error) => return Err(error),
+                Ok(meta) => match meta {
+                    InstructionMeta::RevertAll(mut revert_all_instruction_meta) => {
+                        revert_all_instruction_meta.deleted = true;
+                        self.save_instruction_meta_by_height(
+                            height,
+                            &InstructionMeta::RevertAll(revert_all_instruction_meta),
+                        )?;
+                    }
+                },
+            }
+            height -= 1;
+        }
+        return Ok(());
+    }
+
     fn get_entry(&self, key: &[u8]) -> UnumResult<Entry> {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToEntry, key);
         match meta_bytes {
@@ -192,6 +244,7 @@ impl UnumVersionedKeyValueStore {
                 let first_entry = UpdateRecord {
                     height,
                     value: value.to_vec(),
+                    deleted: false,
                 };
 
                 let new_meta = Entry {
@@ -217,6 +270,7 @@ impl UnumVersionedKeyValueStore {
                 let new_record = UpdateRecord {
                     height,
                     value: value.to_vec(),
+                    deleted: false,
                 };
                 existing_entry.updates.push(new_record);
                 self.save_entry_by_key(key, &existing_entry)
@@ -242,6 +296,26 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
+    pub fn invalidate_update_after_height(
+        &mut self,
+        primary_key: &[u8],
+        target_height: InstructionHeight,
+    ) -> UnumResult<Vec<u8>> {
+        match self.get_entry(primary_key) {
+            Err(error) => Err(error),
+            Ok(mut existing_entry) => {
+                for update in existing_entry.updates.iter_mut().rev() {
+                    if update.height > target_height {
+                        update.deleted = true;
+                    } else {
+                        break;
+                    }
+                }
+                self.save_entry_by_key(primary_key, &existing_entry)
+            }
+        }
+    }
+
     pub fn get_at_height(
         &mut self,
         key: &[u8],
@@ -259,6 +333,7 @@ impl UnumVersionedKeyValueStore {
             }
         }
     }
+
     pub fn revert_one(
         &mut self,
         primary_key: &[u8],
@@ -308,6 +383,7 @@ impl UnumVersionedKeyValueStore {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct RevertAllInstructionMeta {
+    deleted: bool,
     affected_keys: Vec<Vec<u8>>,
 }
 
@@ -342,30 +418,30 @@ fn byte_array_compare(vec_a: &[u8], vec_b: &[u8]) -> Ordering {
     return Ordering::Equal;
 }
 
-fn extract_affected_keys(
+pub fn extract_affected_keys(
     store: &UnumVersionedKeyValueStore,
     target_height: InstructionHeight,
     current_height: InstructionHeight,
-) -> Vec<Vec<u8>> {
+) -> UnumResult<Vec<Vec<u8>>> {
     let mut affected_keys: Vec<Vec<u8>> = vec![];
     let mut height = current_height;
     while height >= target_height {
-        if let Ok(instruction) = store.get_instruction_by_height(height) {
-            match instruction {
+        if let Ok(instruction_record) = store.get_instruction_record_by_height(height) {
+            match instruction_record.instruction {
                 Instruction::SwitchNamespace(_switch_namespace) => (),
                 Instruction::ReadNamespace(_read_namespace) => (),
-                Instruction::Get(_get) => (),
-                Instruction::Set(set) => {
+                Instruction::AtomicGet(_get) => (),
+                Instruction::AtomicSet(set) => {
                     for target in set.targets {
                         affected_keys.push(target.key)
                     }
                 }
-                Instruction::Revert(revert) => {
+                Instruction::AtomicRevert(revert) => {
                     for target in revert.targets {
                         affected_keys.push(target.key)
                     }
                 }
-                Instruction::RevertAll(_revert_all) => {
+                Instruction::AtomicRevertAll(_revert_all) => {
                     if let Ok(meta) = store.get_instruction_meta_by_height(height) {
                         match meta {
                             InstructionMeta::RevertAll(meta) => {
@@ -374,13 +450,16 @@ fn extract_affected_keys(
                         }
                     }
                 }
+                _ => {
+                    return Err(UnumError::VKV(VkvError::UnexpectedInstruction));
+                }
             }
         }
         height -= 1;
     }
     affected_keys.sort_unstable_by(|a, b| byte_array_compare(a, b));
     affected_keys.dedup_by(|a, b| byte_array_compare(a, b) == Ordering::Equal);
-    return affected_keys;
+    return Ok(affected_keys);
 }
 
 impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
@@ -389,7 +468,7 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
     }
     fn execute(&mut self, instruction: &Instruction) -> Result<Answer, UnumError> {
         match instruction {
-            Instruction::Get(get) => {
+            Instruction::AtomicGet(get) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
                 let base_height = self.get_height();
                 for target in get.targets.iter() {
@@ -402,10 +481,15 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 }
                 return Ok(Answer::GetOk(GetOkAnswer { items: results }));
             }
-            Instruction::Set(set) => {
+            Instruction::AtomicSet(set) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
                 let height = self.increment_height()?;
-                if let Err(_) = self.save_instruction_by_height(height, instruction) {
+                let instruction_recrod = InstructionRecord {
+                    instruction: instruction.clone(),
+                    deleted: false,
+                };
+                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
+                {
                     return Err(UnumError::WriteError);
                 }
                 for target in set.targets.iter() {
@@ -416,10 +500,15 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 }
                 return Ok(Answer::SetOk(SetOkAnswer { items: results }));
             }
-            Instruction::Revert(revert) => {
+            Instruction::AtomicRevert(revert) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
                 let height = self.increment_height()?;
-                if let Err(_) = self.save_instruction_by_height(height, instruction) {
+                let instruction_recrod = InstructionRecord {
+                    instruction: instruction.clone(),
+                    deleted: false,
+                };
+                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
+                {
                     return Err(UnumError::WriteError);
                 }
                 for target in revert.targets.iter() {
@@ -430,13 +519,17 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 }
                 return Ok(Answer::RevertOk(RevertOkAnswer { items: results }));
             }
-            Instruction::RevertAll(revert_all) => {
+            Instruction::AtomicRevertAll(revert_all) => {
                 let height = self.increment_height()?;
                 let target_height = revert_all.target_height;
-                self.save_instruction_by_height(height, instruction)?;
+                let instruction_recrod = InstructionRecord {
+                    instruction: instruction.clone(),
+                    deleted: false,
+                };
+                self.save_instruction_record_by_height(height, &instruction_recrod)?;
 
                 // Find affected keys
-                let affected_keys = extract_affected_keys(&self, target_height, height);
+                let affected_keys = extract_affected_keys(&self, target_height, height)?;
 
                 for key in affected_keys.iter() {
                     self.revert_one(&key, target_height, height)?;
@@ -444,6 +537,7 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
 
                 // Save affected for later use
                 let instruction_meta = InstructionMeta::RevertAll(RevertAllInstructionMeta {
+                    deleted: false,
                     affected_keys: affected_keys.clone(),
                 });
                 self.save_instruction_meta_by_height(height, &instruction_meta)?;
@@ -466,7 +560,10 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
             Instruction::ReadNamespace(_get_namespace) => {
                 return Ok(Answer::ReadNamespaceOk(ReadNamespaceOkAnswer {
                     namespace: self.kv_engine.read_namespace().to_vec(),
-                }))
+                }));
+            }
+            _ => {
+                return Err(UnumError::VKV(VkvError::UnexpectedInstruction));
             }
         }
     }

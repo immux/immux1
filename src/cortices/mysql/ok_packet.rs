@@ -1,16 +1,15 @@
 use crate::cortices::mysql::error::MySQLSerializeError;
 use crate::cortices::mysql::handshake_response_41::load_handshake_response;
 use crate::cortices::mysql::server_status_flags::{
-    load_server_status_flags, serialize_status_flags, ServerStatusFlags,
+    load_server_status_flags, serialize_status_flags,
 };
 use crate::cortices::mysql::utils::{
-    parse_length_encoded_integer, serialize_length_encoded_integer,
-    serialize_length_encoded_string, u32_to_u8_array_with_length_3,
+    serialize_length_encoded_integer, serialize_length_encoded_string,
+    u32_to_u8_array_with_length_3,
 };
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::UnumCore;
 use crate::utils::{u16_to_u8_array, utf8_to_string};
-use std::str::from_utf8;
 
 pub enum HeaderOption {
     OK = 0x00,

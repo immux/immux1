@@ -1,8 +1,9 @@
 use crate::config;
 use crate::declarations::errors::UnumError;
 use crate::declarations::instructions::{
-    GetInstruction, GetTargetSpec, Instruction, ReadNamespaceInstruction, RevertAllInstruction,
-    RevertInstruction, RevertTargetSpec, SetInstruction, SetTargetSpec, SwitchNamespaceInstruction,
+    AtomicGetInstruction, AtomicRevertAllInstruction, AtomicRevertInstruction,
+    AtomicSetInstruction, GetTargetSpec, Instruction, ReadNamespaceInstruction, RevertTargetSpec,
+    SetTargetSpec, SwitchNamespaceInstruction,
 };
 use std::collections::HashMap;
 use url::Url;
@@ -92,7 +93,7 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
                 let instruction = Instruction::ReadNamespace(ReadNamespaceInstruction {});
                 return Ok(instruction);
             } else {
-                let instruction = Instruction::Get(GetInstruction {
+                let instruction = Instruction::AtomicGet(AtomicGetInstruction {
                     targets: vec![GetTargetSpec {
                         key: low_key.into_bytes(),
                         height: if let Ok(height) =
@@ -109,13 +110,13 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
         }
         "PUT" => {
             if let Ok(height) = url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD) {
-                let instruction = Instruction::RevertAll(RevertAllInstruction {
+                let instruction = Instruction::AtomicRevertAll(AtomicRevertAllInstruction {
                     target_height: height,
                 });
                 return Ok(instruction);
             } else if let Ok(height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD)
             {
-                let instruction = Instruction::Revert(RevertInstruction {
+                let instruction = Instruction::AtomicRevert(AtomicRevertInstruction {
                     targets: vec![RevertTargetSpec {
                         key: low_key.into_bytes(),
                         height,
@@ -129,7 +130,7 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
                 return Ok(instruction);
             }
             let value = get_html_body(&message);
-            let instruction = Instruction::Set(SetInstruction {
+            let instruction = Instruction::AtomicSet(AtomicSetInstruction {
                 targets: vec![SetTargetSpec {
                     key: low_key.into_bytes(),
                     value: value.as_bytes().to_vec(),

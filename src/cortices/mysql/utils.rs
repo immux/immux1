@@ -1,9 +1,7 @@
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::{parse_u16, parse_u64, parse_u8, DeserializationError};
 use crate::declarations::errors::{UnumError, UnumResult};
-use crate::utils::{
-    u16_to_u8_array, u32_to_u8_array, u64_to_u8_array, u8_array_to_u16, u8_array_to_u32,
-};
+use crate::utils::{u16_to_u8_array, u32_to_u8_array, u64_to_u8_array, u8_array_to_u32};
 use std::mem::size_of;
 use std::num::ParseIntError;
 use std::str;
