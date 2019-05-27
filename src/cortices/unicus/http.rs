@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use url::Url;
+
 use crate::config;
 use crate::declarations::errors::UnumError;
 use crate::declarations::instructions::{
@@ -5,8 +9,11 @@ use crate::declarations::instructions::{
     AtomicSetInstruction, GetTargetSpec, Instruction, ReadNamespaceInstruction, RevertTargetSpec,
     SetTargetSpec, SwitchNamespaceInstruction,
 };
-use std::collections::HashMap;
-use url::Url;
+
+pub enum HttpParsingError {
+    UrlParsingError,
+    BodyParsingError,
+}
 
 fn get_html_body(s: &str) -> &str {
     let newline_pos = s.find("\r\n\r\n");
@@ -138,6 +145,6 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, UnumError> {
             });
             Ok(instruction)
         }
-        _ => unimplemented!(),
+        _ => HttpParsingError::BodyParsingError,
     }
 }

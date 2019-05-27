@@ -1,4 +1,4 @@
-use crate::declarations::commands::{Command, Outcome};
+use crate::declarations::commands::{Command, Outcome, SelectCondition};
 use crate::declarations::errors::UnumResult;
 use crate::declarations::instructions::Answer;
 use crate::executor::insert_executor::execute_insert;
@@ -9,6 +9,7 @@ use crate::storage::core::UnumCore;
 #[derive(Debug)]
 pub enum ExecutorError {
     UnexpectedAnswerType(Answer),
+    UnimplementedSelectCondition(SelectCondition),
 }
 
 pub fn execute(command: Command, core: &mut UnumCore) -> UnumResult<Outcome> {

@@ -3,6 +3,7 @@ use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::transformer::MongoTransformerError;
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
+use crate::cortices::unicus::http::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
 use crate::executor::execute::ExecutorError;
 use crate::storage::tkv::TransactionError;
@@ -17,7 +18,7 @@ pub enum UnumError {
     SerializationFail,
     DeserializationFail,
 
-    UrlParseError,
+    HttpParser(HttpParsingError),
 
     VKV(VkvError),
 
@@ -102,6 +103,12 @@ impl std::convert::From<ExecutorError> for UnumError {
 impl std::convert::From<TransactionError> for UnumError {
     fn from(error: TransactionError) -> UnumError {
         UnumError::Transaction(error)
+    }
+}
+
+impl std::convert::From<HttpParsingError> for UnumError {
+    fn from(error: HttpParsingError) -> UnumError {
+        UnumError::HttpParser(error)
     }
 }
 

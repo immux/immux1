@@ -24,7 +24,11 @@ pub fn execute_select(select: SelectCommand, core: &mut UnumCore) -> UnumResult<
                 println!("Using select.condition {:?}", select.condition);
                 let matched = match select.condition {
                     SelectCondition::UnconditionalMatch => true,
-                    SelectCondition::JSCode(_js_code) => unimplemented!(),
+                    SelectCondition::JSCode(js_code) => {
+                        ExecutorError::UnimplementedSelectCondition(SelectCondition::JSCode(
+                            js_code,
+                        ))
+                    }
                 };
                 if matched {
                     values.push(value);
