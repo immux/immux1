@@ -18,6 +18,12 @@ pub enum MongoTransformerError {
     GetObjectId,
     EncodeDocument,
     UnexpectedInputShape,
+    UnimplementedWhereCondition(Bson),
+    UnexpectedFilterDocument(Document),
+    UnimplementedCommand,
+    UnexpectedLastSection(last_section),
+    NoSections,
+    UnimplementedOp(MongoOp),
 }
 
 fn encode_document(doc: &Document) -> UnumResult<Vec<u8>> {
@@ -97,25 +103,29 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> UnumResult<Command> {
                                             };
                                             Ok(Command::Select(command))
                                         }
-                                        _ => unimplemented!(),
+                                        _ => MongoTransformerError::UnimplementedWhereCondition(
+                                            where_condition.to_owned(),
+                                        ),
                                     }
                                 } else {
-                                    unimplemented!()
+                                    MongoTransformerError::UnexpectedFilterDocument(
+                                        filter.to_owned(),
+                                    )
                                 }
                             } else {
-                                return Err(MongoTransformerError::UnexpectedInputShape.into());
+                                MongoTransformerError::UnexpectedInputShape
                             }
                         } else {
-                            unimplemented!()
+                            MongoTransformerError::UnimplementedCommand
                         }
                     }
-                    _ => unimplemented!(),
+                    _ => MongoTransformerError::UnexpectedLastSection(last_section),
                 }
             } else {
-                unimplemented!()
+                MongoTransformerError::NoSections
             }
         }
-        _ => unimplemented!(),
+        _ => MongoTransformerError::UnimplementedOp(op.into()),
     }
 }
 
@@ -124,7 +134,7 @@ fn get_header_from_op(op: &MongoOp) -> MsgHeader {
         MongoOp::Msg(msg) => msg.message_header.clone(),
         MongoOp::Reply(reply) => reply.message_header.clone(),
         MongoOp::Query(query) => query.message_header.clone(),
-        _ => unimplemented!(),
+        _ => MongoTransformerError::UnimplementedOp(op.into()),
     }
 }
 
