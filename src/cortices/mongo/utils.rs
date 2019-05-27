@@ -68,7 +68,6 @@ pub fn construct_single_doc_op_msg(doc: Document, incoming_header: &MsgHeader) -
             exhaust_allowed: false,
         },
         sections: vec![Section::Single(doc)],
-        checksum: None,
     }
 }
 

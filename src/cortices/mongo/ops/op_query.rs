@@ -1,6 +1,6 @@
 use bson::Document;
 
-use crate::cortices::mongo::ops::msg_header::MsgHeader;
+use crate::cortices::mongo::ops::msg_header::{parse_msg_header, MsgHeader};
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32};
 use crate::declarations::errors::UnumResult;
@@ -30,8 +30,10 @@ pub struct OpQuery {
     pub return_fields_selector: Option<Document>,
 }
 
-pub fn parse_op_query(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpQuery> {
+pub fn parse_op_query(buffer: &[u8]) -> UnumResult<OpQuery> {
     let mut index: usize = 0;
+    let (message_header, offset) = parse_msg_header(&buffer[index..])?;
+    index += offset;
     let (flags, offset) = parse_u32(&buffer[index..])?;
     index += offset;
     let (full_collection_name, offset) = parse_cstring(&buffer[index..])?;
@@ -120,9 +122,7 @@ mod op_query_tests {
     fn test_parse_op_query() {
         let buffer = OP_QUERY_FIXTURE;
         let mut index: usize = 0;
-        let (header, offset) = parse_msg_header(&buffer).unwrap();
-        index += offset;
-        let op_query = parse_op_query(header, &buffer[index..]).unwrap();
+        let op_query = parse_op_query(&buffer[index..]).unwrap();
         assert_eq!(op_query.flags, 0);
         assert_eq!(op_query.number_to_skip, 0);
         assert_eq!(op_query.number_to_return, 1);
