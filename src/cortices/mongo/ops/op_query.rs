@@ -121,7 +121,7 @@ mod op_query_tests {
     #[test]
     fn test_parse_op_query() {
         let buffer = OP_QUERY_FIXTURE;
-        let mut index: usize = 0;
+        let index: usize = 0;
         let op_query = parse_op_query(&buffer[index..]).unwrap();
         assert_eq!(op_query.flags, 0);
         assert_eq!(op_query.number_to_skip, 0);

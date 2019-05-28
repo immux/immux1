@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::declarations::errors::{ImmuxResult};
 use crate::storage::kv::KeyValueStore;
 
 #[derive(Debug)]

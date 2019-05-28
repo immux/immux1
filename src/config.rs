@@ -2,10 +2,10 @@ use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::declarations::instructions::Instruction::InTransactionSet;
+
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
-    InTransactionSetInstruction, Instruction, SetTargetSpec,
+    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
+    SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::KeyValueEngine;

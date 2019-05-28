@@ -45,7 +45,7 @@ pub fn parse_msg_header(buffer: &[u8]) -> ImmuxResult<(MsgHeader, usize)> {
 
 pub fn get_msg_header_op_code(buffer: &[u8]) -> ImmuxResult<MongoOpCode> {
     let index = 12;
-    let (op_code_u32, offset) = parse_u32(&buffer[index..])?;
+    let (op_code_u32, _offset) = parse_u32(&buffer[index..])?;
     let op_code = pick_op_code(op_code_u32)?;
     return Ok(op_code);
 }

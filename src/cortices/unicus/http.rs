@@ -5,7 +5,7 @@ use url::Url;
 use crate::config;
 use crate::declarations::errors::ImmuxError;
 use crate::declarations::instructions::{
-    AtomicGetInstruction, AtomicGetOneInstruction, AtomicRevertAllInstruction,
+    AtomicGetOneInstruction, AtomicRevertAllInstruction,
     AtomicRevertInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
     ReadNamespaceInstruction, RevertTargetSpec, SetTargetSpec, SwitchNamespaceInstruction,
 };

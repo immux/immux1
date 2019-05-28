@@ -2,9 +2,9 @@ use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     AbortTransactionOkAnswer, Answer, AtomicGetInstruction, AtomicGetOneInstruction,
     AtomicRevertAllInstruction, AtomicRevertInstruction, AtomicSetInstruction,
-    CommitTransactionInstruction, CommitTransactionOkAnswer, GetOkAnswer, Instruction,
-    StartTransactionOkAnswer, TransactionalGetOkAnswer, TransactionalGetOneOkAnswer,
-    TransactionalRevertAllOkAnswer, TransactionalRevertOkAnswer, TransactionalSetOkAnswer,
+    CommitTransactionOkAnswer, Instruction, StartTransactionOkAnswer, TransactionalGetOkAnswer,
+    TransactionalGetOneOkAnswer, TransactionalRevertAllOkAnswer, TransactionalRevertOkAnswer,
+    TransactionalSetOkAnswer,
 };
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::vkv::{
@@ -71,7 +71,7 @@ impl ImmuxDBTransactionKeyValueStore {
                         affected_keys.insert(revert_target_spec.key.clone());
                     }
                 }
-                Instruction::AtomicRevertAll(revert_all_instruction) => {
+                Instruction::AtomicRevertAll(_revert_all_instruction) => {
                     let revert_all_affected_keys =
                         extract_affected_keys(&self.vkv, target_height, current_height)?;
                     for key in revert_all_affected_keys {
@@ -140,7 +140,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                 } else {
                     self.in_transaction = false;
                     let transaction_id = abort_transaction_instruction.transaction_id;
-                    self.undo_transaction();
+                    self.undo_transaction()?;
                     self.instruction_recorder = Vec::new();
                     self.vkv.set_height(self.height_before_transaction)?;
                     return Ok(Answer::AbortTransactionOk(AbortTransactionOkAnswer {
@@ -206,7 +206,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                 if self.in_transaction {
                     let targets = transactional_set_instruction.targets.clone();
                     let transaction_id = transactional_set_instruction.transaction_id;
-                    let deleted = false;
+                    let _deleted = false;
                     let set_instruction = AtomicSetInstruction { targets };
                     match self.vkv.execute(&Instruction::AtomicSet(set_instruction))? {
                         Answer::SetOk(set_ok_answer) => {
@@ -233,7 +233,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                 if self.in_transaction {
                     let targets = transactional_revert_instruction.targets.clone();
                     let transaction_id = transactional_revert_instruction.transaction_id;
-                    let deleted = false;
+                    let _deleted = false;
                     let revert_instruction = AtomicRevertInstruction { targets };
                     match self
                         .vkv
@@ -263,7 +263,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                 if self.in_transaction {
                     let target_height = transactional_revert_all_instruction.target_height.clone();
                     let transaction_id = transactional_revert_all_instruction.transaction_id;
-                    let deleted = false;
+                    let _deleted = false;
                     let revert_all_instruction = AtomicRevertAllInstruction { target_height };
                     match self
                         .vkv
@@ -289,7 +289,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::AtomicGet(get_instruction) => {
+            Instruction::AtomicGet(_get_instruction) => {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
@@ -298,7 +298,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::AtomicGetOne(get_one) => {
+            Instruction::AtomicGetOne(_get_one) => {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
@@ -307,17 +307,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::AtomicSet(set_instruction) => {
-                if !self.in_transaction {
-                    self.instruction_recorder.push(instruction.clone());
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransacitonInProgress,
-                    ));
-                }
-            }
-            Instruction::AtomicRevert(revert_instruction) => {
+            Instruction::AtomicSet(_set_instruction) => {
                 if !self.in_transaction {
                     self.instruction_recorder.push(instruction.clone());
                     self.vkv.execute(instruction)
@@ -327,7 +317,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::AtomicRevertAll(revert_all_instruction) => {
+            Instruction::AtomicRevert(_revert_instruction) => {
                 if !self.in_transaction {
                     self.instruction_recorder.push(instruction.clone());
                     self.vkv.execute(instruction)
@@ -337,7 +327,17 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::SwitchNamespace(switch_namespace_instruction) => {
+            Instruction::AtomicRevertAll(_revert_all_instruction) => {
+                if !self.in_transaction {
+                    self.instruction_recorder.push(instruction.clone());
+                    self.vkv.execute(instruction)
+                } else {
+                    return Err(ImmuxError::Transaction(
+                        TransactionError::TransacitonInProgress,
+                    ));
+                }
+            }
+            Instruction::SwitchNamespace(_switch_namespace_instruction) => {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
@@ -346,7 +346,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             }
-            Instruction::ReadNamespace(read_namespace_instruction) => {
+            Instruction::ReadNamespace(_read_namespace_instruction) => {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
@@ -361,13 +361,12 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
 
 #[cfg(test)]
 mod tkv_tests {
-    use crate::config::{compile_config, save_config, DEFAULT_CHAIN_NAME};
+    use crate::config::compile_config;
     use crate::declarations::errors::ImmuxError;
     use crate::declarations::instructions::Instruction::InTransactionRevertAll;
     use crate::declarations::instructions::{
-        AbortTransactionInstruction, Answer, AtomicGetInstruction, AtomicRevertAllInstruction,
-        AtomicRevertInstruction, AtomicSetInstruction, CommitTransactionInstruction, GetTargetSpec,
-        InTransactionRevertAllInstruction, InTransactionRevertInstruction,
+        AbortTransactionInstruction, Answer, AtomicGetInstruction, CommitTransactionInstruction,
+        GetTargetSpec, InTransactionRevertAllInstruction, InTransactionRevertInstruction,
         InTransactionSetInstruction, Instruction, RevertTargetSpec, SetTargetSpec,
     };
     use crate::storage::tkv::{
@@ -379,8 +378,7 @@ mod tkv_tests {
         let commandline_args = vec![];
         let config = compile_config(commandline_args);
         let namespace = "test_namespace".as_bytes();
-        let mut tkv =
-            ImmuxDBTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
+        let tkv = ImmuxDBTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
         return tkv;
     }
 
@@ -448,7 +446,7 @@ mod tkv_tests {
         {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
-            tkv.execute(&Instruction::StartTransaction);
+            tkv.execute(&Instruction::StartTransaction).unwrap();
             let res = in_transaction_set("test_key".to_string(), "test_val".to_string(), &mut tkv)
                 .unwrap();
             match res {
@@ -459,19 +457,19 @@ mod tkv_tests {
             }
             let commit_transaction =
                 Instruction::CommitTransaction(CommitTransactionInstruction { transaction_id: 0 });
-            tkv.execute(&commit_transaction);
+            tkv.execute(&commit_transaction).unwrap();
             assert_eq!(tkv.vkv.get_current_height(), 1);
         }
 
         {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
-            tkv.execute(&Instruction::StartTransaction);
+            tkv.execute(&Instruction::StartTransaction).unwrap();
             match tkv.execute(&Instruction::StartTransaction) {
                 Ok(_) => {
                     panic!("Expect panic if one transaction existed already.");
                 }
-                Err(error) => {}
+                Err(_error) => {}
             }
         }
 
@@ -486,7 +484,7 @@ mod tkv_tests {
                         "Expect panic if we try to commit a transaction which is not started yet."
                     );
                 }
-                Err(error) => {}
+                Err(_error) => {}
             }
         }
 
@@ -501,20 +499,20 @@ mod tkv_tests {
                         "Expect panic if we try to abort a transaction which is not started yet."
                     );
                 }
-                Err(error) => {}
+                Err(_error) => {}
             }
         }
 
         {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
-            tkv.execute(&Instruction::StartTransaction);
-            in_transaction_set("test_key".to_string(), "test_val".to_string(), &mut tkv);
-            in_transaction_set("test_key1".to_string(), "test_val1".to_string(), &mut tkv);
-            in_transaction_set("test_key2".to_string(), "test_val2".to_string(), &mut tkv);
+            tkv.execute(&Instruction::StartTransaction).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key1".to_string(), "test_val1".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key2".to_string(), "test_val2".to_string(), &mut tkv).unwrap();
             let abort_transaction =
                 Instruction::AbortTransaction(AbortTransactionInstruction { transaction_id: 0 });
-            tkv.execute(&abort_transaction);
+            tkv.execute(&abort_transaction).unwrap();
             assert_eq!(tkv.height_before_transaction, 0);
 
             match atomic_get("test_key".to_string(), &mut tkv) {
@@ -529,14 +527,14 @@ mod tkv_tests {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
 
-            tkv.execute(&Instruction::StartTransaction);
-            in_transaction_set("test_key".to_string(), "test_val1".to_string(), &mut tkv);
-            in_transaction_set("test_key".to_string(), "test_val2".to_string(), &mut tkv);
-            in_transaction_set("test_key".to_string(), "test_val3".to_string(), &mut tkv);
-            in_transaction_revert("test_key".to_string(), 1, &mut tkv);
+            tkv.execute(&Instruction::StartTransaction).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val1".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val2".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val3".to_string(), &mut tkv).unwrap();
+            in_transaction_revert("test_key".to_string(), 1, &mut tkv).unwrap();
             let commit_transaction =
                 Instruction::CommitTransaction(CommitTransactionInstruction { transaction_id: 0 });
-            tkv.execute(&commit_transaction);
+            tkv.execute(&commit_transaction).unwrap();
 
             match atomic_get("test_key".to_string(), &mut tkv).unwrap() {
                 Answer::GetOk(get_ok_answer) => {
@@ -550,15 +548,15 @@ mod tkv_tests {
         {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
-            tkv.execute(&Instruction::StartTransaction);
-            in_transaction_set("test_key".to_string(), "test_val1".to_string(), &mut tkv);
-            in_transaction_set("test_key".to_string(), "test_val2".to_string(), &mut tkv);
-            in_transaction_set("test_key".to_string(), "test_val3".to_string(), &mut tkv);
-            in_transaction_revert_all(2, 0, &mut tkv);
+            tkv.execute(&Instruction::StartTransaction).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val1".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val2".to_string(), &mut tkv).unwrap();
+            in_transaction_set("test_key".to_string(), "test_val3".to_string(), &mut tkv).unwrap();
+            in_transaction_revert_all(2, 0, &mut tkv).unwrap();
 
             let commit_transaction =
                 Instruction::CommitTransaction(CommitTransactionInstruction { transaction_id: 0 });
-            tkv.execute(&commit_transaction);
+            tkv.execute(&commit_transaction).unwrap();
 
             match atomic_get("test_key".to_string(), &mut tkv).unwrap() {
                 Answer::GetOk(get_ok_answer) => {

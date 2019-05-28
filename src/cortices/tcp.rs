@@ -28,7 +28,7 @@ fn send_data_to_stream_with_flushing(
     data_to_client: Vec<u8>,
 ) -> ImmuxResult<()> {
     match stream.write(&data_to_client) {
-        Err(error) => return Err((TcpError::TcpWriteError(error).into())),
+        Err(error) => return Err(TcpError::TcpWriteError(error).into()),
         Ok(_bytes_written) => {
             let flushing = stream.flush();
             match flushing {

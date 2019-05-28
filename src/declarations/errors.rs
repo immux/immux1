@@ -18,8 +18,6 @@ pub enum ImmuxError {
     RocksEngine(RocksEngineError),
     HashmapEngine(HashmapStorageEngineError),
 
-    SerializationFail,
-
     HttpParser(HttpParsingError),
 
     VKV(VkvError),

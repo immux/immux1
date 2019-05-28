@@ -22,8 +22,6 @@ use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::core::ImmuxDBCore;
 use crate::utils::{pretty_dump, u16_to_u8_array};
 
-const MYSQL_CLIENT_CONFIG_KEY: &str = "_MYSQL_CLIENT_CONFIG";
-
 pub fn mysql_cortex_process_incoming_message(
     bytes: &[u8],
     core: &mut ImmuxDBCore,
@@ -56,7 +54,7 @@ pub fn mysql_cortex_process_incoming_message(
             return Ok(CortexResponse::Send(res));
         }
         ConnectionStatePhase::AuthSwitchResponse => {
-            let auth_switch_response = parse_auth_switch_response(&bytes)?;
+            let _auth_switch_response = parse_auth_switch_response(&bytes)?;
 
             let payload_length = 7;
             let packet_number = 4;
@@ -79,9 +77,8 @@ pub fn mysql_cortex_process_incoming_message(
             };
 
             let ok_packet_vec = serialize_ok_packet(ok_packet, core, true)?;
-            let res = return Ok(CortexResponse::Send(ok_packet_vec));
+            let _res = return Ok(CortexResponse::Send(ok_packet_vec));
         }
-        _ => unimplemented!(),
     }
 }
 
@@ -156,7 +153,7 @@ pub fn mysql_cortex_process_first_connection(
     if let Some(data) = initial_handshake_packet.status_flags {
         let server_status_flags = serialize_status_flags(&data);
         let server_status_flags_buffer = u16_to_u8_array(server_status_flags);
-        let server_status_flags_buffer =
+        let _server_status_flags_buffer =
             save_server_status_flags(&server_status_flags_buffer, core);
     } else {
         return Err(ImmuxError::MySQLParser(
