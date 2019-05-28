@@ -163,9 +163,9 @@ impl ImmuxDBVersionedKeyValueStore {
     ) -> ImmuxResult<()> {
         let mut height = self.get_height();
         while height > target_height {
-            let mut instruction_recrod = self.get_instruction_record_by_height(height)?;
-            instruction_recrod.deleted = true;
-            self.save_instruction_record_by_height(height, &instruction_recrod)?;
+            let mut instruction_record = self.get_instruction_record_by_height(height)?;
+            instruction_record.deleted = true;
+            self.save_instruction_record_by_height(height, &instruction_record)?;
             height -= 1;
         }
         return Ok(());
@@ -505,11 +505,11 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             Instruction::AtomicSet(set) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
                 let height = self.increment_height()?;
-                let instruction_recrod = InstructionRecord {
+                let instruction_record = InstructionRecord {
                     instruction: instruction.clone(),
                     deleted: false,
                 };
-                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
+                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_record)
                 {
                     return Err(VkvError::SaveInstructionRecordFail.into());
                 }
@@ -524,11 +524,11 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             Instruction::AtomicRevert(revert) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
                 let height = self.increment_height()?;
-                let instruction_recrod = InstructionRecord {
+                let instruction_record = InstructionRecord {
                     instruction: instruction.clone(),
                     deleted: false,
                 };
-                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_recrod)
+                if let Err(_) = self.save_instruction_record_by_height(height, &instruction_record)
                 {
                     return Err(VkvError::SaveInstructionRecordFail.into());
                 }
@@ -543,11 +543,11 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             Instruction::AtomicRevertAll(revert_all) => {
                 let height = self.increment_height()?;
                 let target_height = revert_all.target_height;
-                let instruction_recrod = InstructionRecord {
+                let instruction_record = InstructionRecord {
                     instruction: instruction.clone(),
                     deleted: false,
                 };
-                self.save_instruction_record_by_height(height, &instruction_recrod)?;
+                self.save_instruction_record_by_height(height, &instruction_record)?;
 
                 // Find affected keys
                 let affected_keys = extract_affected_keys(&self, target_height, height)?;
