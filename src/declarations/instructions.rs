@@ -36,8 +36,19 @@ pub struct AtomicGetInstruction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AtomicGetOneInstruction {
+    pub target: GetTargetSpec,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InTransactionGetInstruction {
     pub targets: Vec<GetTargetSpec>,
+    pub transaction_id: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InTransactionGetOneInstruction {
+    pub target: GetTargetSpec,
     pub transaction_id: u64,
 }
 
@@ -88,11 +99,13 @@ pub enum Instruction {
     CommitTransaction(CommitTransactionInstruction),
     AbortTransaction(AbortTransactionInstruction),
     InTransactionGet(InTransactionGetInstruction),
+    InTransactionGetOne(InTransactionGetOneInstruction),
     InTransactionSet(InTransactionSetInstruction),
     InTransactionRevert(InTransactionRevertInstruction),
     InTransactionRevertAll(InTransactionRevertAllInstruction),
     AtomicGet(AtomicGetInstruction),
     AtomicSet(AtomicSetInstruction),
+    AtomicGetOne(AtomicGetOneInstruction),
     AtomicRevert(AtomicRevertInstruction),
     AtomicRevertAll(AtomicRevertAllInstruction),
     SwitchNamespace(SwitchNamespaceInstruction),
@@ -120,9 +133,20 @@ pub struct GetOkAnswer {
 }
 
 #[derive(Debug)]
+pub struct GetOneOkAnswer {
+    pub item: Vec<u8>,
+}
+
+#[derive(Debug)]
 pub struct TransactionalGetOkAnswer {
     pub transaction_id: u64,
     pub items: Vec<Vec<u8>>,
+}
+
+#[derive(Debug)]
+pub struct TransactionalGetOneOkAnswer {
+    pub transaction_id: u64,
+    pub item: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -174,10 +198,12 @@ pub enum Answer {
     CommitTransactionOk(CommitTransactionOkAnswer),
     AbortTransactionOk(AbortTransactionOkAnswer),
     TransactionalGetOk(TransactionalGetOkAnswer),
+    TransactionalGetOneOk(TransactionalGetOneOkAnswer),
     TransactionalSetOk(TransactionalSetOkAnswer),
     TransactionalRevertOk(TransactionalRevertOkAnswer),
     TransactionalRevertAllOk(TransactionalRevertAllOkAnswer),
     GetOk(GetOkAnswer),
+    GetOneOk(GetOneOkAnswer),
     SetOk(SetOkAnswer),
     RevertOk(RevertOkAnswer),
     RevertAllOk(RevertAllOkAnswer),

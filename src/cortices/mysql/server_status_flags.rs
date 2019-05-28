@@ -2,7 +2,8 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::parse_u16;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, Instruction, SetTargetSpec,
+    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
+    Instruction, SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::utils::{get_bit_u16, set_bit_u16};
@@ -100,21 +101,21 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut UnumCore) -> UnumResul
 }
 
 pub fn load_server_status_flags(core: &mut UnumCore) -> UnumResult<ServerStatusFlags> {
-    let instruction = AtomicGetInstruction {
-        targets: vec![GetTargetSpec {
+    let instruction = AtomicGetOneInstruction {
+        target: GetTargetSpec {
             key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
             height: None,
-        }],
+        },
     };
-    match core.execute(&Instruction::AtomicGet(instruction)) {
+    match core.execute(&Instruction::AtomicGetOne(instruction)) {
         Err(_error) => {
             return Err(UnumError::MySQLSerializer(
                 MySQLSerializeError::CannotReadServerStatusFlags,
             ));
         }
         Ok(answer) => match answer {
-            Answer::GetOk(get_answer) => {
-                let target = &get_answer.items[0];
+            Answer::GetOneOk(get_answer) => {
+                let target = &get_answer.item;
                 let (status_flags, _) = parse_u16(target)?;
                 let res = parse_status_flags(status_flags);
                 return Ok(res);

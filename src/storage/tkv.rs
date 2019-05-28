@@ -1,10 +1,10 @@
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    AbortTransactionOkAnswer, Answer, AtomicGetInstruction, AtomicRevertAllInstruction,
-    AtomicRevertInstruction, AtomicSetInstruction, CommitTransactionInstruction,
-    CommitTransactionOkAnswer, GetOkAnswer, Instruction, StartTransactionOkAnswer,
-    TransactionalGetOkAnswer, TransactionalRevertAllOkAnswer, TransactionalRevertOkAnswer,
-    TransactionalSetOkAnswer,
+    AbortTransactionOkAnswer, Answer, AtomicGetInstruction, AtomicGetOneInstruction,
+    AtomicRevertAllInstruction, AtomicRevertInstruction, AtomicSetInstruction,
+    CommitTransactionInstruction, CommitTransactionOkAnswer, GetOkAnswer, Instruction,
+    StartTransactionOkAnswer, TransactionalGetOkAnswer, TransactionalGetOneOkAnswer,
+    TransactionalRevertAllOkAnswer, TransactionalRevertOkAnswer, TransactionalSetOkAnswer,
 };
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::vkv::{
@@ -172,6 +172,32 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                     ));
                 }
             }
+            Instruction::InTransactionGetOne(get_one) => {
+                if self.in_transaction {
+                    let vkv_instruction = AtomicGetOneInstruction {
+                        target: get_one.target.clone(),
+                    };
+                    match self
+                        .vkv
+                        .execute(&Instruction::AtomicGetOne(vkv_instruction))?
+                    {
+                        Answer::GetOneOk(answer) => {
+                            let transactional_answer = TransactionalGetOneOkAnswer {
+                                transaction_id: get_one.transaction_id,
+                                item: answer.item,
+                            };
+                            return Ok(Answer::TransactionalGetOneOk(transactional_answer));
+                        }
+                        _ => {
+                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                        }
+                    }
+                } else {
+                    return Err(UnumError::Transaction(
+                        TransactionError::TransacitonInProgress,
+                    ));
+                }
+            }
             Instruction::InTransactionSet(transactional_set_instruction) => {
                 if self.in_transaction {
                     let targets = transactional_set_instruction.targets.clone();
@@ -254,6 +280,15 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                 }
             }
             Instruction::AtomicGet(get_instruction) => {
+                if !self.in_transaction {
+                    self.vkv.execute(instruction)
+                } else {
+                    return Err(UnumError::Transaction(
+                        TransactionError::TransacitonInProgress,
+                    ));
+                }
+            }
+            Instruction::AtomicGetOne(get_one) => {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {

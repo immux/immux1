@@ -27,11 +27,7 @@ pub fn unicus_cortex_process_incoming_message(
                 http_response += "instruction execution error";
             }
             Ok(answer) => match answer {
-                Answer::GetOk(answer) => {
-                    for item in answer.items {
-                        http_response += &utils::utf8_to_string(&item)
-                    }
-                }
+                Answer::GetOneOk(answer) => http_response += &utils::utf8_to_string(&answer.item),
                 Answer::ReadNamespaceOk(answer) => {
                     http_response += &utils::utf8_to_string(&answer.namespace)
                 }
