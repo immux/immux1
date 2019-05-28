@@ -1,7 +1,7 @@
 use bson::Document;
 
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
-use crate::cortices::mongo::ops::msg_header::{serialize_msg_header, MsgHeader};
+use crate::cortices::mongo::ops::msg_header::{parse_msg_header, serialize_msg_header, MsgHeader};
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
 use crate::declarations::errors::{UnumError, UnumResult};
@@ -48,14 +48,13 @@ pub struct OpMsg {
 
     // data sections
     pub sections: Vec<Section>,
-
-    // optional CRC-32C checksum
-    pub checksum: Option<u32>,
 }
 
-pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMsg> {
+pub fn parse_op_msg(buffer: &[u8]) -> UnumResult<OpMsg> {
     let mut index: usize = 0;
-    let (flags_bits_vec, offset) = parse_u32(&buffer)?;
+    let (message_header, offset) = parse_msg_header(&buffer[index..])?;
+    index += offset;
+    let (flags_bits_vec, offset) = parse_u32(&buffer[index..])?;
     index += offset;
     let check_sum_present = get_bit_u32(flags_bits_vec, CHECK_SUM_PRESENT_DIGIT);
     let more_to_come = get_bit_u32(flags_bits_vec, MORE_TO_COME_DIGIT);
@@ -123,7 +122,6 @@ pub fn parse_op_msg(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpMs
         message_header,
         flags,
         sections,
-        checksum,
     };
     return Ok(op_msg);
 }
@@ -146,6 +144,7 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> UnumResult<Vec<u8>> {
         EXHAUST_ALLOWED_DIGIT,
         op_msg.flags.exhaust_allowed,
     );
+
     res_buffer.append(&mut u32_to_u8_array(flag_bits).to_vec());
 
     for section in &op_msg.sections {
@@ -215,11 +214,10 @@ mod op_msg_tests {
     fn test_parse_op_msg_section_single() {
         let mut index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
-        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
-        index += offset;
-        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
+        let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
         assert_eq!(op_msg.flags.exhaust_allowed, false);
+        assert_eq!(op_msg.flags.more_to_come, false);
         assert_eq!(op_msg.sections.len(), 1);
 
         match &op_msg.sections[0] {
@@ -245,9 +243,7 @@ mod op_msg_tests {
     fn test_serialize_op_msg_section_single() {
         let mut index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
-        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
-        index += offset;
-        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
+        let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
         assert_eq!(buffer.to_vec(), op_msg_vec);
     }
@@ -279,10 +275,9 @@ mod op_msg_tests {
     fn test_parse_op_msg_section_sequence() -> Result<(), String> {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
         let mut index: usize = 0;
-        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
-        index += offset;
-        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
+        let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
+        assert_eq!(op_msg.flags.more_to_come, false);
         assert_eq!(op_msg.flags.exhaust_allowed, false);
         assert_eq!(op_msg.sections.len(), 2);
         match &op_msg.sections[0] {
@@ -317,9 +312,7 @@ mod op_msg_tests {
     fn test_serialize_op_msg_section_sequence() {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
         let mut index: usize = 0;
-        let (header, offset) = parse_msg_header(&buffer[index..]).unwrap();
-        index += offset;
-        let op_msg = parse_op_msg(header, &buffer[index..]).unwrap();
+        let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
         assert_eq!(buffer.to_vec(), op_msg_vec);
     }

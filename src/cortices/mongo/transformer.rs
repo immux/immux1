@@ -279,7 +279,6 @@ mod mongo_command_transformer_tests {
                     doc
                 }),
             ],
-            checksum: None,
         };
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::Insert(insert)) => {
@@ -406,7 +405,6 @@ mod mongo_outcome_transformer_tests {
                 doc.insert("$db", String::from("target_db"));
                 Section::Single(doc)
             }],
-            checksum: None,
         };
         let outcome = PickChainOutcome {
             new_chain_name: "hello".as_bytes().to_vec(),
@@ -473,7 +471,6 @@ mod mongo_outcome_transformer_tests {
                 exhaust_allowed: false,
             },
             sections: vec![],
-            checksum: None,
         };
         let outcome = InsertOutcome { count: 1024 };
         match transform_outcome_to_mongo_msg(
@@ -512,7 +509,6 @@ mod mongo_outcome_transformer_tests {
                 exhaust_allowed: false,
             },
             sections: vec![],
-            checksum: None,
         };
         let outcome = SelectOutcome { values: vec![] };
         match transform_outcome_to_mongo_msg(

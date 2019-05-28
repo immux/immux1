@@ -43,6 +43,13 @@ pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, usize)> {
     ))
 }
 
+pub fn get_msg_header_op_code(buffer: &[u8]) -> UnumResult<MongoOpCode> {
+    let index = 12;
+    let (op_code_u32, offset) = parse_u32(&buffer[index..])?;
+    let op_code = pick_op_code(op_code_u32)?;
+    return Ok(op_code);
+}
+
 pub fn serialize_msg_header(message_header: &MsgHeader) -> Vec<u8> {
     let mut res: Vec<u8> = Vec::new();
     res.append(&mut u32_to_u8_array(message_header.message_length).to_vec());
