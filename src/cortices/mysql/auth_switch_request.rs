@@ -45,7 +45,7 @@ pub fn serialize_auth_switch_request(
 mod auth_switch_request_tests {
 
     use crate::cortices::mysql::auth_switch_request::{
-        decode_hex, serialize_auth_switch_request, AuthSwitchRequest,
+        serialize_auth_switch_request, AuthSwitchRequest,
     };
 
     #[test]

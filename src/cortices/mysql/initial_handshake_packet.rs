@@ -27,6 +27,7 @@ pub fn serialize_auth_plugin_data(auth_plugin_data: String) -> ImmuxResult<(Vec<
             MySQLSerializeError::SerializeAuthPluginDataError,
         ));
     }
+    #[allow(unused_assignments)]
     let mut auth_plugin_data_part1 = Vec::new();
     let mut auth_plugin_data_part2 = Vec::new();
     if auth_plugin_data_vec.len() <= 8 {

@@ -63,7 +63,7 @@ pub fn serialize_ok_packet(
         res.append(&mut status_flags_vec.to_vec());
 
         if let Some(number_of_warnings) = ok_packet.number_of_warnings {
-            let mut number_of_warnings = u16_to_u8_array(number_of_warnings);
+            let number_of_warnings = u16_to_u8_array(number_of_warnings);
             res.append(&mut number_of_warnings.to_vec())
         } else {
             return Err(ImmuxError::MySQLSerializer(
@@ -170,8 +170,8 @@ mod ok_packet_tests {
             0x72, 0x6f, 0x67, 0x72, 0x61, 0x6d, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x05, 0x6d, 0x79,
             0x73, 0x71, 0x6c,
         ];
-        save_server_status_flags(&server_status_flags_buffer, &mut core);
-        save_handshake_response(&handshake_response_buffer, &mut core);
+        save_server_status_flags(&server_status_flags_buffer, &mut core).unwrap();
+        save_handshake_response(&handshake_response_buffer, &mut core).unwrap();
         let ok_packet_vec = serialize_ok_packet(ok_packet, &mut core, true).unwrap();
         let buffer = [
             0x07, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub mod auth_switch_request;
 pub mod auth_switch_response;
 pub mod capability_flags;

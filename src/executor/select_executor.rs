@@ -1,7 +1,7 @@
 use crate::declarations::commands::{Outcome, SelectCommand, SelectCondition, SelectOutcome};
 use crate::declarations::errors::ImmuxResult;
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicGetOneInstruction, GetTargetSpec, Instruction,
+    Answer, AtomicGetOneInstruction, GetTargetSpec, Instruction,
 };
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::get_id_list;

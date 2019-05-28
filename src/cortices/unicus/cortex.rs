@@ -23,7 +23,7 @@ pub fn unicus_cortex_process_incoming_message(
             http_response += "request parsing error";
         }
         Ok(instruction) => match core.execute(&instruction) {
-            Err(error) => {
+            Err(_error) => {
                 http_response += "instruction execution error";
             }
             Ok(answer) => match answer {

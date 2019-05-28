@@ -1,7 +1,7 @@
 use redis::{Commands, RedisError};
 
-use crate::declarations::errors::ImmuxError::RedisEngine;
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
+
+use crate::declarations::errors::{ImmuxResult};
 use crate::storage::kv::KeyValueStore;
 
 #[derive(Debug)]

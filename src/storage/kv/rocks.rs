@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use rocksdb::{Error as RocksError, DB};
 
 use crate::config::DEFAULT_PERMANENCE_PATH;
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::declarations::errors::{ImmuxResult};
 use crate::storage::kv::KeyValueStore;
 
 #[derive(Debug)]

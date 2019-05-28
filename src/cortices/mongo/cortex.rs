@@ -17,10 +17,10 @@ use crate::cortices::mongo::transformer::{
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::declarations::errors::{ImmuxResult};
 use crate::executor::execute::execute;
 use crate::storage::core::ImmuxDBCore;
-use crate::storage::vkv::VkvError;
+
 use crate::utils::u32_to_u8_array;
 
 const ADMIN_QUERY: &str = "admin.$cmd";

@@ -115,7 +115,7 @@ pub fn parse_op_msg(buffer: &[u8]) -> ImmuxResult<OpMsg> {
             }
         }
     }
-    let checksum = if check_sum_present {
+    let _checksum = if check_sum_present {
         Some(parse_u32(&buffer[index..])?.0)
     } else {
         None
@@ -191,7 +191,7 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> ImmuxResult<Vec<u8>> {
 #[cfg(test)]
 mod op_msg_tests {
 
-    use crate::cortices::mongo::ops::msg_header::parse_msg_header;
+    
     use crate::cortices::mongo::ops::op_msg::{parse_op_msg, serialize_op_msg, Section};
 
     static OP_MSG_FIXTURE_SINGLE: [u8; 224] = [
@@ -214,7 +214,7 @@ mod op_msg_tests {
 
     #[test]
     fn test_parse_op_msg_section_single() {
-        let mut index: usize = 0;
+        let index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
         let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
@@ -243,7 +243,7 @@ mod op_msg_tests {
 
     #[test]
     fn test_serialize_op_msg_section_single() {
-        let mut index: usize = 0;
+        let index: usize = 0;
         let buffer = OP_MSG_FIXTURE_SINGLE;
         let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
@@ -276,7 +276,7 @@ mod op_msg_tests {
     #[test]
     fn test_parse_op_msg_section_sequence() -> Result<(), String> {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
-        let mut index: usize = 0;
+        let index: usize = 0;
         let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         assert_eq!(op_msg.flags.check_sum_present, false);
         assert_eq!(op_msg.flags.more_to_come, false);
@@ -313,7 +313,7 @@ mod op_msg_tests {
     #[test]
     fn test_serialize_op_msg_section_sequence() {
         let buffer = OP_MSG_FIXTURE_SEQUENCE;
-        let mut index: usize = 0;
+        let index: usize = 0;
         let op_msg = parse_op_msg(&buffer[index..]).unwrap();
         let op_msg_vec = serialize_op_msg(&op_msg).unwrap();
         assert_eq!(buffer.to_vec(), op_msg_vec);

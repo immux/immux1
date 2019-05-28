@@ -7,7 +7,7 @@ use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
 pub fn parse_mongo_incoming_bytes(buffer: &[u8]) -> ImmuxResult<MongoOp> {
-    let mut index: usize = 0;
+    let index: usize = 0;
     match get_msg_header_op_code(buffer) {
         Err(error) => Err(error),
         Ok(op_code) => match op_code {

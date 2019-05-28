@@ -8,7 +8,7 @@ use bincode::{deserialize, serialize, Error as BincodeError};
 use serde::{Deserialize, Serialize};
 
 use crate::config::IMMUXDB_VERSION;
-use crate::declarations::errors::ImmuxError::Transaction;
+
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, GetOkAnswer, GetOneOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer,
@@ -19,7 +19,7 @@ use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
-use crate::storage::tkv::TransactionError;
+
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
 pub type InstructionHeight = u64;
@@ -165,7 +165,7 @@ impl ImmuxDBVersionedKeyValueStore {
         while height > target_height {
             let mut instruction_recrod = self.get_instruction_record_by_height(height)?;
             instruction_recrod.deleted = true;
-            self.save_instruction_record_by_height(height, &instruction_recrod);
+            self.save_instruction_record_by_height(height, &instruction_recrod)?;
             height -= 1;
         }
         return Ok(());
@@ -207,7 +207,7 @@ impl ImmuxDBVersionedKeyValueStore {
         let mut height = self.get_height();
         while height >= target_height {
             match self.get_instruction_meta_by_height(height) {
-                Err(error) => return Err(error),
+                Err(_error) => (),
                 Ok(meta) => match meta {
                     InstructionMeta::RevertAll(mut revert_all_instruction_meta) => {
                         revert_all_instruction_meta.deleted = true;
@@ -218,7 +218,11 @@ impl ImmuxDBVersionedKeyValueStore {
                     }
                 },
             }
-            height -= 1;
+            if height == 0 {
+                break;
+            } else {
+                height -= 1;
+            }
         }
         return Ok(());
     }

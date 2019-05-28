@@ -1,9 +1,9 @@
 use bincode::{deserialize, serialize};
 
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::declarations::errors::ImmuxResult;
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
-    Instruction, SetTargetSpec,
+    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
+    SetTargetSpec,
 };
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, ImmuxDBCore};
@@ -105,7 +105,7 @@ mod executor_shared_functions_test {
                     vec![1, 2, 3, 4, 5, 6],
                     "collection/yet-another-title".as_bytes().to_vec(),
                 ];
-                set_id_list(collection, &mut core, &input_list);
+                set_id_list(collection, &mut core, &input_list).unwrap();
                 let output_list = get_id_list(collection, &mut core);
                 assert_eq!(input_list, output_list);
             }

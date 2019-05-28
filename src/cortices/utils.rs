@@ -1,7 +1,9 @@
-use crate::declarations::errors::ImmuxResult;
-use crate::utils::{u8_array_to_u16, u8_array_to_u32, u8_array_to_u64};
+#![allow(dead_code)]
 use std::ffi::CString;
 use std::mem::size_of;
+
+use crate::declarations::errors::ImmuxResult;
+use crate::utils::{u8_array_to_u16, u8_array_to_u32, u8_array_to_u64};
 
 #[derive(Debug)]
 pub enum DeserializationError {

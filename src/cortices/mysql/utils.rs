@@ -2,7 +2,7 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::{parse_u16, parse_u64, parse_u8, DeserializationError};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{u16_to_u8_array, u32_to_u8_array, u64_to_u8_array, u8_array_to_u32};
-use std::mem::size_of;
+
 use std::num::ParseIntError;
 use std::str;
 
@@ -105,7 +105,7 @@ pub fn u32_to_u8_array_with_length_3(x: u32) -> ImmuxResult<[u8; 3]> {
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
     let mut res = Vec::new();
     for i in (0..s.len()).step_by(2) {
-        let mut hex_str = if i == s.len() - 1 {
+        let hex_str = if i == s.len() - 1 {
             &s[i..i + 1]
         } else {
             &s[i..i + 2]
@@ -292,6 +292,6 @@ mod mysql_utils_tests {
     #[should_panic]
     fn test_decode_hex_error() {
         let hex_str = "hello world";
-        let res = decode_hex(hex_str).unwrap();
+        let _res = decode_hex(hex_str).unwrap();
     }
 }

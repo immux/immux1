@@ -2,8 +2,8 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::parse_u16;
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
-    Instruction, SetTargetSpec,
+    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
+    SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::utils::{get_bit_u16, set_bit_u16};
@@ -173,7 +173,7 @@ mod server_status_flags_tests {
         let engine_choice = KeyValueEngine::HashMap;
         let server_status_flags_buffer = [0x02, 0x00];
         let mut core = ImmuxDBCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
-        save_server_status_flags(&server_status_flags_buffer, &mut core);
+        save_server_status_flags(&server_status_flags_buffer, &mut core).unwrap();
         let res = load_server_status_flags(&mut core).unwrap();
         assert_eq!(res.intrans, false);
         assert_eq!(res.autocommit, true);

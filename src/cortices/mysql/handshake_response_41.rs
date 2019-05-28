@@ -89,6 +89,7 @@ pub fn parse_handshake_response(buffer: &[u8]) -> ImmuxResult<HandshakeResponse>
     let (user_name, offset) = parse_cstring(&buffer[index..])?;
     index += offset;
 
+    #[allow(unused_assignments)]
     let mut auth_response = None;
     if capability_flags.client_plugin_auth_lenenc_client_data {
         let (string_length, offset) = parse_length_encoded_integer(&buffer[index..])?;
