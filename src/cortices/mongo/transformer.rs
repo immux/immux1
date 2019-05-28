@@ -177,7 +177,7 @@ pub fn transform_outcome_to_mongo_msg(
                 .collect();
             cursor.insert("firstBatch", documents);
             cursor.insert("id", 0i64);
-            cursor.insert("ns", ""); // TODO(#82): implement proper ns
+            cursor.insert("ns", ""); // Skipped actual implementation. See issue #82.
             doc.insert("cursor", cursor);
             doc.insert("ok", 1.0);
             Ok(construct_single_doc_op_msg(doc, &header))
@@ -521,7 +521,6 @@ mod mongo_outcome_transformer_tests {
             &MongoOp::Msg(mock_incoming_op),
         ) {
             Err(_error) => panic!("Cannot transform select outcome"),
-            // TODO(#83) add more scenarios
             Ok(op_msg) => {
                 assert_eq!(op_msg.sections.len(), 1);
                 let first_section = &op_msg.sections[0];
