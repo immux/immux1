@@ -112,7 +112,6 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
     return Ok(res);
 }
 
-// TODO: We are using this method to judge the current state of connection phase, see issue 87.
 pub enum ConnectionStatePhase {
     LoginRequest = 1,
     AuthSwitchResponse = 3,

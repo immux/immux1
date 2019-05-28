@@ -76,7 +76,6 @@ pub fn serialize_ok_packet(
         res.append(&mut status_flags_vec.to_vec());
     }
 
-    //    TODO: The format of the real packet I captured is not matching with the description of official docs. see issue 90.
     if is_connection_phase_ok_packet {
         return Ok(res);
     } else {

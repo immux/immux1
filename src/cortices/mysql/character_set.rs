@@ -3,10 +3,8 @@ use crate::cortices::utils::parse_u8;
 use crate::declarations::errors::{UnumError, UnumResult};
 
 /// @see https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
-// TODO: character set contains too many options, here we just shows a few common character sets issue #60.
 pub const LATIN1_SWEDISH_CI: u8 = 8;
 pub const UTF8_GENERAL_CI: u8 = 33;
-// TODO: Couldn't find character set 45, issue #76.
 pub const UTF8MB4_GENERAL_CI: u8 = 45;
 pub const BINARY: u8 = 63;
 

@@ -128,7 +128,6 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
 
         let mut current_length = 0;
 
-        // TODO: Here we assume the input buffer from official MySQL client is correct, #75
         loop {
             if current_length == hash_map_length {
                 break;
