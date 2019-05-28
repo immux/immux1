@@ -4,9 +4,9 @@ use crate::cortices::mongo::ops::op::MongoOp;
 use crate::cortices::mongo::ops::op_msg::parse_op_msg;
 use crate::cortices::mongo::ops::op_query::parse_op_query;
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
-pub fn parse_mongo_incoming_bytes(buffer: &[u8]) -> UnumResult<MongoOp> {
+pub fn parse_mongo_incoming_bytes(buffer: &[u8]) -> ImmuxResult<MongoOp> {
     let mut index: usize = 0;
     match get_msg_header_op_code(buffer) {
         Err(error) => Err(error),
@@ -19,7 +19,7 @@ pub fn parse_mongo_incoming_bytes(buffer: &[u8]) -> UnumResult<MongoOp> {
                 Err(error) => Err(error),
                 Ok(op) => Ok(MongoOp::Msg(op)),
             },
-            _ => Err(UnumError::MongoParser(
+            _ => Err(ImmuxError::MongoParser(
                 MongoParserError::UnimplementedOpCode(op_code),
             )),
         },

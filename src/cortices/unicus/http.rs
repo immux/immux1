@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use url::Url;
 
 use crate::config;
-use crate::declarations::errors::UnumError;
+use crate::declarations::errors::ImmuxError;
 use crate::declarations::instructions::{
     AtomicGetInstruction, AtomicGetOneInstruction, AtomicRevertAllInstruction,
     AtomicRevertInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
@@ -52,7 +52,7 @@ pub struct UrlInformation {
 }
 
 impl UrlInformation {
-    fn extract_numeric_query(&self, key: &str) -> Result<u64, UnumError> {
+    fn extract_numeric_query(&self, key: &str) -> Result<u64, ImmuxError> {
         match self.queries.get(key) {
             None => Err(HttpParsingError::UrlParsingError.into()),
             Some(string) => match string.parse::<u64>() {

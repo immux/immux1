@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::kv::KeyValueStore;
 
 #[derive(Debug)]
@@ -33,14 +33,14 @@ impl HashMapStore {
 }
 
 impl KeyValueStore for HashMapStore {
-    fn get(&self, key: &[u8]) -> UnumResult<Vec<u8>> {
+    fn get(&self, key: &[u8]) -> ImmuxResult<Vec<u8>> {
         let node = &self.hashmaps[self.current_node];
         match node.hashmap.get(key) {
             None => Err(HashmapStorageEngineError::NotFound.into()),
             Some(value) => Ok(value.to_vec()),
         }
     }
-    fn set(&mut self, key: &[u8], value: &[u8]) -> UnumResult<Vec<u8>> {
+    fn set(&mut self, key: &[u8], value: &[u8]) -> ImmuxResult<Vec<u8>> {
         let hashmap = &mut self.hashmaps[self.current_node].hashmap;
         match hashmap.insert(key.to_vec(), value.to_vec()) {
             // Currently identical in both arms
@@ -48,7 +48,7 @@ impl KeyValueStore for HashMapStore {
             Some(_old_value) => Ok(vec![]),
         }
     }
-    fn switch_namespace(&mut self, namespace: &[u8]) -> UnumResult<()> {
+    fn switch_namespace(&mut self, namespace: &[u8]) -> ImmuxResult<()> {
         for (index, node) in self.hashmaps.iter().enumerate() {
             if node.name == namespace {
                 self.current_node = index;

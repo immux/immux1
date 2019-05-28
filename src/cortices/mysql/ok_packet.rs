@@ -7,8 +7,8 @@ use crate::cortices::mysql::utils::{
     serialize_length_encoded_integer, serialize_length_encoded_string,
     u32_to_u8_array_with_length_3,
 };
-use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::UnumCore;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::storage::core::ImmuxDBCore;
 use crate::utils::{u16_to_u8_array, utf8_to_string};
 
 pub enum HeaderOption {
@@ -41,9 +41,9 @@ pub struct OkPacket {
 
 pub fn serialize_ok_packet(
     ok_packet: OkPacket,
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     is_connection_phase_ok_packet: bool,
-) -> UnumResult<Vec<u8>> {
+) -> ImmuxResult<Vec<u8>> {
     let handshake_response = load_handshake_response(core)?;
     let mut res = Vec::new();
     res.append(&mut u32_to_u8_array_with_length_3(ok_packet.payload_length)?.to_vec());
@@ -66,7 +66,7 @@ pub fn serialize_ok_packet(
             let mut number_of_warnings = u16_to_u8_array(number_of_warnings);
             res.append(&mut number_of_warnings.to_vec())
         } else {
-            return Err(UnumError::MySQLSerializer(
+            return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::MissingFieldInStruct,
             ));
         }
@@ -85,7 +85,7 @@ pub fn serialize_ok_packet(
                 let mut string_vec = serialize_length_encoded_string(info)?;
                 res.append(&mut string_vec);
             } else {
-                return Err(UnumError::MySQLSerializer(
+                return Err(ImmuxError::MySQLSerializer(
                     MySQLSerializeError::MissingFieldInStruct,
                 ));
             }
@@ -100,7 +100,7 @@ pub fn serialize_ok_packet(
                         session_state_info_string,
                     )?);
                 } else {
-                    return Err(UnumError::MySQLSerializer(
+                    return Err(ImmuxError::MySQLSerializer(
                         MySQLSerializeError::MissingFieldInStruct,
                     ));
                 }
@@ -111,7 +111,7 @@ pub fn serialize_ok_packet(
                 info_vec.push(0x00);
                 res.append(&mut info_vec);
             } else {
-                return Err(UnumError::MySQLSerializer(
+                return Err(ImmuxError::MySQLSerializer(
                     MySQLSerializeError::MissingFieldInStruct,
                 ));
             }
@@ -128,7 +128,7 @@ mod ok_packet_tests {
     use crate::cortices::mysql::handshake_response_41::save_handshake_response;
     use crate::cortices::mysql::ok_packet::{serialize_ok_packet, HeaderOption, OkPacket};
     use crate::cortices::mysql::server_status_flags::save_server_status_flags;
-    use crate::storage::core::UnumCore;
+    use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -154,7 +154,7 @@ mod ok_packet_tests {
         };
 
         let engine_choice = KeyValueEngine::HashMap;
-        let mut core = UnumCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
         let server_status_flags_buffer = [0x02, 0x00];
         let handshake_response_buffer = [
             0xa7, 0x00, 0x00, 0x01, 0x85, 0xa6, 0xff, 0x01, 0x00, 0x00, 0x00, 0x01, 0x2d, 0x00,

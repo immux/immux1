@@ -1,13 +1,13 @@
 use crate::declarations::commands::{Outcome, PickChainCommand, PickChainOutcome};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{Answer, Instruction, SwitchNamespaceInstruction};
 use crate::executor::errors::ExecutorError;
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 
 pub fn execute_pick_chain(
     pick_chain: PickChainCommand,
-    core: &mut UnumCore,
-) -> UnumResult<Outcome> {
+    core: &mut ImmuxDBCore,
+) -> ImmuxResult<Outcome> {
     let instruction = SwitchNamespaceInstruction {
         new_namespace: pick_chain.new_chain_name,
     };
@@ -19,7 +19,7 @@ pub fn execute_pick_chain(
                     new_chain_name: answer.new_namespace,
                 }))
             }
-            _ => Err(UnumError::Executor(ExecutorError::UnexpectedAnswerType(
+            _ => Err(ImmuxError::Executor(ExecutorError::UnexpectedAnswerType(
                 answer,
             ))),
         },

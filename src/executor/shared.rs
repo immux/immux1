@@ -1,12 +1,12 @@
 use bincode::{deserialize, serialize};
 
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
     Instruction, SetTargetSpec,
 };
 use crate::executor::errors::ExecutorError;
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 
 pub const SEPARATORS: &[u8] = &['/' as u8, '/' as u8];
 pub const ID_LIST_KEY: &[u8] = &[
@@ -27,7 +27,7 @@ fn get_id_list_key(grouping: &[u8]) -> Vec<u8> {
     get_kv_key(grouping, ID_LIST_KEY)
 }
 
-pub fn get_id_list(grouping: &[u8], core: &mut UnumCore) -> Vec<Vec<u8>> {
+pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
     let id_list_key = get_id_list_key(grouping);
     let key_list = {
         let get_key_list = AtomicGetOneInstruction {
@@ -49,7 +49,11 @@ pub fn get_id_list(grouping: &[u8], core: &mut UnumCore) -> Vec<Vec<u8>> {
     key_list
 }
 
-pub fn set_id_list(grouping: &[u8], core: &mut UnumCore, id_list: &[Vec<u8>]) -> UnumResult<()> {
+pub fn set_id_list(
+    grouping: &[u8],
+    core: &mut ImmuxDBCore,
+    id_list: &[Vec<u8>],
+) -> ImmuxResult<()> {
     let id_list_key = get_id_list_key(grouping);
     match serialize(&id_list) {
         Err(_error) => return Err(ExecutorError::CannotSerialize.into()),
@@ -71,7 +75,7 @@ pub fn set_id_list(grouping: &[u8], core: &mut UnumCore, id_list: &[Vec<u8>]) ->
 #[cfg(test)]
 mod executor_shared_functions_test {
     use crate::executor::shared::{get_id_list, get_id_list_key, get_kv_key, set_id_list};
-    use crate::storage::core::UnumCore;
+    use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -92,7 +96,7 @@ mod executor_shared_functions_test {
     #[test]
     fn test_id_list() {
         let chain_name = "chain";
-        match UnumCore::new(&KeyValueEngine::HashMap, chain_name.as_bytes()) {
+        match ImmuxDBCore::new(&KeyValueEngine::HashMap, chain_name.as_bytes()) {
             Err(_error) => panic!("Cannot initialize core"),
             Ok(mut core) => {
                 let collection = "collection".as_bytes();

@@ -1,6 +1,6 @@
 use crate::cortices::mysql::error::MySQLParserError;
 use crate::cortices::utils::parse_u8;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
 /// @see https://dev.mysql.com/doc/internals/en/character-set.html#packet-Protocol::CharacterSet
 // TODO: character set contains too many options, here we just shows a few common character sets issue #60.
@@ -28,19 +28,19 @@ pub fn get_character_set_value(character_set: CharacterSet) -> u8 {
     }
 }
 
-pub fn pick_character_set(character_set_value: u8) -> UnumResult<CharacterSet> {
+pub fn pick_character_set(character_set_value: u8) -> ImmuxResult<CharacterSet> {
     match character_set_value {
         LATIN1_SWEDISH_CI => Ok(CharacterSet::Latin1SwedishCi),
         UTF8_GENERAL_CI => Ok(CharacterSet::Utf8GeneralCi),
         BINARY => Ok(CharacterSet::Binary),
         UTF8MB4_GENERAL_CI => Ok(CharacterSet::Utf8mb4GeneralCi),
-        _ => Err(UnumError::MySQLParser(
+        _ => Err(ImmuxError::MySQLParser(
             MySQLParserError::UnknownCharacterSetValue(character_set_value),
         )),
     }
 }
 
-pub fn parse_character_set(buffer: &[u8]) -> UnumResult<(CharacterSet, usize)> {
+pub fn parse_character_set(buffer: &[u8]) -> ImmuxResult<(CharacterSet, usize)> {
     let (character_set_value, offset) = parse_u8(&buffer)?;
     let character_set = pick_character_set(character_set_value)?;
     Ok((character_set, offset))

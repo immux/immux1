@@ -1,4 +1,4 @@
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 use crate::utils::{u8_array_to_u16, u8_array_to_u32, u8_array_to_u64};
 use std::ffi::CString;
 use std::mem::size_of;
@@ -14,7 +14,7 @@ pub enum DeserializationError {
     StringInputContainsInvalidUtf8,
 }
 
-pub fn parse_u8(buffer: &[u8]) -> UnumResult<(u8, usize)> {
+pub fn parse_u8(buffer: &[u8]) -> ImmuxResult<(u8, usize)> {
     let field_size = size_of::<u8>();
     if buffer.len() < field_size {
         return Err(DeserializationError::InsufficientDataWidthU8.into());
@@ -23,7 +23,7 @@ pub fn parse_u8(buffer: &[u8]) -> UnumResult<(u8, usize)> {
     }
 }
 
-pub fn parse_u16(buffer: &[u8]) -> UnumResult<(u16, usize)> {
+pub fn parse_u16(buffer: &[u8]) -> ImmuxResult<(u16, usize)> {
     let field_size = size_of::<u16>();
     if buffer.len() < field_size {
         return Err(DeserializationError::InsufficientDataWidthU16.into());
@@ -32,7 +32,7 @@ pub fn parse_u16(buffer: &[u8]) -> UnumResult<(u16, usize)> {
     }
 }
 
-pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, usize)> {
+pub fn parse_u32(buffer: &[u8]) -> ImmuxResult<(u32, usize)> {
     let field_size = size_of::<u32>();
     if buffer.len() < field_size {
         return Err(DeserializationError::InsufficientDataWidthU32.into());
@@ -44,7 +44,7 @@ pub fn parse_u32(buffer: &[u8]) -> UnumResult<(u32, usize)> {
     }
 }
 
-pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, usize)> {
+pub fn parse_u64(buffer: &[u8]) -> ImmuxResult<(u64, usize)> {
     let field_size = size_of::<u64>();
     if buffer.len() < field_size {
         return Err(DeserializationError::InsufficientDataWidthU64.into());
@@ -59,7 +59,7 @@ pub fn parse_u64(buffer: &[u8]) -> UnumResult<(u64, usize)> {
     }
 }
 
-pub fn parse_cstring(buffer: &[u8]) -> UnumResult<(String, usize)> {
+pub fn parse_cstring(buffer: &[u8]) -> ImmuxResult<(String, usize)> {
     match buffer.iter().position(|&r| r == b'\0') {
         None => {
             return Err(DeserializationError::CStringMissingTerminalNull.into());

@@ -7,9 +7,9 @@ use std::cmp::Ordering;
 use bincode::{deserialize, serialize, Error as BincodeError};
 use serde::{Deserialize, Serialize};
 
-use crate::config::UNUM_VERSION;
-use crate::declarations::errors::UnumError::Transaction;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::config::IMMUXDB_VERSION;
+use crate::declarations::errors::ImmuxError::Transaction;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, GetOkAnswer, GetOneOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer,
     RevertOkAnswer, SetOkAnswer, SwitchNamespaceOkAnswer,
@@ -67,25 +67,25 @@ struct Entry {
     pub updates: Vec<UpdateRecord>,
 }
 
-pub struct UnumVersionedKeyValueStore {
+pub struct ImmuxDBVersionedKeyValueStore {
     pub kv_engine: Box<KeyValueStore>,
 }
 
-impl UnumVersionedKeyValueStore {
+impl ImmuxDBVersionedKeyValueStore {
     pub fn new(
         engine_choice: &KeyValueEngine,
         namespace: &[u8],
-    ) -> Result<UnumVersionedKeyValueStore, UnumError> {
+    ) -> Result<ImmuxDBVersionedKeyValueStore, ImmuxError> {
         let engine: Box<KeyValueStore> = match engine_choice {
             KeyValueEngine::Redis => Box::new(RedisStore::new(namespace)?),
             KeyValueEngine::HashMap => Box::new(HashMapStore::new(namespace)),
             KeyValueEngine::Rocks => Box::new(RocksStore::new(namespace)?),
         };
-        let store = UnumVersionedKeyValueStore { kv_engine: engine };
+        let store = ImmuxDBVersionedKeyValueStore { kv_engine: engine };
         Ok(store)
     }
 
-    fn get_with_key_prefix(&self, key_prefix: KeyPrefix, key: &[u8]) -> UnumResult<Vec<u8>> {
+    fn get_with_key_prefix(&self, key_prefix: KeyPrefix, key: &[u8]) -> ImmuxResult<Vec<u8>> {
         let mut v: Vec<u8> = vec![key_prefix as u8];
         v.extend_from_slice(key);
         self.kv_engine.get(&v)
@@ -96,7 +96,7 @@ impl UnumVersionedKeyValueStore {
         key_prefix: KeyPrefix,
         key: &[u8],
         value: &[u8],
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         let mut v: Vec<u8> = vec![key_prefix as u8];
         v.extend_from_slice(key);
         self.kv_engine.set(&v, value)
@@ -119,7 +119,7 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    pub fn set_height(&mut self, height: InstructionHeight) -> UnumResult<Vec<u8>> {
+    pub fn set_height(&mut self, height: InstructionHeight) -> ImmuxResult<Vec<u8>> {
         self.set_with_key_prefix(
             KeyPrefix::StandAlone,
             COMMIT_HEIGHT_KEY.as_bytes(),
@@ -131,7 +131,7 @@ impl UnumVersionedKeyValueStore {
         &mut self,
         height: InstructionHeight,
         instruction_record: &InstructionRecord,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match serialize(instruction_record) {
             Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
             Ok(serialized_instruction_record) => self.set_with_key_prefix(
@@ -145,7 +145,7 @@ impl UnumVersionedKeyValueStore {
     fn get_instruction_record_by_height(
         &self,
         height: InstructionHeight,
-    ) -> UnumResult<InstructionRecord> {
+    ) -> ImmuxResult<InstructionRecord> {
         match self.get_with_key_prefix(KeyPrefix::HeightToInstruction, &u64_to_u8_array(height)) {
             Err(_error) => Err(VkvError::GetInstructionRecordFail.into()),
             Ok(instruction_record_bytes) => {
@@ -160,7 +160,7 @@ impl UnumVersionedKeyValueStore {
     pub fn invalidate_instruction_record_after_height(
         &mut self,
         target_height: InstructionHeight,
-    ) -> UnumResult<()> {
+    ) -> ImmuxResult<()> {
         let mut height = self.get_height();
         while height > target_height {
             let mut instruction_recrod = self.get_instruction_record_by_height(height)?;
@@ -175,7 +175,7 @@ impl UnumVersionedKeyValueStore {
         &mut self,
         height: InstructionHeight,
         instruction_meta: &InstructionMeta,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match serialize(instruction_meta) {
             Err(_error) => Err(VkvError::CannotSerializeInstructionMeta(_error).into()),
             Ok(serialized_instruction) => self.set_with_key_prefix(
@@ -189,7 +189,7 @@ impl UnumVersionedKeyValueStore {
     fn get_instruction_meta_by_height(
         &self,
         height: InstructionHeight,
-    ) -> UnumResult<InstructionMeta> {
+    ) -> ImmuxResult<InstructionMeta> {
         match self.get_with_key_prefix(KeyPrefix::HeightToInstructionMeta, &u64_to_u8_array(height))
         {
             Err(_error) => Err(VkvError::GetInstructionMetaFail.into()),
@@ -203,7 +203,7 @@ impl UnumVersionedKeyValueStore {
     pub fn invalidate_instruction_meta_after_height(
         &mut self,
         target_height: InstructionHeight,
-    ) -> UnumResult<()> {
+    ) -> ImmuxResult<()> {
         let mut height = self.get_height();
         while height >= target_height {
             match self.get_instruction_meta_by_height(height) {
@@ -223,7 +223,7 @@ impl UnumVersionedKeyValueStore {
         return Ok(());
     }
 
-    fn get_entry(&self, key: &[u8]) -> UnumResult<Entry> {
+    fn get_entry(&self, key: &[u8]) -> ImmuxResult<Entry> {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToEntry, key);
         match meta_bytes {
             Err(_error) => {
@@ -245,7 +245,7 @@ impl UnumVersionedKeyValueStore {
         key: &[u8],
         value: &[u8],
         height: InstructionHeight,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match self.get_entry(key) {
             Err(_err) => {
                 let first_entry = UpdateRecord {
@@ -255,7 +255,7 @@ impl UnumVersionedKeyValueStore {
                 };
 
                 let new_meta = Entry {
-                    api_version: UNUM_VERSION,
+                    api_version: IMMUXDB_VERSION,
                     updates: vec![first_entry],
                 };
                 match serialize(&new_meta) {
@@ -285,7 +285,7 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    fn save_entry_by_key(&mut self, primary_key: &[u8], new_entry: &Entry) -> UnumResult<Vec<u8>> {
+    fn save_entry_by_key(&mut self, primary_key: &[u8], new_entry: &Entry) -> ImmuxResult<Vec<u8>> {
         let serialized = serialize(new_entry);
         match serialized {
             Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
@@ -307,7 +307,7 @@ impl UnumVersionedKeyValueStore {
         &mut self,
         primary_key: &[u8],
         target_height: InstructionHeight,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match self.get_entry(primary_key) {
             Err(error) => Err(error),
             Ok(mut existing_entry) => {
@@ -327,7 +327,7 @@ impl UnumVersionedKeyValueStore {
         &mut self,
         key: &[u8],
         target_height: InstructionHeight,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match self.get_entry(key) {
             Err(error) => Err(error),
             Ok(index) => {
@@ -346,7 +346,7 @@ impl UnumVersionedKeyValueStore {
         primary_key: &[u8],
         target_height: InstructionHeight,
         next_height: InstructionHeight,
-    ) -> UnumResult<Vec<u8>> {
+    ) -> ImmuxResult<Vec<u8>> {
         match self.get_with_key_prefix(KeyPrefix::KeyToEntry, primary_key) {
             Err(_error) => Err(VkvError::CannotGetEntry.into()),
             Ok(meta_bytes) => match deserialize::<Entry>(&meta_bytes) {
@@ -378,7 +378,7 @@ impl UnumVersionedKeyValueStore {
         }
     }
 
-    pub fn increment_height(&mut self) -> Result<InstructionHeight, UnumError> {
+    pub fn increment_height(&mut self) -> Result<InstructionHeight, ImmuxError> {
         let height = self.get_height() + 1;
         match self.set_height(height) {
             Err(error) => return Err(error),
@@ -401,7 +401,7 @@ enum InstructionMeta {
 
 pub trait VersionedKeyValueStore {
     fn get_current_height(&self) -> InstructionHeight;
-    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, UnumError>;
+    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, ImmuxError>;
 }
 
 fn byte_array_compare(vec_a: &[u8], vec_b: &[u8]) -> Ordering {
@@ -426,10 +426,10 @@ fn byte_array_compare(vec_a: &[u8], vec_b: &[u8]) -> Ordering {
 }
 
 pub fn extract_affected_keys(
-    store: &UnumVersionedKeyValueStore,
+    store: &ImmuxDBVersionedKeyValueStore,
     target_height: InstructionHeight,
     current_height: InstructionHeight,
-) -> UnumResult<Vec<Vec<u8>>> {
+) -> ImmuxResult<Vec<Vec<u8>>> {
     let mut affected_keys: Vec<Vec<u8>> = vec![];
     let mut height = current_height;
     while height >= target_height {
@@ -458,7 +458,7 @@ pub fn extract_affected_keys(
                     }
                 }
                 _ => {
-                    return Err(UnumError::VKV(VkvError::UnexpectedInstruction));
+                    return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction));
                 }
             }
         }
@@ -469,11 +469,11 @@ pub fn extract_affected_keys(
     return Ok(affected_keys);
 }
 
-impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
+impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
     fn get_current_height(&self) -> InstructionHeight {
         return self.get_height();
     }
-    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, UnumError> {
+    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, ImmuxError> {
         match instruction {
             Instruction::AtomicGet(get) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
@@ -580,7 +580,7 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                 }));
             }
             _ => {
-                return Err(UnumError::VKV(VkvError::UnexpectedInstruction));
+                return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction));
             }
         }
     }

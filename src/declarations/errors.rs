@@ -13,7 +13,7 @@ use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::VkvError;
 
 #[derive(Debug)]
-pub enum UnumError {
+pub enum ImmuxError {
     RedisEngine(RedisEngineError),
     RocksEngine(RocksEngineError),
     HashmapEngine(HashmapStorageEngineError),
@@ -42,94 +42,94 @@ pub enum UnumError {
     Transaction(TransactionError),
 }
 
-impl std::convert::From<MongoParserError> for UnumError {
-    fn from(error: MongoParserError) -> UnumError {
-        UnumError::MongoParser(error)
+impl std::convert::From<MongoParserError> for ImmuxError {
+    fn from(error: MongoParserError) -> ImmuxError {
+        ImmuxError::MongoParser(error)
     }
 }
 
-impl std::convert::From<MongoSerializeError> for UnumError {
-    fn from(error: MongoSerializeError) -> UnumError {
-        UnumError::MongoSerializer(error)
+impl std::convert::From<MongoSerializeError> for ImmuxError {
+    fn from(error: MongoSerializeError) -> ImmuxError {
+        ImmuxError::MongoSerializer(error)
     }
 }
 
-impl std::convert::From<MySQLParserError> for UnumError {
-    fn from(error: MySQLParserError) -> UnumError {
-        UnumError::MySQLParser(error)
+impl std::convert::From<MySQLParserError> for ImmuxError {
+    fn from(error: MySQLParserError) -> ImmuxError {
+        ImmuxError::MySQLParser(error)
     }
 }
 
-impl std::convert::From<MySQLSerializeError> for UnumError {
-    fn from(error: MySQLSerializeError) -> UnumError {
-        UnumError::MySQLSerializer(error)
+impl std::convert::From<MySQLSerializeError> for ImmuxError {
+    fn from(error: MySQLSerializeError) -> ImmuxError {
+        ImmuxError::MySQLSerializer(error)
     }
 }
 
-impl std::convert::From<TcpError> for UnumError {
-    fn from(error: TcpError) -> UnumError {
-        UnumError::Tcp(error)
+impl std::convert::From<TcpError> for ImmuxError {
+    fn from(error: TcpError) -> ImmuxError {
+        ImmuxError::Tcp(error)
     }
 }
 
-impl std::convert::From<ConfigError> for UnumError {
-    fn from(error: ConfigError) -> UnumError {
-        UnumError::Config(error)
+impl std::convert::From<ConfigError> for ImmuxError {
+    fn from(error: ConfigError) -> ImmuxError {
+        ImmuxError::Config(error)
     }
 }
 
-impl std::convert::From<MongoTransformerError> for UnumError {
-    fn from(error: MongoTransformerError) -> UnumError {
-        UnumError::MongoTransformer(error)
+impl std::convert::From<MongoTransformerError> for ImmuxError {
+    fn from(error: MongoTransformerError) -> ImmuxError {
+        ImmuxError::MongoTransformer(error)
     }
 }
 
-impl std::convert::From<VkvError> for UnumError {
-    fn from(error: VkvError) -> UnumError {
-        UnumError::VKV(error)
+impl std::convert::From<VkvError> for ImmuxError {
+    fn from(error: VkvError) -> ImmuxError {
+        ImmuxError::VKV(error)
     }
 }
 
-impl std::convert::From<DeserializationError> for UnumError {
-    fn from(error: DeserializationError) -> UnumError {
-        UnumError::Deserialization(error)
+impl std::convert::From<DeserializationError> for ImmuxError {
+    fn from(error: DeserializationError) -> ImmuxError {
+        ImmuxError::Deserialization(error)
     }
 }
 
-impl std::convert::From<ExecutorError> for UnumError {
-    fn from(error: ExecutorError) -> UnumError {
-        UnumError::Executor(error)
+impl std::convert::From<ExecutorError> for ImmuxError {
+    fn from(error: ExecutorError) -> ImmuxError {
+        ImmuxError::Executor(error)
     }
 }
 
-impl std::convert::From<TransactionError> for UnumError {
-    fn from(error: TransactionError) -> UnumError {
-        UnumError::Transaction(error)
+impl std::convert::From<TransactionError> for ImmuxError {
+    fn from(error: TransactionError) -> ImmuxError {
+        ImmuxError::Transaction(error)
     }
 }
 
-impl std::convert::From<RedisEngineError> for UnumError {
-    fn from(error: RedisEngineError) -> UnumError {
-        UnumError::RedisEngine(error)
+impl std::convert::From<RedisEngineError> for ImmuxError {
+    fn from(error: RedisEngineError) -> ImmuxError {
+        ImmuxError::RedisEngine(error)
     }
 }
 
-impl std::convert::From<RocksEngineError> for UnumError {
-    fn from(error: RocksEngineError) -> UnumError {
-        UnumError::RocksEngine(error)
+impl std::convert::From<RocksEngineError> for ImmuxError {
+    fn from(error: RocksEngineError) -> ImmuxError {
+        ImmuxError::RocksEngine(error)
     }
 }
 
-impl std::convert::From<HashmapStorageEngineError> for UnumError {
-    fn from(error: HashmapStorageEngineError) -> UnumError {
-        UnumError::HashmapEngine(error)
+impl std::convert::From<HashmapStorageEngineError> for ImmuxError {
+    fn from(error: HashmapStorageEngineError) -> ImmuxError {
+        ImmuxError::HashmapEngine(error)
     }
 }
 
-impl std::convert::From<HttpParsingError> for UnumError {
-    fn from(error: HttpParsingError) -> UnumError {
-        UnumError::HttpParser(error)
+impl std::convert::From<HttpParsingError> for ImmuxError {
+    fn from(error: HttpParsingError) -> ImmuxError {
+        ImmuxError::HttpParser(error)
     }
 }
 
-pub type UnumResult<T> = Result<T, UnumError>;
+pub type ImmuxResult<T> = Result<T, ImmuxError>;

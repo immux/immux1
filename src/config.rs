@@ -1,16 +1,16 @@
 use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::Instruction::InTransactionSet;
 use crate::declarations::instructions::{
     Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
     InTransactionSetInstruction, Instruction, SetTargetSpec,
 };
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::KeyValueEngine;
 
-pub const UNUM_VERSION: u32 = 1;
+pub const IMMUXDB_VERSION: u32 = 1;
 
 pub const UNICUS_ENDPOINT: &str = "127.0.0.1:1991";
 pub const MONGO_ENDPOINT: &str = "127.0.0.1:27017";
@@ -44,12 +44,12 @@ pub enum ConfigError {
     CannotDeserialize,
 }
 
-struct UnumDBCommandlineOptions {
+struct ImmuxDBCommandlineOptions {
     kv_engine: Option<KeyValueEngine>,
 }
 
-fn parse_commandline_options(args: Vec<String>) -> UnumDBCommandlineOptions {
-    let mut options = UnumDBCommandlineOptions { kv_engine: None };
+fn parse_commandline_options(args: Vec<String>) -> ImmuxDBCommandlineOptions {
+    let mut options = ImmuxDBCommandlineOptions { kv_engine: None };
     if args.len() > 2 {
         options.kv_engine = match args[1].as_ref() {
             "--redis" => Some(KeyValueEngine::Redis),
@@ -61,8 +61,8 @@ fn parse_commandline_options(args: Vec<String>) -> UnumDBCommandlineOptions {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct UnumDBConfiguration {
-    pub unum_version: u32,
+pub struct ImmuxDBConfiguration {
+    pub immuxdb_version: u32,
     pub engine_choice: KeyValueEngine,
     pub unicus_endpoint: String,
     pub mongo_endpoint: String,
@@ -78,9 +78,9 @@ pub struct UnumDBConfiguration {
     pub read_only: bool,
 }
 
-pub fn compile_config(commandline_args: Vec<String>) -> UnumDBConfiguration {
-    let mut config = UnumDBConfiguration {
-        unum_version: UNUM_VERSION,
+pub fn compile_config(commandline_args: Vec<String>) -> ImmuxDBConfiguration {
+    let mut config = ImmuxDBConfiguration {
+        immuxdb_version: IMMUXDB_VERSION,
         engine_choice: DEFAULT_KV_ENGINE,
         unicus_endpoint: UNICUS_ENDPOINT.to_string(),
         mongo_endpoint: MONGO_ENDPOINT.to_string(),
@@ -103,9 +103,9 @@ pub fn compile_config(commandline_args: Vec<String>) -> UnumDBConfiguration {
 
 const GLOBAL_CONFIG_KEY: &str = "_CONFIG";
 
-pub fn save_config(config: &UnumDBConfiguration, core: &mut UnumCore) -> UnumResult<()> {
+pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     match serialize(&config) {
-        Err(_error) => return Err(UnumError::Config(ConfigError::CannotSerialize)),
+        Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotSerialize)),
         Ok(data) => {
             let instruction = AtomicSetInstruction {
                 targets: vec![SetTargetSpec {
@@ -114,14 +114,14 @@ pub fn save_config(config: &UnumDBConfiguration, core: &mut UnumCore) -> UnumRes
                 }],
             };
             match core.execute(&Instruction::AtomicSet(instruction)) {
-                Err(_error) => Err(UnumError::Config(ConfigError::CannotSet)),
+                Err(_error) => Err(ImmuxError::Config(ConfigError::CannotSet)),
                 Ok(_) => Ok(()),
             }
         }
     }
 }
 
-pub fn load_config(core: &mut UnumCore) -> UnumResult<UnumDBConfiguration> {
+pub fn load_config(core: &mut ImmuxDBCore) -> ImmuxResult<ImmuxDBConfiguration> {
     let instruction = AtomicGetOneInstruction {
         target: GetTargetSpec {
             key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
@@ -129,16 +129,16 @@ pub fn load_config(core: &mut UnumCore) -> UnumResult<UnumDBConfiguration> {
         },
     };
     match core.execute(&Instruction::AtomicGetOne(instruction)) {
-        Err(_error) => return Err(UnumError::Config(ConfigError::CannotRead)),
+        Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotRead)),
         Ok(answer) => match answer {
             Answer::GetOneOk(get_answer) => {
                 let target = &get_answer.item;
-                match deserialize::<UnumDBConfiguration>(&target) {
-                    Err(_error) => return Err(UnumError::Config(ConfigError::CannotDeserialize)),
+                match deserialize::<ImmuxDBConfiguration>(&target) {
+                    Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotDeserialize)),
                     Ok(config) => return Ok(config),
                 }
             }
-            _ => return Err(UnumError::Config(ConfigError::UnexpectedCoreAnswer)),
+            _ => return Err(ImmuxError::Config(ConfigError::UnexpectedCoreAnswer)),
         },
     }
 }

@@ -1,13 +1,13 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use crate::config::UnumDBConfiguration;
+use crate::config::ImmuxDBConfiguration;
 use crate::cortices::mongo::cortex::MONGO_CORTEX;
 
 use crate::cortices::unicus::cortex::UNICUS_CORTEX;
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::UnumCore;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::storage::core::ImmuxDBCore;
 
 #[derive(Debug)]
 pub enum TcpError {
@@ -26,7 +26,7 @@ pub enum BindMode {
 fn send_data_to_stream_with_flushing(
     mut stream: &TcpStream,
     data_to_client: Vec<u8>,
-) -> UnumResult<()> {
+) -> ImmuxResult<()> {
     match stream.write(&data_to_client) {
         Err(error) => return Err((TcpError::TcpWriteError(error).into())),
         Ok(_bytes_written) => {
@@ -43,11 +43,11 @@ fn send_data_to_stream_with_flushing(
 
 fn handle_tcp_stream(
     mut stream: TcpStream,
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     bind_mode: &BindMode,
-    config: &UnumDBConfiguration,
+    config: &ImmuxDBConfiguration,
     cortex: &Cortex,
-) -> UnumResult<()> {
+) -> ImmuxResult<()> {
     if let Some(process_first_connection_func) = cortex.process_first_connection {
         match process_first_connection_func(core) {
             Err(error) => return Err(error),
@@ -69,7 +69,7 @@ fn handle_tcp_stream(
     let mut buffer = [0; 1024];
     loop {
         match stream.read(&mut buffer) {
-            Err(error) => return Err(UnumError::Tcp(TcpError::TcpReadError(error))),
+            Err(error) => return Err(ImmuxError::Tcp(TcpError::TcpReadError(error))),
             Ok(bytes_read) => {
                 if bytes_read > 0 {
                     match (cortex.process_incoming_message)(
@@ -103,17 +103,17 @@ fn handle_tcp_stream(
 
 fn bind_tcp_port(
     endpoint: &str,
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     cortex: &Cortex,
     bind_mode: BindMode,
-    config: &UnumDBConfiguration,
-) -> UnumResult<()> {
+    config: &ImmuxDBConfiguration,
+) -> ImmuxResult<()> {
     match TcpListener::bind(endpoint) {
-        Err(error) => Err(UnumError::Tcp(TcpError::TcpBindError(error))),
+        Err(error) => Err(ImmuxError::Tcp(TcpError::TcpBindError(error))),
         Ok(listener) => {
             for stream in listener.incoming() {
                 match stream {
-                    Err(error) => return Err(UnumError::Tcp(TcpError::TcpStreamError(error))),
+                    Err(error) => return Err(ImmuxError::Tcp(TcpError::TcpStreamError(error))),
                     Ok(stream) => match handle_tcp_stream(stream, core, &bind_mode, config, cortex)
                     {
                         Err(error) => return Err(error),
@@ -126,7 +126,7 @@ fn bind_tcp_port(
     }
 }
 
-pub fn setup_cortices(mut core: UnumCore, config: &UnumDBConfiguration) -> UnumResult<()> {
+pub fn setup_cortices(mut core: ImmuxDBCore, config: &ImmuxDBConfiguration) -> ImmuxResult<()> {
     bind_tcp_port(
         &config.mongo_endpoint,
         &mut core,

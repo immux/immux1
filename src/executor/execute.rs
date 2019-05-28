@@ -1,12 +1,12 @@
 use crate::declarations::commands::{Command, Outcome, SelectCondition};
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 use crate::declarations::instructions::Answer;
 use crate::executor::insert_executor::execute_insert;
 use crate::executor::pick_chain_executor::execute_pick_chain;
 use crate::executor::select_executor::execute_select;
-use crate::storage::core::UnumCore;
+use crate::storage::core::ImmuxDBCore;
 
-pub fn execute(command: Command, core: &mut UnumCore) -> UnumResult<Outcome> {
+pub fn execute(command: Command, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {
     match command {
         Command::PickChain(pick_chain) => execute_pick_chain(pick_chain, core),
         Command::Insert(insert) => execute_insert(insert, core),
@@ -22,7 +22,7 @@ mod executor_test {
     };
     use crate::declarations::instructions::{Answer, Instruction, ReadNamespaceInstruction};
     use crate::executor::execute::execute;
-    use crate::storage::core::{CoreStore, UnumCore};
+    use crate::storage::core::{CoreStore, ImmuxDBCore};
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -32,7 +32,7 @@ mod executor_test {
         let command = Command::PickChain(PickChainCommand {
             new_chain_name: target_chain.to_vec(),
         });
-        match UnumCore::new(&KeyValueEngine::HashMap, default_chain) {
+        match ImmuxDBCore::new(&KeyValueEngine::HashMap, default_chain) {
             Err(_error) => panic!("Cannot initialized core"),
             Ok(mut core) => match execute(command, &mut core) {
                 Err(_error) => panic!("Failed to execute pick chain command"),
@@ -74,7 +74,7 @@ mod executor_test {
             grouping: grouping.to_vec(),
             targets: specs.clone(),
         });
-        match UnumCore::new(&KeyValueEngine::HashMap, default_chain) {
+        match ImmuxDBCore::new(&KeyValueEngine::HashMap, default_chain) {
             Err(_error) => panic!("Cannot initialized core"),
             Ok(mut core) => match execute(insert_command, &mut core) {
                 Err(_error) => panic!("Failed to execute insert command"),

@@ -1,6 +1,6 @@
 use bson::{Bson, Document};
 
-use crate::config::UnumDBConfiguration;
+use crate::config::ImmuxDBConfiguration;
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::ops::op::MongoOp;
 use crate::cortices::mongo::ops::op_msg::{OpMsg, Section};
@@ -11,7 +11,7 @@ use crate::declarations::commands::{
     Command, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand, SelectCommand,
     SelectCondition,
 };
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
 #[derive(Debug)]
 pub enum MongoTransformerError {
@@ -26,26 +26,26 @@ pub enum MongoTransformerError {
     UnimplementedOp,
 }
 
-fn encode_document(doc: &Document) -> UnumResult<Vec<u8>> {
+fn encode_document(doc: &Document) -> ImmuxResult<Vec<u8>> {
     let mut data: Vec<u8> = Vec::new();
     match bson::encode_document(&mut data, doc) {
-        Err(_error) => Err(UnumError::MongoTransformer(
+        Err(_error) => Err(ImmuxError::MongoTransformer(
             MongoTransformerError::EncodeDocument,
         )),
         Ok(_) => Ok(data),
     }
 }
 
-fn get_obj_id(doc: &Document, key: &str) -> UnumResult<Vec<u8>> {
+fn get_obj_id(doc: &Document, key: &str) -> ImmuxResult<Vec<u8>> {
     match doc.get_object_id(key) {
-        Err(_error) => Err(UnumError::MongoTransformer(
+        Err(_error) => Err(ImmuxError::MongoTransformer(
             MongoTransformerError::GetObjectId,
         )),
         Ok(object_id) => Ok(object_id.bytes().to_vec()),
     }
 }
 
-pub fn transform_mongo_op_to_command(op: &MongoOp) -> UnumResult<Command> {
+pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
     match op {
         MongoOp::Msg(op_msg) => {
             if let Some(last_section) = &op_msg.sections.last() {
@@ -146,9 +146,9 @@ fn get_header_from_op(op: &MongoOp) -> Result<MsgHeader, MongoTransformerError> 
 
 pub fn transform_outcome_to_mongo_msg(
     outcome: &Outcome,
-    config: &UnumDBConfiguration,
+    config: &ImmuxDBConfiguration,
     incoming_op: &MongoOp,
-) -> UnumResult<OpMsg> {
+) -> ImmuxResult<OpMsg> {
     let header = get_header_from_op(&incoming_op)?;
     match outcome {
         Outcome::PickChain(_ok) => {

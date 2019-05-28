@@ -1,5 +1,5 @@
 use crate::cortices::utils::parse_u32;
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 use crate::utils::{get_bit_u32, set_bit_u32};
 
 /// @see https://dev.mysql.com/doc/internals/en/capability-flags.html#packet-Protocol::CapabilityFlags
@@ -31,7 +31,7 @@ pub struct CapabilityFlags {
     pub client_deprecate_eof: bool,
 }
 
-pub fn parse_capability_flags(buffer: &[u8]) -> UnumResult<(CapabilityFlags, usize)> {
+pub fn parse_capability_flags(buffer: &[u8]) -> ImmuxResult<(CapabilityFlags, usize)> {
     let (capability_flags_vec, offset) = parse_u32(&buffer)?;
     let client_long_password = get_bit_u32(capability_flags_vec, 0);
     let client_found_rows = get_bit_u32(capability_flags_vec, 1);

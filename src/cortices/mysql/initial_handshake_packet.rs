@@ -4,7 +4,7 @@ use crate::cortices::mysql::character_set::CharacterSet;
 use crate::cortices::mysql::error::MySQLSerializeError;
 use crate::cortices::mysql::server_status_flags::{serialize_status_flags, ServerStatusFlags};
 use crate::cortices::mysql::utils::{u32_to_u8_array_with_length_3, MYSQL_PACKET_HEADER_LENGTH};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{u16_to_u8_array, u32_to_u8_array};
 
 pub struct InitialHandshakePacket {
@@ -20,10 +20,10 @@ pub struct InitialHandshakePacket {
     pub auth_plugin_name: String,
 }
 
-pub fn serialize_auth_plugin_data(auth_plugin_data: String) -> UnumResult<(Vec<u8>, Vec<u8>)> {
+pub fn serialize_auth_plugin_data(auth_plugin_data: String) -> ImmuxResult<(Vec<u8>, Vec<u8>)> {
     let auth_plugin_data_vec = auth_plugin_data.into_bytes();
     if auth_plugin_data_vec.is_empty() {
-        return Err(UnumError::MySQLSerializer(
+        return Err(ImmuxError::MySQLSerializer(
             MySQLSerializeError::SerializeAuthPluginDataError,
         ));
     }
@@ -51,7 +51,7 @@ pub fn serialize_auth_plugin_data(auth_plugin_data: String) -> UnumResult<(Vec<u
 
 pub fn serialize_initial_handshake_packet(
     initial_handshake_packet: InitialHandshakePacket,
-) -> UnumResult<Vec<u8>> {
+) -> ImmuxResult<Vec<u8>> {
     let mut res = Vec::new();
     res.append(
         &mut u32_to_u8_array_with_length_3(initial_handshake_packet.payload_length)?.to_vec(),
@@ -98,7 +98,7 @@ pub fn serialize_initial_handshake_packet(
     }
 
     if res.len() - MYSQL_PACKET_HEADER_LENGTH != initial_handshake_packet.payload_length as usize {
-        return Err(UnumError::MySQLSerializer(
+        return Err(ImmuxError::MySQLSerializer(
             MySQLSerializeError::SerializeInitialHandshakePacketError,
         ));
     }

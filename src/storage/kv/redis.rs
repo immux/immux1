@@ -1,7 +1,7 @@
 use redis::{Commands, RedisError};
 
-use crate::declarations::errors::UnumError::RedisEngine;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::ImmuxError::RedisEngine;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::kv::KeyValueStore;
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ pub struct RedisStore {
 }
 
 impl RedisStore {
-    pub fn new(namespace: &[u8]) -> UnumResult<RedisStore> {
+    pub fn new(namespace: &[u8]) -> ImmuxResult<RedisStore> {
         let client = redis::Client::open("redis://127.0.0.1:7777/");
         match client {
             Err(error) => {
@@ -44,7 +44,7 @@ impl RedisStore {
 }
 
 impl KeyValueStore for RedisStore {
-    fn get(&self, key: &[u8]) -> UnumResult<Vec<u8>> {
+    fn get(&self, key: &[u8]) -> ImmuxResult<Vec<u8>> {
         let mut prefixed_key: Vec<u8> = self.namespace.to_vec();
         prefixed_key.extend_from_slice(key);
         match self.redis_connection.get(prefixed_key) as Result<Vec<u8>, redis::RedisError> {
@@ -52,7 +52,7 @@ impl KeyValueStore for RedisStore {
             Ok(result) => Ok(result),
         }
     }
-    fn set(&mut self, key: &[u8], value: &[u8]) -> UnumResult<Vec<u8>> {
+    fn set(&mut self, key: &[u8], value: &[u8]) -> ImmuxResult<Vec<u8>> {
         let mut prefixed_key: Vec<u8> = self.namespace.to_vec();
         prefixed_key.extend_from_slice(key);
         let result =
@@ -62,7 +62,7 @@ impl KeyValueStore for RedisStore {
             Ok(result) => Ok(result.as_bytes().to_vec()),
         }
     }
-    fn switch_namespace(&mut self, namespace: &[u8]) -> UnumResult<()> {
+    fn switch_namespace(&mut self, namespace: &[u8]) -> ImmuxResult<()> {
         self.namespace = namespace.to_vec();
         Ok(())
     }

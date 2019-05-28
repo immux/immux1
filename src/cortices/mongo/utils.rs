@@ -1,7 +1,7 @@
 use bson::{Document, ValueAccessResult};
 use chrono::Utc;
 
-use crate::config::UnumDBConfiguration;
+use crate::config::ImmuxDBConfiguration;
 use crate::cortices::mongo::error::MongoParserError;
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::ops::op_msg::{OpMsg, OpMsgFlags, Section};
@@ -11,9 +11,9 @@ use crate::cortices::mongo::ops::opcodes::{
     MONGO_OP_QUERY_CODE, MONGO_OP_REPLY_CODE, MONGO_OP_UPDATE_CODE,
 };
 use crate::cortices::utils::parse_u32;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
-pub fn pick_op_code(op: u32) -> UnumResult<MongoOpCode> {
+pub fn pick_op_code(op: u32) -> ImmuxResult<MongoOpCode> {
     match op {
         MONGO_OP_REPLY_CODE => Ok(MongoOpCode::OpReply),
         MONGO_OP_UPDATE_CODE => Ok(MongoOpCode::OpUpdate),
@@ -25,7 +25,7 @@ pub fn pick_op_code(op: u32) -> UnumResult<MongoOpCode> {
         MONGO_OP_COMMAND_CODE => Ok(MongoOpCode::OpCommand),
         MONGO_OP_COMMAND_REPLY_CODE => Ok(MongoOpCode::OpCommandReply),
         MONGO_OP_MSG_CODE => Ok(MongoOpCode::OpMsg),
-        _ => Err(UnumError::MongoParser(MongoParserError::UnknownOpCode(op))),
+        _ => Err(ImmuxError::MongoParser(MongoParserError::UnknownOpCode(op))),
     }
 }
 
@@ -44,10 +44,10 @@ pub fn get_op_code_value(op_code: &MongoOpCode) -> u32 {
     }
 }
 
-pub fn parse_bson_document(buffer: &[u8]) -> UnumResult<(bson::Document, usize)> {
+pub fn parse_bson_document(buffer: &[u8]) -> ImmuxResult<(bson::Document, usize)> {
     let (bson_size, _next_buffer) = parse_u32(buffer)?;
     match bson::decode_document(&mut &(*buffer)[0..(bson_size as usize)]) {
-        Err(error) => Err(UnumError::MongoParser(MongoParserError::ParseBsonError(
+        Err(error) => Err(ImmuxError::MongoParser(MongoParserError::ParseBsonError(
             error,
         ))),
         Ok(bson_document) => Ok((bson_document, bson_size as usize)),
@@ -71,7 +71,7 @@ pub fn construct_single_doc_op_msg(doc: Document, incoming_header: &MsgHeader) -
     }
 }
 
-pub fn make_bson_from_config(config: &UnumDBConfiguration) -> bson::Document {
+pub fn make_bson_from_config(config: &ImmuxDBConfiguration) -> bson::Document {
     let mut document = bson::Document::new();
     document.insert("ismaster", config.is_master);
     document.insert("maxBsonObjectSize", config.max_bson_object_size as i32);

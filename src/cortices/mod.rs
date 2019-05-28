@@ -1,8 +1,8 @@
 use std::net::TcpStream;
 
-use crate::config::UnumDBConfiguration;
-use crate::declarations::errors::UnumResult;
-use crate::storage::core::UnumCore;
+use crate::config::ImmuxDBConfiguration;
+use crate::declarations::errors::ImmuxResult;
+use crate::storage::core::ImmuxDBCore;
 
 pub mod mongo;
 pub mod mysql;
@@ -18,9 +18,9 @@ pub enum CortexResponse {
 pub struct Cortex {
     process_incoming_message: fn(
         bytes: &[u8],
-        core: &mut UnumCore,
+        core: &mut ImmuxDBCore,
         stream: &TcpStream,
-        config: &UnumDBConfiguration,
-    ) -> UnumResult<CortexResponse>,
-    process_first_connection: Option<fn(core: &mut UnumCore) -> UnumResult<CortexResponse>>,
+        config: &ImmuxDBConfiguration,
+    ) -> ImmuxResult<CortexResponse>,
+    process_first_connection: Option<fn(core: &mut ImmuxDBCore) -> ImmuxResult<CortexResponse>>,
 }
