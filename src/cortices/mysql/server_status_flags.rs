@@ -1,11 +1,11 @@
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::parse_u16;
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
     Instruction, SetTargetSpec,
 };
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::utils::{get_bit_u16, set_bit_u16};
 
 /// @see https://dev.mysql.com/doc/internals/en/status-flags.html#packet-Protocol::StatusFlags
@@ -84,7 +84,7 @@ pub fn parse_status_flags(flags_vec: u16) -> ServerStatusFlags {
 
 const SERVER_STATUS_FLAGS_KEY: &str = "_SERVER_STATUS_FLAGS";
 
-pub fn save_server_status_flags(buffer: &[u8], core: &mut UnumCore) -> UnumResult<()> {
+pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     let instruction = AtomicSetInstruction {
         targets: vec![SetTargetSpec {
             key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
@@ -93,14 +93,14 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut UnumCore) -> UnumResul
     };
 
     match core.execute(&Instruction::AtomicSet(instruction)) {
-        Err(_error) => Err(UnumError::MySQLParser(
+        Err(_error) => Err(ImmuxError::MySQLParser(
             MySQLParserError::CannotSetServerStatusFlags,
         )),
         Ok(_) => Ok(()),
     }
 }
 
-pub fn load_server_status_flags(core: &mut UnumCore) -> UnumResult<ServerStatusFlags> {
+pub fn load_server_status_flags(core: &mut ImmuxDBCore) -> ImmuxResult<ServerStatusFlags> {
     let instruction = AtomicGetOneInstruction {
         target: GetTargetSpec {
             key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
@@ -109,7 +109,7 @@ pub fn load_server_status_flags(core: &mut UnumCore) -> UnumResult<ServerStatusF
     };
     match core.execute(&Instruction::AtomicGetOne(instruction)) {
         Err(_error) => {
-            return Err(UnumError::MySQLSerializer(
+            return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::CannotReadServerStatusFlags,
             ));
         }
@@ -121,7 +121,7 @@ pub fn load_server_status_flags(core: &mut UnumCore) -> UnumResult<ServerStatusF
                 return Ok(res);
             }
             _ => {
-                return Err(UnumError::MySQLSerializer(
+                return Err(ImmuxError::MySQLSerializer(
                     MySQLSerializeError::CannotReadServerStatusFlags,
                 ));
             }
@@ -137,7 +137,7 @@ mod server_status_flags_tests {
         load_server_status_flags, parse_status_flags, save_server_status_flags,
         serialize_status_flags, ServerStatusFlags,
     };
-    use crate::storage::core::UnumCore;
+    use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -172,7 +172,7 @@ mod server_status_flags_tests {
     fn test_save_load_server_status_flags() {
         let engine_choice = KeyValueEngine::HashMap;
         let server_status_flags_buffer = [0x02, 0x00];
-        let mut core = UnumCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
         save_server_status_flags(&server_status_flags_buffer, &mut core);
         let res = load_server_status_flags(&mut core).unwrap();
         assert_eq!(res.intrans, false);

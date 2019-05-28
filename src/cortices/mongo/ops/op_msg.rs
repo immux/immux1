@@ -4,7 +4,7 @@ use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::ops::msg_header::{parse_msg_header, serialize_msg_header, MsgHeader};
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{get_bit_u32, set_bit_u32, u32_to_u8_array, u8_array_to_u32};
 use std::mem;
 
@@ -50,7 +50,7 @@ pub struct OpMsg {
     pub sections: Vec<Section>,
 }
 
-pub fn parse_op_msg(buffer: &[u8]) -> UnumResult<OpMsg> {
+pub fn parse_op_msg(buffer: &[u8]) -> ImmuxResult<OpMsg> {
     let mut index: usize = 0;
     let (message_header, offset) = parse_msg_header(&buffer[index..])?;
     index += offset;
@@ -109,7 +109,9 @@ pub fn parse_op_msg(buffer: &[u8]) -> UnumResult<OpMsg> {
                 sections.push(Section::Sequence(document_sequence));
             }
             _ => {
-                return Err(UnumError::MongoParser(MongoParserError::UnknownSectionKind));
+                return Err(ImmuxError::MongoParser(
+                    MongoParserError::UnknownSectionKind,
+                ));
             }
         }
     }
@@ -126,7 +128,7 @@ pub fn parse_op_msg(buffer: &[u8]) -> UnumResult<OpMsg> {
     return Ok(op_msg);
 }
 
-pub fn serialize_op_msg(op_msg: &OpMsg) -> UnumResult<Vec<u8>> {
+pub fn serialize_op_msg(op_msg: &OpMsg) -> ImmuxResult<Vec<u8>> {
     let mut res_buffer = serialize_msg_header(&op_msg.message_header);
     let mut flag_bits: u32 = 0;
     set_bit_u32(
@@ -155,7 +157,7 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> UnumResult<Vec<u8>> {
                 match bson::encode_document(&mut section_vec, doc) {
                     Ok(_) => {}
                     Err(error) => {
-                        return Err(UnumError::MongoSerializer(
+                        return Err(ImmuxError::MongoSerializer(
                             MongoSerializeError::SerializeBsonError(error),
                         ));
                     }
@@ -173,7 +175,7 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> UnumResult<Vec<u8>> {
                     match bson::encode_document(&mut section_vec, doc) {
                         Ok(_) => {}
                         Err(error) => {
-                            return Err(UnumError::MongoSerializer(
+                            return Err(ImmuxError::MongoSerializer(
                                 MongoSerializeError::SerializeBsonError(error),
                             ));
                         }

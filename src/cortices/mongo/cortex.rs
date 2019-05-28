@@ -2,7 +2,7 @@ use std::net::TcpStream;
 
 use bson::{Bson, Document};
 
-use crate::config::{load_config, UnumDBConfiguration};
+use crate::config::{load_config, ImmuxDBConfiguration};
 use crate::cortices::mongo::ops::msg_header::MsgHeader;
 use crate::cortices::mongo::ops::op::MongoOp;
 use crate::cortices::mongo::ops::op_msg::{serialize_op_msg, Section};
@@ -17,9 +17,9 @@ use crate::cortices::mongo::transformer::{
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::executor::execute::execute;
-use crate::storage::core::UnumCore;
+use crate::storage::core::ImmuxDBCore;
 use crate::storage::vkv::VkvError;
 use crate::utils::u32_to_u8_array;
 
@@ -27,14 +27,14 @@ const ADMIN_QUERY: &str = "admin.$cmd";
 
 enum ExceptionQueryHandlerResult {
     NotExceptional,
-    Exceptional(UnumResult<CortexResponse>),
+    Exceptional(ImmuxResult<CortexResponse>),
 }
 
 // @see https://github.com/immux/immux/issues/37
 fn serialize_op_with_computed_length<OP>(
     op: &OP,
-    serializer: &Fn(&OP) -> UnumResult<Vec<u8>>,
-) -> UnumResult<Vec<u8>> {
+    serializer: &Fn(&OP) -> ImmuxResult<Vec<u8>>,
+) -> ImmuxResult<Vec<u8>> {
     match serializer(op) {
         Err(error) => Err(error),
         Ok(mut vec) => {
@@ -50,9 +50,9 @@ fn serialize_op_with_computed_length<OP>(
 
 fn handle_exceptional_query(
     op: &MongoOp,
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     stream: &TcpStream,
-    config: &UnumDBConfiguration,
+    config: &ImmuxDBConfiguration,
 ) -> ExceptionQueryHandlerResult {
     match op {
         MongoOp::Query(op_query) => {
@@ -114,7 +114,7 @@ fn handle_exceptional_query(
                 )
             }
 
-            fn construct_build_info(config: &UnumDBConfiguration) -> Document {
+            fn construct_build_info(config: &ImmuxDBConfiguration) -> Document {
                 let mut response_doc = Document::new();
                 response_doc.insert("version", "4.0.1");
                 response_doc.insert("gitVersion", "");
@@ -224,10 +224,10 @@ fn handle_exceptional_query(
 
 pub fn mongo_cortex_process_incoming_message(
     bytes: &[u8],
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     stream: &TcpStream,
-    config: &UnumDBConfiguration,
-) -> UnumResult<CortexResponse> {
+    config: &ImmuxDBConfiguration,
+) -> ImmuxResult<CortexResponse> {
     let op = parse_mongo_incoming_bytes(bytes)?;
     println!("Incoming op: {:#?}", op);
     match handle_exceptional_query(&op, core, &stream, config) {

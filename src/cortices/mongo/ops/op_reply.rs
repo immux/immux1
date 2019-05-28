@@ -4,7 +4,7 @@ use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::ops::msg_header::{serialize_msg_header, MsgHeader};
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_u32, parse_u64};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{get_bit_u32, set_bit_u32, u32_to_u8_array, u64_to_u8_array};
 
 /// @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#op-reply
@@ -55,7 +55,7 @@ pub struct OpReply {
     pub documents: Vec<Document>,
 }
 
-pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<OpReply> {
+pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> ImmuxResult<OpReply> {
     let mut index: usize = 0;
     let (response_flags, offset) = parse_u32(&buffer[index..])?;
     index += offset;
@@ -73,7 +73,7 @@ pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<Op
         documents.push(document);
     }
     if index != buffer.len() {
-        return Err(UnumError::MongoParser(MongoParserError::InputBufferError));
+        return Err(ImmuxError::MongoParser(MongoParserError::InputBufferError));
     }
     Ok(OpReply {
         message_header,
@@ -85,9 +85,9 @@ pub fn parse_op_reply(message_header: MsgHeader, buffer: &[u8]) -> UnumResult<Op
     })
 }
 
-pub fn serialize_op_reply(op_reply: &OpReply) -> UnumResult<Vec<u8>> {
+pub fn serialize_op_reply(op_reply: &OpReply) -> ImmuxResult<Vec<u8>> {
     if (op_reply.number_returned as usize) != op_reply.documents.len() {
-        return Err(UnumError::MongoSerializer(
+        return Err(ImmuxError::MongoSerializer(
             MongoSerializeError::InputObjectError,
         ));
     }
@@ -100,7 +100,7 @@ pub fn serialize_op_reply(op_reply: &OpReply) -> UnumResult<Vec<u8>> {
         match bson::encode_document(&mut res_buffer, document) {
             Ok(_) => {}
             Err(error) => {
-                return Err(UnumError::MongoSerializer(
+                return Err(ImmuxError::MongoSerializer(
                     MongoSerializeError::SerializeBsonError(error),
                 ));
             }

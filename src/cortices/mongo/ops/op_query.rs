@@ -3,7 +3,7 @@ use bson::Document;
 use crate::cortices::mongo::ops::msg_header::{parse_msg_header, MsgHeader};
 use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32};
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 
 /// @see https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#op-query
 #[derive(Debug)]
@@ -30,7 +30,7 @@ pub struct OpQuery {
     pub return_fields_selector: Option<Document>,
 }
 
-pub fn parse_op_query(buffer: &[u8]) -> UnumResult<OpQuery> {
+pub fn parse_op_query(buffer: &[u8]) -> ImmuxResult<OpQuery> {
     let mut index: usize = 0;
     let (message_header, offset) = parse_msg_header(&buffer[index..])?;
     index += offset;

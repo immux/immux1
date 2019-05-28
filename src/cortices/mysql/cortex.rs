@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-use crate::config::UnumDBConfiguration;
+use crate::config::ImmuxDBConfiguration;
 use crate::cortices::mysql::auth_switch_request::{
     serialize_auth_switch_request, AuthSwitchRequest,
 };
@@ -18,18 +18,18 @@ use crate::cortices::mysql::server_status_flags::{
 };
 use crate::cortices::mysql::utils::{get_packet_number, ConnectionStatePhase};
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{UnumError, UnumResult};
-use crate::storage::core::UnumCore;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::storage::core::ImmuxDBCore;
 use crate::utils::{pretty_dump, u16_to_u8_array};
 
 const MYSQL_CLIENT_CONFIG_KEY: &str = "_MYSQL_CLIENT_CONFIG";
 
 pub fn mysql_cortex_process_incoming_message(
     bytes: &[u8],
-    core: &mut UnumCore,
+    core: &mut ImmuxDBCore,
     _stream: &TcpStream,
-    _config: &UnumDBConfiguration,
-) -> UnumResult<CortexResponse> {
+    _config: &ImmuxDBConfiguration,
+) -> ImmuxResult<CortexResponse> {
     pretty_dump(bytes);
 
     match get_packet_number(&bytes)? {
@@ -85,7 +85,9 @@ pub fn mysql_cortex_process_incoming_message(
     }
 }
 
-pub fn mysql_cortex_process_first_connection(core: &mut UnumCore) -> UnumResult<CortexResponse> {
+pub fn mysql_cortex_process_first_connection(
+    core: &mut ImmuxDBCore,
+) -> ImmuxResult<CortexResponse> {
     let payload_length = 74;
     let packet_number = 0;
     let protocol_version = 10;
@@ -157,7 +159,7 @@ pub fn mysql_cortex_process_first_connection(core: &mut UnumCore) -> UnumResult<
         let server_status_flags_buffer =
             save_server_status_flags(&server_status_flags_buffer, core);
     } else {
-        return Err(UnumError::MySQLParser(
+        return Err(ImmuxError::MySQLParser(
             MySQLParserError::CannotSetServerStatusFlags,
         ));
     }

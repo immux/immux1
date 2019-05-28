@@ -5,12 +5,12 @@ use crate::cortices::mysql::utils::{
     parse_length_encoded_integer, parse_string_with_fixed_length, parse_u32_with_length_3,
 };
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
     SetTargetSpec,
 };
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 use std::collections::HashMap;
 
 pub struct HandshakeResponse {
@@ -28,7 +28,7 @@ pub struct HandshakeResponse {
 
 const MYSQL_HANDSHAKE_RESPONSE_KEY: &str = "_MYSQL_HANDSHAKE_RESPONSE";
 
-pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult<()> {
+pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     let instruction = AtomicSetInstruction {
         targets: vec![SetTargetSpec {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
@@ -37,14 +37,14 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult
     };
 
     match core.execute(&Instruction::AtomicSet(instruction)) {
-        Err(_error) => Err(UnumError::MySQLParser(
+        Err(_error) => Err(ImmuxError::MySQLParser(
             MySQLParserError::CannotSetClientStatus,
         )),
         Ok(_) => Ok(()),
     }
 }
 
-pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeResponse> {
+pub fn load_handshake_response(core: &mut ImmuxDBCore) -> ImmuxResult<HandshakeResponse> {
     let instruction = AtomicGetOneInstruction {
         target: GetTargetSpec {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
@@ -53,7 +53,7 @@ pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeRespo
     };
     match core.execute(&Instruction::AtomicGetOne(instruction)) {
         Err(_error) => {
-            return Err(UnumError::MySQLSerializer(
+            return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::CannotReadClientStatus,
             ));
         }
@@ -64,7 +64,7 @@ pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeRespo
                 return Ok(res);
             }
             _ => {
-                return Err(UnumError::MySQLSerializer(
+                return Err(ImmuxError::MySQLSerializer(
                     MySQLSerializeError::CannotReadClientStatus,
                 ));
             }
@@ -72,7 +72,7 @@ pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeRespo
     }
 }
 
-pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> {
+pub fn parse_handshake_response(buffer: &[u8]) -> ImmuxResult<HandshakeResponse> {
     let mut index: usize = 0;
     let (payload_length, offset) = parse_u32_with_length_3(&buffer[index..])?;
     index += offset;
@@ -151,7 +151,7 @@ pub fn parse_handshake_response(buffer: &[u8]) -> UnumResult<HandshakeResponse> 
         }
 
         if index != buffer.len() {
-            return Err(UnumError::MySQLParser(MySQLParserError::InputBufferError));
+            return Err(ImmuxError::MySQLParser(MySQLParserError::InputBufferError));
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::cortices::mysql::utils::parse_u32_with_length_3;
 use crate::cortices::utils::{parse_cstring, parse_u8};
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 
 pub struct AuthSwitchResponse {
     pub payload_length: u32,
@@ -8,7 +8,7 @@ pub struct AuthSwitchResponse {
     pub data: Option<String>,
 }
 
-pub fn parse_auth_switch_response(buffer: &[u8]) -> UnumResult<AuthSwitchResponse> {
+pub fn parse_auth_switch_response(buffer: &[u8]) -> ImmuxResult<AuthSwitchResponse> {
     let mut index: usize = 0;
     let (payload_length, offset) = parse_u32_with_length_3(&buffer[index..])?;
     index += offset;

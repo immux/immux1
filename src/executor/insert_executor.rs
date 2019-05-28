@@ -1,11 +1,11 @@
 use crate::declarations::commands::{InsertCommand, InsertOutcome, Outcome};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{Answer, AtomicSetInstruction, Instruction, SetTargetSpec};
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::{get_id_list, get_kv_key, set_id_list};
-use crate::storage::core::{CoreStore, UnumCore};
+use crate::storage::core::{CoreStore, ImmuxDBCore};
 
-pub fn execute_insert(insert: InsertCommand, core: &mut UnumCore) -> UnumResult<Outcome> {
+pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {
     let grouping = &insert.grouping;
     let mut key_list = get_id_list(grouping, core);
     key_list.extend(
@@ -35,7 +35,7 @@ pub fn execute_insert(insert: InsertCommand, core: &mut UnumCore) -> UnumResult<
                 }));
             }
             _ => {
-                return Err(UnumError::Executor(ExecutorError::UnexpectedAnswerType(
+                return Err(ImmuxError::Executor(ExecutorError::UnexpectedAnswerType(
                     answer,
                 )));
             }

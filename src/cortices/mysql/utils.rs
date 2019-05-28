@@ -1,6 +1,6 @@
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::{parse_u16, parse_u64, parse_u8, DeserializationError};
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{u16_to_u8_array, u32_to_u8_array, u64_to_u8_array, u8_array_to_u32};
 use std::mem::size_of;
 use std::num::ParseIntError;
@@ -8,7 +8,7 @@ use std::str;
 
 pub const MYSQL_PACKET_HEADER_LENGTH: usize = 4;
 
-pub fn parse_length_encoded_integer(buffer: &[u8]) -> UnumResult<(usize, usize)> {
+pub fn parse_length_encoded_integer(buffer: &[u8]) -> ImmuxResult<(usize, usize)> {
     let mut index: usize = 0;
     let (identifier, offset) = parse_u8(&buffer[index..])?;
     index += offset;
@@ -24,13 +24,13 @@ pub fn parse_length_encoded_integer(buffer: &[u8]) -> UnumResult<(usize, usize)>
         let (value, offset) = parse_u64(&buffer[index..])?;
         return Ok((value as usize, index + offset));
     } else {
-        return Err(UnumError::MySQLParser(MySQLParserError::UnknownIdentifier(
-            identifier,
-        )));
+        return Err(ImmuxError::MySQLParser(
+            MySQLParserError::UnknownIdentifier(identifier),
+        ));
     }
 }
 
-pub fn serialize_length_encoded_integer(num: u128) -> UnumResult<Vec<u8>> {
+pub fn serialize_length_encoded_integer(num: u128) -> ImmuxResult<Vec<u8>> {
     if num < 251 {
         return Ok(vec![num as u8]);
     } else if num < 2u128.pow(16) {
@@ -49,13 +49,13 @@ pub fn serialize_length_encoded_integer(num: u128) -> UnumResult<Vec<u8>> {
         res.append(&mut val);
         return Ok(res);
     } else {
-        return Err(UnumError::MySQLSerializer(
+        return Err(ImmuxError::MySQLSerializer(
             MySQLSerializeError::LengthEncodedIntegerTooLarge,
         ));
     }
 }
 
-pub fn serialize_length_encoded_string(string: String) -> UnumResult<Vec<u8>> {
+pub fn serialize_length_encoded_string(string: String) -> ImmuxResult<Vec<u8>> {
     let mut res = Vec::new();
     let mut string_length_vec = serialize_length_encoded_integer(string.len() as u128)?;
     res.append(&mut string_length_vec);
@@ -64,21 +64,24 @@ pub fn serialize_length_encoded_string(string: String) -> UnumResult<Vec<u8>> {
     return Ok(res);
 }
 
-pub fn parse_string_with_fixed_length(buffer: &[u8], length: usize) -> UnumResult<(String, usize)> {
+pub fn parse_string_with_fixed_length(
+    buffer: &[u8],
+    length: usize,
+) -> ImmuxResult<(String, usize)> {
     match str::from_utf8(&buffer[0..length]) {
         Ok(val) => {
             return Ok((val.to_string(), length));
         }
         Err(_) => {
-            return Err(UnumError::MySQLParser(MySQLParserError::ParseStringError));
+            return Err(ImmuxError::MySQLParser(MySQLParserError::ParseStringError));
         }
     }
 }
 
-pub fn parse_u32_with_length_3(buffer: &[u8]) -> UnumResult<(u32, usize)> {
+pub fn parse_u32_with_length_3(buffer: &[u8]) -> ImmuxResult<(u32, usize)> {
     let field_size = 3;
     if buffer.len() < field_size {
-        Err(UnumError::Deserialization(
+        Err(ImmuxError::Deserialization(
             DeserializationError::InsufficientDataWidthU32,
         ))
     } else {
@@ -87,9 +90,9 @@ pub fn parse_u32_with_length_3(buffer: &[u8]) -> UnumResult<(u32, usize)> {
     }
 }
 
-pub fn u32_to_u8_array_with_length_3(x: u32) -> UnumResult<[u8; 3]> {
+pub fn u32_to_u8_array_with_length_3(x: u32) -> ImmuxResult<[u8; 3]> {
     if x > 2u32.pow(24) - 1 {
-        return Err(UnumError::MySQLSerializer(
+        return Err(ImmuxError::MySQLSerializer(
             MySQLSerializeError::PacketSizeTooLarge,
         ));
     } else {
@@ -117,7 +120,7 @@ pub enum ConnectionStatePhase {
     LoginRequest = 1,
     AuthSwitchResponse = 3,
 }
-pub fn get_packet_number(buffer: &[u8]) -> UnumResult<ConnectionStatePhase> {
+pub fn get_packet_number(buffer: &[u8]) -> ImmuxResult<ConnectionStatePhase> {
     let packet_header_size = 4;
     if buffer.len() < packet_header_size {
         return Err(DeserializationError::InsufficientDataWidthU32.into());

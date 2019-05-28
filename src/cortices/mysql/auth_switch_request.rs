@@ -2,7 +2,7 @@ use crate::cortices::mysql::error::MySQLSerializeError;
 use crate::cortices::mysql::utils::{
     decode_hex, u32_to_u8_array_with_length_3, MYSQL_PACKET_HEADER_LENGTH,
 };
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
 pub struct AuthSwitchRequest {
     pub payload_length: u32,
@@ -14,7 +14,7 @@ pub struct AuthSwitchRequest {
 
 pub fn serialize_auth_switch_request(
     auth_switch_request: AuthSwitchRequest,
-) -> UnumResult<Vec<u8>> {
+) -> ImmuxResult<Vec<u8>> {
     let mut res = Vec::new();
     res.append(&mut u32_to_u8_array_with_length_3(auth_switch_request.payload_length)?.to_vec());
     res.push(auth_switch_request.packet_number);
@@ -24,7 +24,7 @@ pub fn serialize_auth_switch_request(
     res.append(&mut plugin_name_vec);
     match decode_hex(&auth_switch_request.plugin_data) {
         Err(error) => {
-            return Err(UnumError::MySQLSerializer(
+            return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::SerializePluginDataError(error),
             ));
         }
@@ -32,7 +32,7 @@ pub fn serialize_auth_switch_request(
             res.append(&mut data);
             if res.len() - MYSQL_PACKET_HEADER_LENGTH != auth_switch_request.payload_length as usize
             {
-                return Err(UnumError::MySQLSerializer(
+                return Err(ImmuxError::MySQLSerializer(
                     MySQLSerializeError::SerializeAuthPluginDataError,
                 ));
             }

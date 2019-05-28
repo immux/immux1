@@ -1,4 +1,4 @@
-use crate::declarations::errors::{UnumError, UnumResult};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     AbortTransactionOkAnswer, Answer, AtomicGetInstruction, AtomicGetOneInstruction,
     AtomicRevertAllInstruction, AtomicRevertInstruction, AtomicSetInstruction,
@@ -8,7 +8,7 @@ use crate::declarations::instructions::{
 };
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::vkv::{
-    extract_affected_keys, InstructionHeight, UnumVersionedKeyValueStore, VersionedKeyValueStore,
+    extract_affected_keys, ImmuxDBVersionedKeyValueStore, InstructionHeight, VersionedKeyValueStore,
 };
 use std::collections::HashSet;
 
@@ -21,27 +21,27 @@ pub enum TransactionError {
 }
 
 pub trait TransactionKeyValueStore {
-    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, UnumError>;
+    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, ImmuxError>;
 }
 
-pub struct UnumTransactionKeyValueStore {
-    vkv: UnumVersionedKeyValueStore,
+pub struct ImmuxDBTransactionKeyValueStore {
+    vkv: ImmuxDBVersionedKeyValueStore,
     in_transaction: bool,
 
     instruction_recorder: Vec<Instruction>,
     height_before_transaction: InstructionHeight,
 }
 
-impl UnumTransactionKeyValueStore {
+impl ImmuxDBTransactionKeyValueStore {
     pub fn new(
         engine_choice: &KeyValueEngine,
         namespace: &[u8],
-    ) -> Result<UnumTransactionKeyValueStore, UnumError> {
-        let vkv = UnumVersionedKeyValueStore::new(engine_choice, namespace)?;
+    ) -> Result<ImmuxDBTransactionKeyValueStore, ImmuxError> {
+        let vkv = ImmuxDBVersionedKeyValueStore::new(engine_choice, namespace)?;
         let in_transaction = false;
         let instruction_recorder = Vec::new();
         let height_before_transaction = 0;
-        let tkv = UnumTransactionKeyValueStore {
+        let tkv = ImmuxDBTransactionKeyValueStore {
             vkv,
             in_transaction,
             instruction_recorder,
@@ -55,7 +55,7 @@ impl UnumTransactionKeyValueStore {
         return 1;
     }
 
-    pub fn undo_transaction(&mut self) -> UnumResult<()> {
+    pub fn undo_transaction(&mut self) -> ImmuxResult<()> {
         let mut affected_keys = HashSet::new();
         let target_height = self.height_before_transaction;
         let current_height = self.vkv.get_current_height();
@@ -79,7 +79,7 @@ impl UnumTransactionKeyValueStore {
                     }
                 }
                 _ => {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::AbortInstructionError,
                     ));
                 }
@@ -100,8 +100,8 @@ impl UnumTransactionKeyValueStore {
     }
 }
 
-impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
-    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, UnumError> {
+impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
+    fn execute(&mut self, instruction: &Instruction) -> Result<Answer, ImmuxError> {
         match instruction {
             Instruction::StartTransaction => {
                 if !self.in_transaction {
@@ -112,14 +112,14 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                         transaction_id,
                     }));
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
             }
             Instruction::CommitTransaction(commit_transaction_instruction) => {
                 if !self.in_transaction {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransactionNotStarted,
                     ));
                 } else {
@@ -134,7 +134,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
             }
             Instruction::AbortTransaction(abort_transaction_instruction) => {
                 if !self.in_transaction {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransactionNotStarted,
                     ));
                 } else {
@@ -163,11 +163,13 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                             return Ok(Answer::TransactionalGetOk(get_ok_answer));
                         }
                         _ => {
-                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                            return Err(ImmuxError::Transaction(
+                                TransactionError::UnexpectedAnswer,
+                            ));
                         }
                     }
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -189,11 +191,13 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                             return Ok(Answer::TransactionalGetOneOk(transactional_answer));
                         }
                         _ => {
-                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                            return Err(ImmuxError::Transaction(
+                                TransactionError::UnexpectedAnswer,
+                            ));
                         }
                     }
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -214,11 +218,13 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                             return Ok(Answer::TransactionalSetOk(set_ok_answer));
                         }
                         _ => {
-                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                            return Err(ImmuxError::Transaction(
+                                TransactionError::UnexpectedAnswer,
+                            ));
                         }
                     }
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -242,11 +248,13 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                             return Ok(Answer::TransactionalRevertOk(revert_ok_answer));
                         }
                         _ => {
-                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                            return Err(ImmuxError::Transaction(
+                                TransactionError::UnexpectedAnswer,
+                            ));
                         }
                     }
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -270,11 +278,13 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                             return Ok(Answer::TransactionalRevertAllOk(revert_all_ok_answer));
                         }
                         _ => {
-                            return Err(UnumError::Transaction(TransactionError::UnexpectedAnswer));
+                            return Err(ImmuxError::Transaction(
+                                TransactionError::UnexpectedAnswer,
+                            ));
                         }
                     }
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -283,7 +293,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -292,7 +302,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -302,7 +312,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                     self.instruction_recorder.push(instruction.clone());
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -312,7 +322,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                     self.instruction_recorder.push(instruction.clone());
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -322,7 +332,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                     self.instruction_recorder.push(instruction.clone());
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -331,7 +341,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -340,7 +350,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
                 if !self.in_transaction {
                     self.vkv.execute(instruction)
                 } else {
-                    return Err(UnumError::Transaction(
+                    return Err(ImmuxError::Transaction(
                         TransactionError::TransacitonInProgress,
                     ));
                 }
@@ -352,7 +362,7 @@ impl TransactionKeyValueStore for UnumTransactionKeyValueStore {
 #[cfg(test)]
 mod tkv_tests {
     use crate::config::{compile_config, save_config, DEFAULT_CHAIN_NAME};
-    use crate::declarations::errors::UnumError;
+    use crate::declarations::errors::ImmuxError;
     use crate::declarations::instructions::Instruction::InTransactionRevertAll;
     use crate::declarations::instructions::{
         AbortTransactionInstruction, Answer, AtomicGetInstruction, AtomicRevertAllInstruction,
@@ -361,23 +371,24 @@ mod tkv_tests {
         InTransactionSetInstruction, Instruction, RevertTargetSpec, SetTargetSpec,
     };
     use crate::storage::tkv::{
-        InstructionHeight, TransactionKeyValueStore, UnumTransactionKeyValueStore,
+        ImmuxDBTransactionKeyValueStore, InstructionHeight, TransactionKeyValueStore,
     };
     use crate::storage::vkv::VersionedKeyValueStore;
 
-    fn init_tkv() -> UnumTransactionKeyValueStore {
+    fn init_tkv() -> ImmuxDBTransactionKeyValueStore {
         let commandline_args = vec![];
         let config = compile_config(commandline_args);
         let namespace = "test_namespace".as_bytes();
-        let mut tkv = UnumTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
+        let mut tkv =
+            ImmuxDBTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
         return tkv;
     }
 
     fn in_transaction_set(
         key: String,
         value: String,
-        tkv: &mut UnumTransactionKeyValueStore,
-    ) -> Result<Answer, UnumError> {
+        tkv: &mut ImmuxDBTransactionKeyValueStore,
+    ) -> Result<Answer, ImmuxError> {
         let key = key.as_bytes().to_vec();
         let value = value.as_bytes().to_vec();
         let set_target_spec = SetTargetSpec { key, value };
@@ -391,8 +402,8 @@ mod tkv_tests {
 
     fn atomic_get(
         key: String,
-        tkv: &mut UnumTransactionKeyValueStore,
-    ) -> Result<Answer, UnumError> {
+        tkv: &mut ImmuxDBTransactionKeyValueStore,
+    ) -> Result<Answer, ImmuxError> {
         let key = key.as_bytes().to_vec();
         let get_target_spec = GetTargetSpec { key, height: None };
         let targets = vec![get_target_spec];
@@ -403,8 +414,8 @@ mod tkv_tests {
     fn in_transaction_revert(
         key: String,
         height: InstructionHeight,
-        tkv: &mut UnumTransactionKeyValueStore,
-    ) -> Result<Answer, UnumError> {
+        tkv: &mut ImmuxDBTransactionKeyValueStore,
+    ) -> Result<Answer, ImmuxError> {
         let revert_target_spec = RevertTargetSpec {
             key: key.as_bytes().to_vec(),
             height,
@@ -421,8 +432,8 @@ mod tkv_tests {
     fn in_transaction_revert_all(
         target_height: InstructionHeight,
         transaction_id: u64,
-        tkv: &mut UnumTransactionKeyValueStore,
-    ) -> Result<Answer, UnumError> {
+        tkv: &mut ImmuxDBTransactionKeyValueStore,
+    ) -> Result<Answer, ImmuxError> {
         let in_transaction_revert_all_instruction = InTransactionRevertAllInstruction {
             target_height,
             transaction_id,

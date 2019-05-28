@@ -3,7 +3,7 @@
 use crate::cortices::mongo::ops::opcodes::MongoOpCode;
 use crate::cortices::mongo::utils::{get_op_code_value, pick_op_code};
 use crate::cortices::utils::parse_u32;
-use crate::declarations::errors::UnumResult;
+use crate::declarations::errors::ImmuxResult;
 use crate::utils::u32_to_u8_array;
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ pub struct MsgHeader {
     pub op_code: MongoOpCode,
 }
 
-pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, usize)> {
+pub fn parse_msg_header(buffer: &[u8]) -> ImmuxResult<(MsgHeader, usize)> {
     let mut index: usize = 0;
     let (message_length, offset) = parse_u32(&buffer[index..])?;
     index += offset;
@@ -43,7 +43,7 @@ pub fn parse_msg_header(buffer: &[u8]) -> UnumResult<(MsgHeader, usize)> {
     ))
 }
 
-pub fn get_msg_header_op_code(buffer: &[u8]) -> UnumResult<MongoOpCode> {
+pub fn get_msg_header_op_code(buffer: &[u8]) -> ImmuxResult<MongoOpCode> {
     let index = 12;
     let (op_code_u32, offset) = parse_u32(&buffer[index..])?;
     let op_code = pick_op_code(op_code_u32)?;
