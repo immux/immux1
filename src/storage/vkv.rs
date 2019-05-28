@@ -11,8 +11,8 @@ use crate::config::UNUM_VERSION;
 use crate::declarations::errors::UnumError::Transaction;
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, GetOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer, RevertOkAnswer,
-    SetOkAnswer, SwitchNamespaceOkAnswer,
+    Answer, GetOkAnswer, GetOneOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer,
+    RevertOkAnswer, SetOkAnswer, SwitchNamespaceOkAnswer,
 };
 use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::redis::RedisStore;
@@ -487,6 +487,16 @@ impl VersionedKeyValueStore for UnumVersionedKeyValueStore {
                     results.push(result)
                 }
                 return Ok(Answer::GetOk(GetOkAnswer { items: results }));
+            }
+            Instruction::AtomicGetOne(get_one) => {
+                let target = &get_one.target;
+                let base_height = self.get_height();
+                let target_height = match target.height {
+                    None => base_height,
+                    Some(height) => height,
+                };
+                let result = self.get_at_height(&target.key, target_height)?;
+                return Ok(Answer::GetOneOk(GetOneOkAnswer { item: result }));
             }
             Instruction::AtomicSet(set) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();

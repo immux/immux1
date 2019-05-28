@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::Instruction::InTransactionSet;
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, InTransactionSetInstruction,
-    Instruction, SetTargetSpec,
+    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
+    InTransactionSetInstruction, Instruction, SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, UnumCore};
 use crate::storage::kv::KeyValueEngine;
@@ -122,17 +122,17 @@ pub fn save_config(config: &UnumDBConfiguration, core: &mut UnumCore) -> UnumRes
 }
 
 pub fn load_config(core: &mut UnumCore) -> UnumResult<UnumDBConfiguration> {
-    let instruction = AtomicGetInstruction {
-        targets: vec![GetTargetSpec {
+    let instruction = AtomicGetOneInstruction {
+        target: GetTargetSpec {
             key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
             height: None,
-        }],
+        },
     };
-    match core.execute(&Instruction::AtomicGet(instruction)) {
+    match core.execute(&Instruction::AtomicGetOne(instruction)) {
         Err(_error) => return Err(UnumError::Config(ConfigError::CannotRead)),
         Ok(answer) => match answer {
-            Answer::GetOk(get_answer) => {
-                let target = &get_answer.items[0];
+            Answer::GetOneOk(get_answer) => {
+                let target = &get_answer.item;
                 match deserialize::<UnumDBConfiguration>(&target) {
                     Err(_error) => return Err(UnumError::Config(ConfigError::CannotDeserialize)),
                     Ok(config) => return Ok(config),

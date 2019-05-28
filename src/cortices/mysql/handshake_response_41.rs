@@ -7,7 +7,8 @@ use crate::cortices::mysql::utils::{
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, Instruction, SetTargetSpec,
+    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
+    SetTargetSpec,
 };
 use crate::storage::core::{CoreStore, UnumCore};
 use std::collections::HashMap;
@@ -44,21 +45,21 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut UnumCore) -> UnumResult
 }
 
 pub fn load_handshake_response(core: &mut UnumCore) -> UnumResult<HandshakeResponse> {
-    let instruction = AtomicGetInstruction {
-        targets: vec![GetTargetSpec {
+    let instruction = AtomicGetOneInstruction {
+        target: GetTargetSpec {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
             height: None,
-        }],
+        },
     };
-    match core.execute(&Instruction::AtomicGet(instruction)) {
+    match core.execute(&Instruction::AtomicGetOne(instruction)) {
         Err(_error) => {
             return Err(UnumError::MySQLSerializer(
                 MySQLSerializeError::CannotReadClientStatus,
             ));
         }
         Ok(answer) => match answer {
-            Answer::GetOk(get_answer) => {
-                let target = &get_answer.items[0];
+            Answer::GetOneOk(get_answer) => {
+                let target = &get_answer.item;
                 let res = parse_handshake_response(target)?;
                 return Ok(res);
             }

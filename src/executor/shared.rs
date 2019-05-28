@@ -2,7 +2,8 @@ use bincode::{deserialize, serialize};
 
 use crate::declarations::errors::{UnumError, UnumResult};
 use crate::declarations::instructions::{
-    Answer, AtomicGetInstruction, AtomicSetInstruction, GetTargetSpec, Instruction, SetTargetSpec,
+    Answer, AtomicGetInstruction, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec,
+    Instruction, SetTargetSpec,
 };
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, UnumCore};
@@ -29,15 +30,15 @@ fn get_id_list_key(grouping: &[u8]) -> Vec<u8> {
 pub fn get_id_list(grouping: &[u8], core: &mut UnumCore) -> Vec<Vec<u8>> {
     let id_list_key = get_id_list_key(grouping);
     let key_list = {
-        let get_key_list = AtomicGetInstruction {
-            targets: vec![GetTargetSpec {
+        let get_key_list = AtomicGetOneInstruction {
+            target: GetTargetSpec {
                 key: id_list_key.clone(),
                 height: None,
-            }],
+            },
         };
-        match core.execute(&Instruction::AtomicGet(get_key_list)) {
-            Ok(Answer::GetOk(get_list_answer)) => {
-                match deserialize::<KeyList>(&get_list_answer.items[0]) {
+        match core.execute(&Instruction::AtomicGetOne(get_key_list)) {
+            Ok(Answer::GetOneOk(get_list_answer)) => {
+                match deserialize::<KeyList>(&get_list_answer.item) {
                     Err(_error) => vec![],
                     Ok(key_list) => key_list,
                 }

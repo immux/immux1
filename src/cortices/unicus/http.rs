@@ -5,9 +5,9 @@ use url::Url;
 use crate::config;
 use crate::declarations::errors::UnumError;
 use crate::declarations::instructions::{
-    AtomicGetInstruction, AtomicRevertAllInstruction, AtomicRevertInstruction,
-    AtomicSetInstruction, GetTargetSpec, Instruction, ReadNamespaceInstruction, RevertTargetSpec,
-    SetTargetSpec, SwitchNamespaceInstruction,
+    AtomicGetInstruction, AtomicGetOneInstruction, AtomicRevertAllInstruction,
+    AtomicRevertInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
+    ReadNamespaceInstruction, RevertTargetSpec, SetTargetSpec, SwitchNamespaceInstruction,
 };
 
 #[derive(Debug)]
@@ -101,8 +101,8 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, HttpParsingError
                 let instruction = Instruction::ReadNamespace(ReadNamespaceInstruction {});
                 return Ok(instruction);
             } else {
-                let instruction = Instruction::AtomicGet(AtomicGetInstruction {
-                    targets: vec![GetTargetSpec {
+                let instruction = Instruction::AtomicGetOne(AtomicGetOneInstruction {
+                    target: GetTargetSpec {
                         key: low_key.into_bytes(),
                         height: if let Ok(height) =
                             url_info.extract_numeric_query(config::HEIGHT_QUERY_KEYWORD)
@@ -111,7 +111,7 @@ pub fn parse_http_request(message: &str) -> Result<Instruction, HttpParsingError
                         } else {
                             None
                         },
-                    }],
+                    },
                 });
                 return Ok(instruction);
             }
