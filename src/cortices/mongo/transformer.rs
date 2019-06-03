@@ -182,6 +182,7 @@ pub fn transform_outcome_to_mongo_msg(
             doc.insert("ok", 1.0);
             Ok(construct_single_doc_op_msg(doc, &header))
         }
+        Outcome::NameChain(ok) => unimplemented!(),
     }
 }
 

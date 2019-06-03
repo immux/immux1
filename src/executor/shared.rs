@@ -7,6 +7,7 @@ use crate::declarations::instructions::{
 };
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::utils::utf8_to_string;
 
 pub const SEPARATORS: &[u8] = &['/' as u8, '/' as u8];
 pub const ID_LIST_KEY: &[u8] = &[
@@ -43,7 +44,13 @@ pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
                     Ok(key_list) => key_list,
                 }
             }
-            _ => vec![],
+            _ => {
+                println!(
+                    "DEBUG: keylist not found for grouping {}",
+                    utf8_to_string(grouping)
+                );
+                vec![]
+            }
         }
     };
     key_list

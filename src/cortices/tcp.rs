@@ -1,10 +1,12 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
+use tiny_http::Server;
+
 use crate::config::ImmuxDBConfiguration;
 use crate::cortices::mongo::cortex::MONGO_CORTEX;
-
-use crate::cortices::unicus::cortex::UNICUS_CORTEX;
+use crate::cortices::mysql::cortex::MYSQL_CORTEX;
+use crate::cortices::unicus::cortex::responder;
 use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::core::ImmuxDBCore;
@@ -66,11 +68,12 @@ fn handle_tcp_stream(
         };
     }
 
-    let mut buffer = [0; 1024];
+    let mut buffer = [0; 1_024_000];
     loop {
         match stream.read(&mut buffer) {
             Err(error) => return Err(ImmuxError::Tcp(TcpError::TcpReadError(error))),
             Ok(bytes_read) => {
+                println!("{} bytes read", bytes_read);
                 if bytes_read > 0 {
                     match (cortex.process_incoming_message)(
                         &buffer[..bytes_read],
@@ -127,6 +130,11 @@ fn bind_tcp_port(
 }
 
 pub fn setup_cortices(mut core: ImmuxDBCore, config: &ImmuxDBConfiguration) -> ImmuxResult<()> {
+    let server = Server::http("0.0.0.0:1991").unwrap();
+    for mut request in server.incoming_requests() {
+        responder(request, &mut core)?
+    }
+
     bind_tcp_port(
         &config.mongo_endpoint,
         &mut core,
@@ -135,10 +143,10 @@ pub fn setup_cortices(mut core: ImmuxDBCore, config: &ImmuxDBConfiguration) -> I
         config,
     )?;
     bind_tcp_port(
-        &config.unicus_endpoint,
+        &config.mysql_endpoint,
         &mut core,
-        &UNICUS_CORTEX,
-        BindMode::CloseAfterMessage,
+        &MYSQL_CORTEX,
+        BindMode::LongLive,
         config,
     )?;
     return Ok(());
