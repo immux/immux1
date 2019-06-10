@@ -1,5 +1,5 @@
 [package]
-name = "immux"
+name = "immuxdb"
 version = "0.1.0"
 authors = ["Yiwang Network Technology Company, Limited"]
 edition = "2018"
@@ -11,6 +11,8 @@ url = "1.7"
 redis = "0.10.0"
 bson = "0.13"
 rocksdb = "0.12.1"
+serde_json = "1.0"
+tiny_http = "0.6"
 
 # chrono is introduced to construct date for bson.rs. See issue #34.
 chrono = "0.4"

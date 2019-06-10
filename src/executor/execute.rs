@@ -2,6 +2,7 @@ use crate::declarations::commands::{Command, Outcome};
 use crate::declarations::errors::ImmuxResult;
 
 use crate::executor::insert_executor::execute_insert;
+use crate::executor::name_chain_executor::execute_name_chain;
 use crate::executor::pick_chain_executor::execute_pick_chain;
 use crate::executor::select_executor::execute_select;
 use crate::storage::core::ImmuxDBCore;
@@ -11,6 +12,7 @@ pub fn execute(command: Command, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome>
         Command::PickChain(pick_chain) => execute_pick_chain(pick_chain, core),
         Command::Insert(insert) => execute_insert(insert, core),
         Command::Select(select) => execute_select(select, core),
+        Command::NameChain => execute_name_chain(core),
     }
 }
 

@@ -3,7 +3,7 @@ use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::transformer::MongoTransformerError;
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
-use crate::cortices::unicus::http::HttpParsingError;
+use crate::cortices::unicus::cortex::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
 use crate::executor::errors::ExecutorError;
 use crate::storage::kv::hashmap::HashmapStorageEngineError;

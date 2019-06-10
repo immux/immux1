@@ -191,7 +191,6 @@ pub fn serialize_op_msg(op_msg: &OpMsg) -> ImmuxResult<Vec<u8>> {
 #[cfg(test)]
 mod op_msg_tests {
 
-    
     use crate::cortices::mongo::ops::op_msg::{parse_op_msg, serialize_op_msg, Section};
 
     static OP_MSG_FIXTURE_SINGLE: [u8; 224] = [

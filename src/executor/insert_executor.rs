@@ -14,6 +14,8 @@ pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxRes
             .iter()
             .map(|target| get_kv_key(grouping, &target.id)),
     );
+    key_list.sort_by(|v1, v2| v1.cmp(v2));
+    key_list.dedup_by(|v1, v2| v1 == v2);
     set_id_list(grouping, core, &key_list)?;
 
     let store_data = AtomicSetInstruction {

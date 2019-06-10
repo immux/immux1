@@ -20,6 +20,7 @@ pub struct PickChainCommand {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SelectCondition {
     UnconditionalMatch,
+    Id(Vec<u8>),
     JSCode(String),
 }
 
@@ -33,6 +34,7 @@ pub struct SelectCommand {
 pub enum Command {
     Insert(InsertCommand),
     PickChain(PickChainCommand),
+    NameChain,
     Select(SelectCommand),
 }
 
@@ -45,6 +47,10 @@ pub struct InsertOutcome {
 pub struct PickChainOutcome {
     pub new_chain_name: Vec<u8>,
 }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NameChainOutcome {
+    pub chain_name: Vec<u8>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SelectOutcome {
@@ -56,4 +62,5 @@ pub enum Outcome {
     Insert(InsertOutcome),
     PickChain(PickChainOutcome),
     Select(SelectOutcome),
+    NameChain(NameChainOutcome),
 }
