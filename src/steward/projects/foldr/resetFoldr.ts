@@ -5,14 +5,12 @@ import {
     createImmuxDbViaHttpsRestrictedAccess,
     makeImmuxDBHttp
 } from "../../../connectors/immuxdb";
-import { FOLDR_PROJECT_NAME, makeNamespaceForProject } from "./utils";
+import { FOLDR_PROJECT_NAME, makeNamespaceForProject } from "../utils";
 import { FoldrProject } from "../meta";
 import { UserData } from "./types";
+import { adminId, foldrId } from "../init";
 
 const readFileAsync = promisify(fs.readFile);
-
-export const foldrId = "foldr-project-id";
-export const adminId = "admin-project-id";
 
 async function inject() {
     const index = (await readFileAsync("build/index.html")).toString();
@@ -39,7 +37,8 @@ async function inject() {
         owner: admin.id,
         name: "foldr",
         index,
-        responder
+        responder,
+        distributor: null
     };
     await state.projects.upsert(project);
     console.info(`Inserted project ${project.id}`);

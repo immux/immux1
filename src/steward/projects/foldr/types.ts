@@ -84,6 +84,7 @@ export interface UpdateProject extends ActionfulAction {
         project: string;
         index?: string | null;
         responder?: string | null;
+        distributor?: string | null;
     };
     meta: {
         username: string;

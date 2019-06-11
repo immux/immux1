@@ -100,7 +100,8 @@ async function responder(
                 owner: authenticatedUser.id,
                 name: action.payload.name,
                 index: null,
-                responder: null
+                responder: null,
+                distributor: null
             };
             await state.projects.upsert(project);
             return {
@@ -138,6 +139,9 @@ async function responder(
             }
             if (action.payload.responder !== undefined) {
                 claimedProject.responder = action.payload.responder;
+            }
+            if (action.payload.distributor !== undefined) {
+                claimedProject.distributor = action.payload.distributor;
             }
             await state.projects.upsert(claimedProject);
             return {

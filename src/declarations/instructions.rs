@@ -118,8 +118,14 @@ pub struct StartTransactionOkAnswer {
 }
 
 #[derive(Debug)]
-pub struct CommitTransactionOkAnswer {
+pub struct TransactionPendingAnswer {
     pub transaction_id: u64,
+}
+
+#[derive(Debug)]
+pub struct CommitTransactionOkAnswer {
+    pub commited_transaction_id: u64,
+    pub next_active_transaction_id: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -195,6 +201,7 @@ pub struct ReadNamespaceOkAnswer {
 #[derive(Debug)]
 pub enum Answer {
     StartTransactionOk(StartTransactionOkAnswer),
+    AppendTransactionOk(TransactionPendingAnswer),
     CommitTransactionOk(CommitTransactionOkAnswer),
     AbortTransactionOk(AbortTransactionOkAnswer),
     TransactionalGetOk(TransactionalGetOkAnswer),
