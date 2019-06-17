@@ -2,7 +2,7 @@ import { FoldrClientState } from "./transient-node/types";
 import { FoldrAction } from "./types";
 import { INITIAL_STATE, reducer } from "./transient-node/reducer";
 import { createStore } from "redux";
-import { bindStoreToHttpPost } from "../../storeBind";
+import { bindStore } from "../../actionful/storeBind";
 
 declare global {
     interface Window {
@@ -16,6 +16,8 @@ const store = createStore<FoldrClientState, FoldrAction, null, null>(
     window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__()
 );
 
-const boundStore = bindStoreToHttpPost(store, `${location.origin}/http`);
+const boundStore = bindStore(store, location.origin, {
+    preferredChannel: "ws"
+});
 
 export default boundStore;

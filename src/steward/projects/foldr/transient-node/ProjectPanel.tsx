@@ -6,6 +6,7 @@ function ProjectView(props: {
     project: FoldrProject;
     onIndexChange(code: string): void;
     onResponderChange(code: string): void;
+    onDistributorChange(code: string): void;
 }) {
     const url = getProjectUrl(
         location.protocol,
@@ -46,6 +47,14 @@ function ProjectView(props: {
                     onChange={props.onResponderChange}
                 />
             </div>
+            <div>
+                <h3>Distributor</h3>
+                <CodeView
+                    language="javascript"
+                    code={props.project.distributor || ""}
+                    onChange={props.onDistributorChange}
+                />
+            </div>
         </div>
     );
 }
@@ -63,6 +72,7 @@ interface Props {
     projects: FoldrProject[];
     onIndexChange(code: string, project: FoldrProject): void;
     onResponderChange(code: string, project: FoldrProject): void;
+    onDistributorChange(code: string, project: FoldrProject): void;
     onCreateProject(name: string): void;
 }
 
@@ -91,6 +101,9 @@ class ProjectPanel extends React.PureComponent<Props, State> {
                         }
                         onResponderChange={code =>
                             this.props.onResponderChange(code, project)
+                        }
+                        onDistributorChange={code =>
+                            this.props.onDistributorChange(code, project)
                         }
                     />
                 ))}

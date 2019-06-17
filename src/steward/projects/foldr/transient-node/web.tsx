@@ -90,13 +90,7 @@ class Root extends React.Component<RootProps, RootState> {
                                         password: this.state.passwordInput
                                     }
                                 };
-                                const response = await fetch(
-                                    `${location.origin}/http`,
-                                    {
-                                        method: "POST",
-                                        body: JSON.stringify(action)
-                                    }
-                                );
+                                this.props.action(action);
                             }}
                         >
                             Register
@@ -147,15 +141,7 @@ class Root extends React.Component<RootProps, RootState> {
                                         password: this.state.passwordInput
                                     }
                                 };
-                                const response = await fetch(
-                                    `${location.origin}/http`,
-                                    {
-                                        method: "POST",
-                                        body: JSON.stringify(action)
-                                    }
-                                );
-                                const actionFromServer: SigninAction = await response.json();
-                                this.props.action(actionFromServer);
+                                this.props.action(action);
                             }}
                         >
                             Sign in
@@ -184,8 +170,7 @@ class Root extends React.Component<RootProps, RootState> {
                                     type: "update-project",
                                     payload: {
                                         project: project.id,
-                                        index: code,
-                                        responder: project.responder
+                                        index: code
                                     },
                                     meta: {
                                         username: this.props.me
@@ -202,8 +187,24 @@ class Root extends React.Component<RootProps, RootState> {
                                     type: "update-project",
                                     payload: {
                                         project: project.id,
-                                        index: project.index,
                                         responder: code
+                                    },
+                                    meta: {
+                                        username: this.props.me
+                                            ? this.props.me.username
+                                            : "",
+                                        password: this.props.me
+                                            ? this.props.me.password
+                                            : ""
+                                    }
+                                });
+                            }}
+                            onDistributorChange={(code, project) => {
+                                this.props.action({
+                                    type: "update-project",
+                                    payload: {
+                                        project: project.id,
+                                        distributor: code
                                     },
                                     meta: {
                                         username: this.props.me

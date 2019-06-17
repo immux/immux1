@@ -5,7 +5,7 @@ import {
     ImmuxDbJS
 } from "./immuxdb.types";
 
-interface ImmuxDBHttp {
+export interface ImmuxDBHttp {
     host: string;
     simpleGet(collection: string, key: string): Promise<string>;
     select(collection: string, condition: string): Promise<string>;

@@ -15,6 +15,11 @@ module.exports = {
             cwd: './projects/foldr/transient-node/'
         },
         {
+            name: 'talkim-fe-dev-server',
+            script: './node_modules/.bin/webpack-dev-server',
+            cwd: './projects/talkim/transient/'
+        },
+        {
             name: 'tsc',
             script: 'tsc',
             args: '-p tsconfig.json --watch',

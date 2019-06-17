@@ -1,0 +1,8 @@
+babel="../../node_modules/.bin/babel"
+
+find build -type f -delete
+mkdir -p build
+${babel} steward/responder.ts -o build/responder.js --presets=@babel/preset-typescript
+${babel} steward/distributor.ts -o build/distributor.js --presets=@babel/preset-typescript
+cd transient
+../../../node_modules/.bin/webpack --config ./webpack.config.js -p
