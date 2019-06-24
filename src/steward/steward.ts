@@ -12,7 +12,14 @@ import {
     StewardEnhancedIncoming,
     StewardEnhancedOutgoing
 } from "./projects/meta";
-import { ActionfulAction, FoldrAction, NotFound } from "./projects/foldr/types";
+import {
+    ActionfulAction,
+    FoldrAction,
+    NoResponder,
+    NotFound,
+    ProjectNotFound,
+    URLParsingError,
+} from "./projects/foldr/types";
 import { ImmuxDbJS } from "../connectors/immuxdb.types";
 import { FOLDR_PROJECT_NAME, makeNamespaceForProject } from "./projects/utils";
 import { IncomingMessage } from "http";
@@ -53,7 +60,7 @@ async function execute<Action extends ActionfulAction = ActionfulAction>(
             host: request.headers.host || ""
         }
     };
-    console.info("cookie", request.headers.cookie);
+    console.info(project)
     if (project.responder) {
         await db.switchNamespace(makeNamespaceForProject(project.name));
         let result: StewardEnhancedOutgoing<Action> = await eval(`
@@ -64,7 +71,6 @@ async function execute<Action extends ActionfulAction = ActionfulAction>(
                           return response;
                         })()
                         `);
-        console.info("result is", result);
 
         if (project.distributor) {
             let distributions: Distribution[] = await eval(`
@@ -97,9 +103,11 @@ async function execute<Action extends ActionfulAction = ActionfulAction>(
 
         return result;
     } else {
-        return {
-            type: "no-responder"
-        } as Action;
+        const result: NoResponder = {
+            type: "no-responder",
+            project: project.name
+        }
+        return result as unknown as Action;
     }
 }
 
@@ -115,21 +123,28 @@ async function getProject(
     return project;
 }
 
-const notFound: NotFound = {
-    type: "not-found"
+const projectNotFound: ProjectNotFound = {
+    type: "project-not-found"
 };
+
+function urlParsingError(url: string): URLParsingError {
+    return {
+        type: "url-parsing-error",
+        url,
+    }
+}
 
 function initializeHttpServer(db: ImmuxDBHttp, state: ImmuxDbJS) {
     const httpServer = http.createServer(async (request, response) => {
         const targetProjectName = getProjectNameFromUrl(request.headers.host);
         if (!targetProjectName) {
-            response.end(JSON.stringify(notFound));
+            response.end(JSON.stringify(urlParsingError(request.headers.host || "")));
             return;
         }
         await db.switchNamespace(makeNamespaceForProject(FOLDR_PROJECT_NAME));
         const project = await getProject(db, state, targetProjectName);
         if (!project) {
-            response.end(JSON.stringify(notFound));
+            response.end(JSON.stringify(projectNotFound));
             return;
         }
         switch (request.method) {
@@ -181,7 +196,7 @@ function initializeWebSocketServer(db: ImmuxDBHttp, state: ImmuxDbJS) {
 
     const verifyClient: ws.VerifyClientCallbackSync = info => {
 
-        // Preventing a.foldr.site connecting to ws://b.foldr.site/ws
+        // Preventing a.foldr.site connecting to ws://b.foldr.site/api/ws
         const sourceTargetMatch =
             !!info.req.headers.host &&
             info.origin
@@ -191,7 +206,6 @@ function initializeWebSocketServer(db: ImmuxDBHttp, state: ImmuxDbJS) {
         const hostAllowed = ALLOWED_WEBSOCKET_HOSTS.some(host =>
             info.origin.endsWith(host)
         );
-        console.info("verify", sourceTargetMatch, hostAllowed)
 
         return sourceTargetMatch && hostAllowed;
     };
@@ -218,14 +232,14 @@ function initializeWebSocketServer(db: ImmuxDBHttp, state: ImmuxDbJS) {
             socket.host = request.headers.host;
             let result: StewardEnhancedOutgoing<FoldrAction>;
             if (!targetProjectName) {
-                result = notFound;
+                result = urlParsingError(request.headers.host || "");
             } else {
                 await db.switchNamespace(
                     makeNamespaceForProject(FOLDR_PROJECT_NAME)
                 );
                 const project = await getProject(db, state, targetProjectName);
                 if (!project) {
-                    result = notFound;
+                    result = projectNotFound;
                 } else {
                     const action = JSON.parse(message.toString());
                     result = await execute(

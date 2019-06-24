@@ -169,7 +169,7 @@ class Root extends React.Component<RootProps, RootState> {
                                 this.props.action({
                                     type: "update-project",
                                     payload: {
-                                        project: project.id,
+                                        projectName: project.name,
                                         index: code
                                     },
                                     meta: {
@@ -186,7 +186,7 @@ class Root extends React.Component<RootProps, RootState> {
                                 this.props.action({
                                     type: "update-project",
                                     payload: {
-                                        project: project.id,
+                                        projectName: project.name,
                                         responder: code
                                     },
                                     meta: {
@@ -203,7 +203,7 @@ class Root extends React.Component<RootProps, RootState> {
                                 this.props.action({
                                     type: "update-project",
                                     payload: {
-                                        project: project.id,
+                                        projectName: project.name,
                                         distributor: code
                                     },
                                     meta: {

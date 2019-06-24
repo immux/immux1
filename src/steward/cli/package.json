@@ -1,0 +1,25 @@
+{
+  "name": "@immux/foldr-cli",
+  "version": "0.1.3",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+      "foldr": "cli/index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "fs-extra": "^8.0.1",
+    "isomorphic-fetch": "^2.2.1",
+    "readline-sync": "^1.4.9"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^7.0.0",
+    "@types/isomorphic-fetch": "0.0.35",
+    "@types/readline-sync": "^1.4.3",
+    "typescript": "^3.5.2"
+  }
+}

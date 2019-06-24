@@ -81,7 +81,7 @@ export interface CreateProjectSuccess extends ActionfulAction {
 export interface UpdateProject extends ActionfulAction {
     type: "update-project";
     payload: {
-        project: string;
+        projectName: string;
         index?: string | null;
         responder?: string | null;
         distributor?: string | null;
@@ -108,6 +108,23 @@ export interface NotFound {
     type: "not-found";
 }
 
+export interface UserNotFound {
+    type: "user-not-found";
+}
+
+export interface ProjectNotFound {
+    type: "project-not-found"
+}
+
+export interface URLParsingError {
+    type: "url-parsing-error",
+    url: string
+}
+
+export interface DuplicatedProject {
+    type: "duplicated-project"
+}
+
 export interface AuthorizationFailure {
     type: "authorization-failure";
 }
@@ -125,13 +142,17 @@ export interface Ok {
 
 export interface NoResponder {
     type: "no-responder";
-    error: true;
+    project: string
 }
 
 export type FoldrAction =
     | UnknownAction
     | Ok
     | NotFound
+    | UserNotFound
+    | ProjectNotFound
+    | DuplicatedProject
+    | URLParsingError
     | NoResponder
     | AuthenticationFailure
     | AuthorizationFailure
