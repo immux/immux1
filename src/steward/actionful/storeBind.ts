@@ -1,5 +1,6 @@
 import { Action, AnyAction, Dispatch, Store } from "redux";
 import { ActionfulAction } from "../projects/foldr/types";
+import { HTTP_SUBPATH, WS_SUBPATH } from "../paths";
 
 interface HijackedStore<S = any, A extends Action = AnyAction>
     extends Store<S, A> {
@@ -50,7 +51,7 @@ export function bindStore<S = any, A extends ActionfulAction = AnyAction>(
     function connect(): WebSocket {
         const protocol = origin.startsWith("https") ? "wss" : "ws";
         const host = origin.replace("http://", "").replace("https://", "");
-        const path = `${protocol}://${host}/ws`;
+        const path = `${protocol}://${host}${WS_SUBPATH}`;
 
         const socket = new WebSocket(path);
         socket.onopen = () => {
@@ -82,7 +83,7 @@ export function bindStore<S = any, A extends ActionfulAction = AnyAction>(
             const transport = getTransport(action.type);
             switch (transport) {
                 case "http": {
-                    const path = `${origin}/http`;
+                    const path = `${origin}${HTTP_SUBPATH}`;
                     console.info("using path", path);
                     const response = await fetch(path, {
                         method: "POST",

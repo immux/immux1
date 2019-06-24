@@ -66,7 +66,7 @@ async function responder(
             });
             if (!existingUser) {
                 return {
-                    type: "not-found"
+                    type: "user-not-found"
                 };
             } else if (existingUser.password !== action.payload.password) {
                 return {
@@ -94,6 +94,12 @@ async function responder(
                 return {
                     type: "authentication-failure"
                 };
+            }
+            const existing = await state.projects.findOne<FoldrProject>({name: action.payload.name})
+            if (existing) {
+                return {
+                    type: "duplicated-project"
+                }
             }
             const project: FoldrProject = {
                 id: Math.random().toString(),
@@ -123,11 +129,11 @@ async function responder(
                 };
             }
             const claimedProject = await state.projects.findOne<FoldrProject>({
-                id: action.payload.project
+                name: action.payload.projectName
             });
             if (!claimedProject) {
                 return {
-                    type: "not-found"
+                    type: "project-not-found"
                 };
             } else if (claimedProject.owner !== authenticatedUser.id) {
                 return {

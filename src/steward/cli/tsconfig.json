@@ -1,0 +1,10 @@
+{
+    "extends": "../tsconfig",
+    "compilerOptions": {
+        "outDir": "build",
+        "sourceMap": false
+    },
+    "files": [
+        "index.ts"
+    ]
+}
