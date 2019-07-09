@@ -15,7 +15,6 @@ use crate::declarations::instructions::{
     RevertOkAnswer, SetOkAnswer, SwitchNamespaceOkAnswer,
 };
 use crate::storage::kv::hashmap::HashMapStore;
-use crate::storage::kv::redis::RedisStore;
 use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
@@ -26,7 +25,6 @@ pub type InstructionHeight = u64;
 
 #[derive(Debug)]
 pub enum VkvError {
-    CannotGetEntry,
     CannotSerializeEntry,
     CannotSerializeInstructionMeta(BincodeError),
     UnexpectedInstruction,
@@ -77,7 +75,6 @@ impl ImmuxDBVersionedKeyValueStore {
         namespace: &[u8],
     ) -> Result<ImmuxDBVersionedKeyValueStore, ImmuxError> {
         let engine: Box<KeyValueStore> = match engine_choice {
-            KeyValueEngine::Redis => Box::new(RedisStore::new(namespace)?),
             KeyValueEngine::HashMap => Box::new(HashMapStore::new(namespace)),
             KeyValueEngine::Rocks => Box::new(RocksStore::new(namespace)?),
         };
@@ -230,8 +227,8 @@ impl ImmuxDBVersionedKeyValueStore {
     fn get_entry(&self, key: &[u8]) -> ImmuxResult<Entry> {
         let meta_bytes = self.get_with_key_prefix(KeyPrefix::KeyToEntry, key);
         match meta_bytes {
-            Err(_error) => {
-                return Err(VkvError::CannotGetEntry.into());
+            Err(error) => {
+                return Err(error);
             }
             Ok(meta_bytes) => {
                 let deserialized = deserialize::<Entry>(&meta_bytes);
@@ -352,7 +349,7 @@ impl ImmuxDBVersionedKeyValueStore {
         next_height: InstructionHeight,
     ) -> ImmuxResult<Vec<u8>> {
         match self.get_with_key_prefix(KeyPrefix::KeyToEntry, primary_key) {
-            Err(_error) => Err(VkvError::CannotGetEntry.into()),
+            Err(error) => Err(error),
             Ok(meta_bytes) => match deserialize::<Entry>(&meta_bytes) {
                 Err(_error) => Err(VkvError::DeserializationFail.into()),
                 Ok(meta) => {

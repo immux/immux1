@@ -1,5 +1,4 @@
 pub mod hashmap;
-pub mod redis;
 pub mod rocks;
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,5 @@ pub trait KeyValueStore {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum KeyValueEngine {
     HashMap,
-    Redis,
     Rocks,
 }

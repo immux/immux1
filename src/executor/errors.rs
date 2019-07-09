@@ -6,4 +6,6 @@ pub enum ExecutorError {
     UnexpectedAnswerType(Answer),
     CannotSerialize,
     UnimplementedSelectCondition(SelectCondition),
+    CannotDeserialize,
+    UnexpectedNumberType,
 }

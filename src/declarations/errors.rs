@@ -7,18 +7,18 @@ use crate::cortices::unicus::cortex::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
 use crate::executor::errors::ExecutorError;
 use crate::storage::kv::hashmap::HashmapStorageEngineError;
-use crate::storage::kv::redis::RedisEngineError;
 use crate::storage::kv::rocks::RocksEngineError;
 use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::VkvError;
+use std::io::Error;
 
 #[derive(Debug)]
 pub enum ImmuxError {
-    RedisEngine(RedisEngineError),
     RocksEngine(RocksEngineError),
     HashmapEngine(HashmapStorageEngineError),
 
     HttpParser(HttpParsingError),
+    HttpResponse(Error),
 
     VKV(VkvError),
 
@@ -103,12 +103,6 @@ impl std::convert::From<ExecutorError> for ImmuxError {
 impl std::convert::From<TransactionError> for ImmuxError {
     fn from(error: TransactionError) -> ImmuxError {
         ImmuxError::Transaction(error)
-    }
-}
-
-impl std::convert::From<RedisEngineError> for ImmuxError {
-    fn from(error: RedisEngineError) -> ImmuxError {
-        ImmuxError::RedisEngine(error)
     }
 }
 
