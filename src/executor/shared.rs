@@ -1,5 +1,3 @@
-use bincode::{deserialize, serialize};
-
 use crate::declarations::errors::ImmuxResult;
 use crate::declarations::instructions::{
     Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
@@ -8,13 +6,140 @@ use crate::declarations::instructions::{
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::utils::utf8_to_string;
+use bincode::{deserialize, serialize};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 
 pub const SEPARATORS: &[u8] = &['/' as u8, '/' as u8];
 pub const ID_LIST_KEY: &[u8] = &[
     'i' as u8, 'd' as u8, '_' as u8, 'l' as u8, 'i' as u8, 's' as u8, 't' as u8,
 ];
+pub const INDEX_LIST_KEY: &[u8] = &[
+    'i' as u8, 'n' as u8, 'd' as u8, 'e' as u8, 'x' as u8, '_' as u8, 'l' as u8, 'i' as u8,
+    's' as u8, 't' as u8,
+];
+pub const STRING_IDENTIFIER: u8 = 0;
+pub const BOOL_IDENTIFIER: u8 = 0;
+pub const F64_IDENTIFIER: u8 = 0;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum ValData {
+    String(String),
+    Bool(bool),
+    Float64(f64),
+}
 
 pub type KeyList = Vec<Vec<u8>>;
+
+pub fn construct_value_to_ids_map_from_js_obj(
+    js_obj: &Value,
+    index_field: &Vec<u8>,
+    id: &Vec<u8>,
+    grouping: &Vec<u8>,
+    mut value_to_ids_map: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>,
+) -> ImmuxResult<()> {
+    match &js_obj[&String::from_utf8_lossy(&index_field).into_owned()] {
+        Value::String(string) => {
+            let reverse_index_key = get_value_to_keys_map_key(
+                grouping,
+                &index_field,
+                &ValData::String(string.clone()),
+            )?;
+
+            insert_to_vec_in_hashmap_with_default(
+                &mut value_to_ids_map,
+                reverse_index_key,
+                id.clone(),
+            );
+        }
+        Value::Bool(boolean) => {
+            let reverse_index_key =
+                get_value_to_keys_map_key(grouping, &index_field, &ValData::Bool(*boolean))?;
+            insert_to_vec_in_hashmap_with_default(
+                &mut value_to_ids_map,
+                reverse_index_key,
+                id.clone(),
+            );
+        }
+        Value::Number(number) => {
+            let mut number_f64 = 0.0;
+            if let Some(num) = number.as_f64() {
+                number_f64 = num;
+            } else {
+                return Err(ExecutorError::UnexpectedNumberType.into());
+            }
+
+            let reverse_index_key =
+                get_value_to_keys_map_key(grouping, &index_field, &ValData::Float64(number_f64))?;
+            insert_to_vec_in_hashmap_with_default(
+                &mut value_to_ids_map,
+                reverse_index_key,
+                id.clone(),
+            );
+        }
+        _ => {}
+    }
+    return Ok(());
+}
+
+pub fn insert_to_vec_in_hashmap_with_default(
+    map: &mut HashMap<Vec<u8>, Vec<Vec<u8>>>,
+    key: Vec<u8>,
+    val: Vec<u8>,
+) {
+    match map.get(&key) {
+        Some(value) => {
+            let mut new_val = value.clone();
+            new_val.push(val.clone());
+            map.insert(key, new_val);
+        }
+        None => {
+            let value = vec![val.clone()];
+            map.insert(key, value);
+        }
+    }
+}
+
+pub fn get_value_to_keys_map_key(
+    grouping: &[u8],
+    key: &Vec<u8>,
+    val_data: &ValData,
+) -> ImmuxResult<Vec<u8>> {
+    let mut result: Vec<u8> = Vec::new();
+    result.extend_from_slice(grouping);
+    result.extend_from_slice(SEPARATORS);
+    result.extend_from_slice(&key);
+    result.extend_from_slice(SEPARATORS);
+    match &val_data {
+        ValData::String(string) => {
+            result.push(STRING_IDENTIFIER);
+            result.extend_from_slice(SEPARATORS);
+            result.append(&mut string.as_bytes().to_vec());
+        }
+        ValData::Bool(boolean) => {
+            result.push(BOOL_IDENTIFIER);
+            result.extend_from_slice(SEPARATORS);
+            match serialize(&boolean) {
+                Err(_error) => return Err(ExecutorError::CannotSerialize.into()),
+                Ok(mut data) => {
+                    result.append(&mut data);
+                }
+            }
+        }
+        ValData::Float64(number_f64) => {
+            result.push(F64_IDENTIFIER);
+            result.extend_from_slice(SEPARATORS);
+            match serialize(&number_f64) {
+                Err(_error) => return Err(ExecutorError::CannotSerialize.into()),
+                Ok(mut data) => {
+                    result.append(&mut data);
+                }
+            }
+        }
+    }
+    return Ok(result);
+}
 
 pub fn get_kv_key(collection: &[u8], key: &[u8]) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::new();
@@ -24,20 +149,15 @@ pub fn get_kv_key(collection: &[u8], key: &[u8]) -> Vec<u8> {
     result
 }
 
-fn get_id_list_key(grouping: &[u8]) -> Vec<u8> {
-    get_kv_key(grouping, ID_LIST_KEY)
-}
-
-pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
-    let id_list_key = get_id_list_key(grouping);
-    let key_list = {
-        let get_key_list = AtomicGetOneInstruction {
+fn get_bytestring_vec(grouping: &[u8], list_key: Vec<u8>, core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
+    let bytestring_vec = {
+        let get_list = AtomicGetOneInstruction {
             target: GetTargetSpec {
-                key: id_list_key.clone(),
+                key: list_key.clone(),
                 height: None,
             },
         };
-        match core.execute(&Instruction::AtomicGetOne(get_key_list)) {
+        match core.execute(&Instruction::AtomicGetOne(get_list)) {
             Ok(Answer::GetOneOk(get_list_answer)) => {
                 match deserialize::<KeyList>(&get_list_answer.item) {
                     Err(_error) => vec![],
@@ -53,25 +173,24 @@ pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
             }
         }
     };
-    key_list
+    bytestring_vec
 }
 
-pub fn set_id_list(
-    grouping: &[u8],
+fn set_bytestring_vec(
+    list_key: Vec<u8>,
+    list: &[Vec<u8>],
     core: &mut ImmuxDBCore,
-    id_list: &[Vec<u8>],
 ) -> ImmuxResult<()> {
-    let id_list_key = get_id_list_key(grouping);
-    match serialize(&id_list) {
+    match serialize(&list) {
         Err(_error) => return Err(ExecutorError::CannotSerialize.into()),
         Ok(data) => {
-            let update_key_list = AtomicSetInstruction {
+            let update_list = AtomicSetInstruction {
                 targets: vec![SetTargetSpec {
-                    key: id_list_key.clone(),
+                    key: list_key.clone(),
                     value: data,
                 }],
             };
-            match core.execute(&Instruction::AtomicSet(update_key_list)) {
+            match core.execute(&Instruction::AtomicSet(update_list)) {
                 Err(error) => Err(error),
                 Ok(_) => Ok(()),
             }
@@ -79,9 +198,37 @@ pub fn set_id_list(
     }
 }
 
+pub fn get_index_field_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
+    let index_field_list_key = get_kv_key(grouping, INDEX_LIST_KEY);
+    get_bytestring_vec(grouping, index_field_list_key, core)
+}
+
+pub fn set_index_field_list(
+    grouping: &[u8],
+    index_field_list: &[Vec<u8>],
+    core: &mut ImmuxDBCore,
+) -> ImmuxResult<()> {
+    let index_filed_list_key = get_kv_key(grouping, INDEX_LIST_KEY);
+    set_bytestring_vec(index_filed_list_key, index_field_list, core)
+}
+
+pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
+    let id_list_key = get_kv_key(grouping, ID_LIST_KEY);
+    get_bytestring_vec(grouping, id_list_key, core)
+}
+
+pub fn set_id_list(
+    grouping: &[u8],
+    core: &mut ImmuxDBCore,
+    id_list: &[Vec<u8>],
+) -> ImmuxResult<()> {
+    let id_list_key = get_kv_key(grouping, ID_LIST_KEY);
+    set_bytestring_vec(id_list_key, id_list, core)
+}
+
 #[cfg(test)]
 mod executor_shared_functions_test {
-    use crate::executor::shared::{get_id_list, get_id_list_key, get_kv_key, set_id_list};
+    use crate::executor::shared::{get_id_list, get_kv_key, set_id_list, ID_LIST_KEY};
     use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
 
@@ -91,13 +238,6 @@ mod executor_shared_functions_test {
         let id = "id";
         let kv_key = get_kv_key(collection.as_bytes(), id.as_bytes());
         assert_eq!(kv_key, "collection//id".as_bytes());
-    }
-
-    #[test]
-    fn test_get_id_list_key() {
-        let collection = "collection";
-        let kv_key = get_id_list_key(collection.as_bytes());
-        assert_eq!(kv_key, "collection//id_list".as_bytes());
     }
 
     #[test]

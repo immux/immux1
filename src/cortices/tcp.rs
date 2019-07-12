@@ -131,7 +131,7 @@ fn bind_tcp_port(
 
 pub fn setup_cortices(mut core: ImmuxDBCore, config: &ImmuxDBConfiguration) -> ImmuxResult<()> {
     let server = Server::http("0.0.0.0:1991").unwrap();
-    for mut request in server.incoming_requests() {
+    for request in server.incoming_requests() {
         responder(request, &mut core)?
     }
 
