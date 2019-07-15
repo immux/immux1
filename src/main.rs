@@ -12,7 +12,7 @@ use crate::cortices::tcp::setup_cortices;
 use crate::declarations::errors::ImmuxResult;
 use crate::storage::core::ImmuxDBCore;
 
-fn initialize(config: ImmuxDBConfiguration) -> ImmuxResult<()> {
+fn initialize(_config: ImmuxDBConfiguration) -> ImmuxResult<()> {
     let config = compile_config(env::args().collect());
     let mut core = ImmuxDBCore::new(&config.engine_choice, DEFAULT_CHAIN_NAME.as_bytes())?;
     save_config(&config, &mut core)?;

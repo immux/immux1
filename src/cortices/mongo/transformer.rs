@@ -75,6 +75,7 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                                         let instruction = InsertCommand {
                                             targets,
                                             grouping: collection.as_bytes().to_vec(),
+                                            insert_with_index: false,
                                         };
                                         Ok(Command::Insert(instruction))
                                     }
@@ -182,7 +183,8 @@ pub fn transform_outcome_to_mongo_msg(
             doc.insert("ok", 1.0);
             Ok(construct_single_doc_op_msg(doc, &header))
         }
-        Outcome::NameChain(ok) => unimplemented!(),
+        Outcome::NameChain(_ok) => unimplemented!(),
+        Outcome::CreateIndex(_ok) => unimplemented!(),
     }
 }
 

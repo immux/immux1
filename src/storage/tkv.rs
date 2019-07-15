@@ -439,7 +439,7 @@ mod tkv_tests {
     use crate::storage::vkv::VersionedKeyValueStore;
 
     fn init_tkv() -> ImmuxDBTransactionKeyValueStore {
-        let commandline_args = vec![];
+        let commandline_args = vec![String::from(""), String::from("--memory"), String::from("")];
         let config = compile_config(commandline_args);
         let namespace = "test_namespace".as_bytes();
         let tkv = ImmuxDBTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
@@ -458,8 +458,8 @@ mod tkv_tests {
                 Answer::StartTransactionOk(start_transaction_ok_answer) => {
                     return Ok(start_transaction_ok_answer.transaction_id);
                 }
-                Answer::BufferTransactionOk(buffer_transaction_ok_answer) => {
-                    return Ok(buffer_transaction_ok_answer.transaction_id);
+                Answer::AppendTransactionOk(append_transaction_ok_answer) => {
+                    return Ok(append_transaction_ok_answer.transaction_id);
                 }
                 _ => {
                     return Err(ImmuxError::Transaction(TransactionError::UnexpectedAnswer));
@@ -621,7 +621,7 @@ mod tkv_tests {
     }
 
     #[test]
-    fn tkv_test() {
+    fn tkv_general_test() {
         {
             let mut tkv = init_tkv();
             assert_eq!(tkv.height_before_transaction, 0);
@@ -713,12 +713,12 @@ mod tkv_tests {
                 &mut tkv,
             )
             .unwrap();
-            assert_eq!(tkv.instruction_recorder.len(), 3);
+            assert_eq!(tkv.executed_instructions.len(), 3);
             let abort_transaction =
                 Instruction::AbortTransaction(AbortTransactionInstruction { transaction_id });
             tkv.execute(&abort_transaction).unwrap();
             assert_eq!(tkv.height_before_transaction, 0);
-            assert_eq!(tkv.instruction_recorder.len(), 0);
+            assert_eq!(tkv.executed_instructions.len(), 0);
 
             match atomic_get_string("test_key".to_string(), &mut tkv) {
                 Ok(_) => {
@@ -818,8 +818,8 @@ mod tkv_tests {
             };
             match tkv.execute(&start_transaction_instruction) {
                 Ok(answer) => match answer {
-                    Answer::BufferTransactionOk(buffer_transaction_ok) => {
-                        assert_eq!(buffer_transaction_ok.transaction_id, 3)
+                    Answer::AppendTransactionOk(append_transaction_ok) => {
+                        assert_eq!(append_transaction_ok.transaction_id, 3)
                     }
                     _ => {
                         panic!("Should buffer transaction ok");
@@ -872,8 +872,8 @@ mod tkv_tests {
 
             match tkv.execute(&start_transaction_instruction) {
                 Ok(answer) => match answer {
-                    Answer::BufferTransactionOk(buffer_transaction_ok) => {
-                        assert_eq!(buffer_transaction_ok.transaction_id, 3)
+                    Answer::AppendTransactionOk(append_transaction_ok) => {
+                        assert_eq!(append_transaction_ok.transaction_id, 3)
                     }
                     _ => {
                         panic!("Should buffer transaction ok");

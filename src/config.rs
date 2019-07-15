@@ -21,6 +21,7 @@ pub const REVERT_QUERY_KEYWORD: &str = "revert";
 pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 pub const CHAIN_KEYWORD: &str = "chain";
 pub const SELECT_CONDITION_KEYWORD: &str = "select";
+pub const CREATE_INDEX_KEYWORD: &str = "index";
 
 pub const DEFAULT_CHAIN_NAME: &str = "default";
 pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
@@ -53,7 +54,6 @@ fn parse_commandline_options(args: Vec<String>) -> ImmuxDBCommandlineOptions {
     let mut options = ImmuxDBCommandlineOptions { kv_engine: None };
     if args.len() > 2 {
         options.kv_engine = match args[1].as_ref() {
-            "--redis" => Some(KeyValueEngine::Redis),
             "--memory" => Some(KeyValueEngine::HashMap),
             _ => None,
         }

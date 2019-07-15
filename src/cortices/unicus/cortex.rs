@@ -1,18 +1,13 @@
-use std::net::TcpStream;
+use tiny_http::{Method, Request, Response};
 
-use tiny_http::{Header, Method, Request, Response, Server};
-
-use crate::config::ImmuxDBConfiguration;
-use crate::cortices::unicus::cortex::HttpParsingError::BodyExtractionError;
-use crate::cortices::{Cortex, CortexResponse};
 use crate::declarations::commands::{
-    Command, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand, SelectCommand,
-    SelectCondition,
+    Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand,
+    SelectCommand, SelectCondition,
 };
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::declarations::instructions::Answer;
+use crate::declarations::errors::ImmuxError::HttpResponse;
+use crate::declarations::errors::ImmuxResult;
 use crate::executor::execute::execute;
-use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::storage::core::ImmuxDBCore;
 use crate::{config, utils};
 use std::collections::HashMap;
 use url::Url;
@@ -78,7 +73,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
             if let Some(_namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
                 let command = Command::NameChain;
                 return Ok(command);
-            } else if let Some(condition) =
+            } else if let Some(_condition) =
                 url_info.extract_string_query(config::SELECT_CONDITION_KEYWORD)
             {
                 let command = Command::Select(SelectCommand {
@@ -95,7 +90,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
             }
         }
         Method::Put => {
-            if let Ok(height) = url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD) {
+            if let Ok(_height) = url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD) {
                 return unimplemented!();
             /*
             let instruction = Instruction::AtomicRevertAll(AtomicRevertAllInstruction {
@@ -103,7 +98,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
             });
             return Ok(instruction);
             */
-            } else if let Ok(height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD)
+            } else if let Ok(_height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD)
             {
                 return unimplemented!();
             /*
@@ -120,6 +115,13 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     new_chain_name: namespace.as_bytes().to_vec(),
                 });
                 return Ok(command);
+            } else if let Some(index) = url_info.extract_string_query(config::CREATE_INDEX_KEYWORD)
+            {
+                let command = Command::CreateIndex(CreateIndexCommand {
+                    grouping: target_collection.as_bytes().to_vec(),
+                    field: index.as_bytes().to_vec(),
+                });
+                return Ok(command);
             }
 
             let command = Command::Insert(InsertCommand {
@@ -128,6 +130,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     id: target_id.as_bytes().to_vec(),
                     value: body.as_bytes().to_vec(),
                 }],
+                insert_with_index: true,
             });
             Ok(command)
         }
@@ -142,7 +145,7 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     let mut incoming_body = String::new();
     match req.as_reader().read_to_string(&mut incoming_body) {
         Ok(_) => (),
-        Err(error) => return Err(HttpParsingError::BodyExtractionError.into()),
+        Err(_error) => return Err(HttpParsingError::BodyExtractionError.into()),
     }
 
     match parse_http_request(&req, &incoming_body) {
@@ -176,6 +179,12 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
         },
     };
     let response = Response::from_string(body).with_status_code(status);
-    req.respond(response);
-    return Ok(());
+    match req.respond(response) {
+        Ok(_) => {
+            return Ok(());
+        }
+        Err(error) => {
+            return Err(HttpResponse(error));
+        }
+    }
 }

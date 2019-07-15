@@ -1,3 +1,4 @@
+use crate::executor::shared::ValData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -10,6 +11,13 @@ pub struct InsertCommandSpec {
 pub struct InsertCommand {
     pub grouping: Vec<u8>,
     pub targets: Vec<InsertCommandSpec>,
+    pub insert_with_index: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateIndexCommand {
+    pub grouping: Vec<u8>,
+    pub field: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,6 +30,7 @@ pub enum SelectCondition {
     UnconditionalMatch,
     Id(Vec<u8>),
     JSCode(String),
+    Kv(Vec<u8>, ValData),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -36,6 +45,7 @@ pub enum Command {
     PickChain(PickChainCommand),
     NameChain,
     Select(SelectCommand),
+    CreateIndex(CreateIndexCommand),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,9 +68,13 @@ pub struct SelectOutcome {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CreateIndexOutcome {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Outcome {
     Insert(InsertOutcome),
     PickChain(PickChainOutcome),
     Select(SelectOutcome),
     NameChain(NameChainOutcome),
+    CreateIndex(CreateIndexOutcome),
 }
