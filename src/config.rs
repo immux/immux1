@@ -16,12 +16,14 @@ pub const UNICUS_ENDPOINT: &str = "127.0.0.1:1991";
 pub const MONGO_ENDPOINT: &str = "127.0.0.1:27017";
 pub const MYSQL_ENDPOINT: &str = "127.0.0.1:3306";
 
-pub const HEIGHT_QUERY_KEYWORD: &str = "height";
+pub const INSPECT_KEYWORD: &str = "inspect";
 pub const REVERT_QUERY_KEYWORD: &str = "revert";
 pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 pub const CHAIN_KEYWORD: &str = "chain";
 pub const SELECT_CONDITION_KEYWORD: &str = "select";
 pub const CREATE_INDEX_KEYWORD: &str = "index";
+
+pub const MULTIFIELD_SEPARATOR: &str = "|";
 
 pub const DEFAULT_CHAIN_NAME: &str = "default";
 pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
@@ -113,6 +115,7 @@ pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> Imm
                     key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
                     value: data,
                 }],
+                increment_height: false,
             };
             match core.execute(&Instruction::AtomicSet(instruction)) {
                 Err(_error) => Err(ImmuxError::Config(ConfigError::CannotSet)),

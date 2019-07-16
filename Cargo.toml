@@ -18,3 +18,6 @@ chrono = "0.4"
 
 # sqlparser is introduced to parse sql statement, See issue #58
 sqlparser = "0.3.0"
+
+# For Testing
+reqwest = "0.9"

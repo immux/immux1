@@ -22,23 +22,24 @@ cargo test
 ```
 
 To include print outs with `println!()` in test cases
-```
+```bash
 cargo test -- --nocapture
 ```
 
 #### End-to-end tests
 
-```
-git submodule init
-git submodule update
-cd test
+```bash
 
-# Initiate a mongod instance / immuxdb instance yourself
-mongod &
+# Remove existing data
+cd /tmp
+rm -rf immuxtest-*
 
-# to run all tests (takes a long time)
-node test_mongo.js 
+# run an ImmuxDB instance in the background
+./target/debug/immuxdb
 
-# to run some a subset of tests
-node test_mongo.js core
+# Execute test
+# Note1. End-to-end tests are ignored by default
+# Note2. Currently Immux does not support multi-threading, which means tests
+# must be executed one by one.
+cargo test -- --ignored --test-threads 1
 ```

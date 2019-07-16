@@ -34,6 +34,7 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxRe
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
             value: buffer.to_vec(),
         }],
+        increment_height: false,
     };
 
     match core.execute(&Instruction::AtomicSet(instruction)) {

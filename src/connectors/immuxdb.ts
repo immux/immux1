@@ -5,15 +5,16 @@ import {
     ImmuxDbJS
 } from "./immuxdb.types";
 
+interface UpdateRecordJS {
+    height: number,
+    value: string,
+}
+
 export interface ImmuxDBHttp {
     host: string;
     simpleGet(collection: string, key: string): Promise<string>;
     select(collection: string, condition: string): Promise<string>;
-    getAtHeight(
-        collection: string,
-        key: string,
-        height: number
-    ): Promise<string>;
+    inspect(collection: string, key: string): Promise<UpdateRecordJS[]>;
     set(collection: string, key: string, value: string): Promise<string>;
     revertOne(collection: string, key: string, height: number): Promise<string>;
     revertAll(height: number): Promise<string>;
@@ -39,11 +40,17 @@ export function makeImmuxDBHttp(
             );
             return await response.text();
         },
-        async getAtHeight(collection: string, key: string, height: number) {
+        async inspect(collection: string, key: string) {
             const response = await fetch(
-                `http://${this.host}/${collection}/${key}?height=${height}`
+                `http://${this.host}/${collection}/${key}?inspect`
             );
-            return await response.text();
+            const text = await response.text();
+            return text.split('\r\n')
+                       .map((line: string) => line.split('|'))
+                       .map((segments: string[]): UpdateRecordJS => ({
+                           height: +segments[0],
+                           value: segments[1]
+                       }))
         },
         async set(collection: string, key: string, value: string) {
             const response = await fetch(

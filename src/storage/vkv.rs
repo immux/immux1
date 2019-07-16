@@ -11,14 +11,15 @@ use crate::config::IMMUXDB_VERSION;
 
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
-    Answer, GetOkAnswer, GetOneOkAnswer, Instruction, ReadNamespaceOkAnswer, RevertAllOkAnswer,
-    RevertOkAnswer, SetOkAnswer, SwitchNamespaceOkAnswer,
+    Answer, GetEntryOkAnswer, GetOkAnswer, GetOneOkAnswer, Instruction, ReadNamespaceOkAnswer,
+    RevertAllOkAnswer, RevertOkAnswer, SetOkAnswer, SwitchNamespaceOkAnswer,
 };
 use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
 
+use crate::utils;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
 pub type InstructionHeight = u64;
@@ -53,15 +54,15 @@ struct InstructionRecord {
 const COMMIT_HEIGHT_KEY: &str = "commit-height";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct UpdateRecord {
-    deleted: bool,
-    height: InstructionHeight,
-    value: Vec<u8>,
+pub struct UpdateRecord {
+    pub deleted: bool,
+    pub height: InstructionHeight,
+    pub value: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct Entry {
-    api_version: u32,
+pub struct Entry {
+    pub api_version: u32,
     pub updates: Vec<UpdateRecord>,
 }
 
@@ -501,7 +502,11 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             }
             Instruction::AtomicSet(set) => {
                 let mut results: Vec<Vec<u8>> = Vec::new();
-                let height = self.increment_height()?;
+                let height = if set.increment_height {
+                    self.increment_height()?
+                } else {
+                    self.get_height()
+                };
                 let instruction_record = InstructionRecord {
                     instruction: instruction.clone(),
                     deleted: false,
@@ -580,6 +585,10 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                     namespace: self.kv_engine.read_namespace().to_vec(),
                 }));
             }
+            Instruction::GetEntry(get_entry) => match self.get_entry(&get_entry.key) {
+                Err(error) => Err(error),
+                Ok(entry) => Ok(Answer::GetEntryOk(GetEntryOkAnswer { entry })),
+            },
             _ => {
                 return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction));
             }
