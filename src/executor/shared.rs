@@ -176,7 +176,7 @@ fn get_bytestring_vec(grouping: &[u8], list_key: Vec<u8>, core: &mut ImmuxDBCore
     bytestring_vec
 }
 
-fn set_bytestring_vec(
+fn save_internal_list(
     list_key: Vec<u8>,
     list: &[Vec<u8>],
     core: &mut ImmuxDBCore,
@@ -189,6 +189,7 @@ fn set_bytestring_vec(
                     key: list_key.clone(),
                     value: data,
                 }],
+                increment_height: false,
             };
             match core.execute(&Instruction::AtomicSet(update_list)) {
                 Err(error) => Err(error),
@@ -209,7 +210,7 @@ pub fn set_index_field_list(
     core: &mut ImmuxDBCore,
 ) -> ImmuxResult<()> {
     let index_filed_list_key = get_kv_key(grouping, INDEX_LIST_KEY);
-    set_bytestring_vec(index_filed_list_key, index_field_list, core)
+    save_internal_list(index_filed_list_key, index_field_list, core)
 }
 
 pub fn get_id_list(grouping: &[u8], core: &mut ImmuxDBCore) -> Vec<Vec<u8>> {
@@ -223,12 +224,12 @@ pub fn set_id_list(
     id_list: &[Vec<u8>],
 ) -> ImmuxResult<()> {
     let id_list_key = get_kv_key(grouping, ID_LIST_KEY);
-    set_bytestring_vec(id_list_key, id_list, core)
+    save_internal_list(id_list_key, id_list, core)
 }
 
 #[cfg(test)]
 mod executor_shared_functions_test {
-    use crate::executor::shared::{get_id_list, get_kv_key, set_id_list, ID_LIST_KEY};
+    use crate::executor::shared::{get_id_list, get_kv_key, set_id_list};
     use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
 

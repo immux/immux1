@@ -95,6 +95,15 @@ impl ImmuxDBTransactionKeyValueStore {
 
         return Ok(());
     }
+    fn pass_to_vkv(&mut self, instruction: &Instruction) -> ImmuxResult<Answer> {
+        if self.queue.is_empty() {
+            self.vkv.execute(instruction)
+        } else {
+            return Err(ImmuxError::Transaction(
+                TransactionError::TransactionInProgress,
+            ));
+        }
+    }
 }
 
 impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
@@ -246,7 +255,10 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                         if *transaction_id == transactional_set_instruction.transaction_id {
                             let targets = transactional_set_instruction.targets.clone();
                             let transaction_id = transactional_set_instruction.transaction_id;
-                            let set_instruction = AtomicSetInstruction { targets };
+                            let set_instruction = AtomicSetInstruction {
+                                targets,
+                                increment_height: true,
+                            };
                             let instruction = Instruction::AtomicSet(set_instruction);
                             match self.vkv.execute(&instruction)? {
                                 Answer::SetOk(set_ok_answer) => {
@@ -353,70 +365,14 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
                     ));
                 }
             },
-            Instruction::AtomicGet(_get_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-
-            Instruction::AtomicGetOne(_get_one) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-            Instruction::AtomicSet(_set_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-            Instruction::AtomicRevert(_revert_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-            Instruction::AtomicRevertAll(_revert_all_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-            Instruction::SwitchNamespace(_switch_namespace_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
-            Instruction::ReadNamespace(_read_namespace_instruction) => {
-                if self.queue.is_empty() {
-                    self.vkv.execute(instruction)
-                } else {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionInProgress,
-                    ));
-                }
-            }
+            Instruction::AtomicGet(_) => return self.pass_to_vkv(instruction),
+            Instruction::AtomicGetOne(_) => return self.pass_to_vkv(instruction),
+            Instruction::AtomicSet(_) => return self.pass_to_vkv(instruction),
+            Instruction::AtomicRevert(_) => return self.pass_to_vkv(instruction),
+            Instruction::AtomicRevertAll(_) => return self.pass_to_vkv(instruction),
+            Instruction::SwitchNamespace(_) => return self.pass_to_vkv(instruction),
+            Instruction::ReadNamespace(_) => return self.pass_to_vkv(instruction),
+            Instruction::GetEntry(_) => return self.pass_to_vkv(instruction),
         }
     }
 }
@@ -493,56 +449,6 @@ mod tkv_tests {
         tkv: &mut ImmuxDBTransactionKeyValueStore,
     ) -> Result<Answer, ImmuxError> {
         let instruction = get_transactional_set_instruction(key, value, transaction_id);
-        return tkv.execute(&instruction);
-    }
-
-    fn get_transactional_get_one_instruction(key: String, transaction_id: u64) -> Instruction {
-        let key = key.as_bytes().to_vec();
-        let get_target_spec = GetTargetSpec { key, height: None };
-        let transactional_get_one_instruction = InTransactionGetOneInstruction {
-            target: get_target_spec,
-            transaction_id,
-        };
-        return Instruction::InTransactionGetOne(transactional_get_one_instruction);
-    }
-
-    fn in_transaction_get_one_string(
-        key: String,
-        transaction_id: u64,
-        tkv: &mut ImmuxDBTransactionKeyValueStore,
-    ) -> Result<String, ImmuxError> {
-        let instruction = get_transactional_get_one_instruction(key, transaction_id);
-        match tkv.execute(&instruction) {
-            Ok(answer) => match answer {
-                Answer::TransactionalGetOneOk(get_one_ok_answer) => {
-                    let string_vec = get_one_ok_answer.item;
-                    let res = String::from_utf8(string_vec).unwrap();
-                    return Ok(res);
-                }
-                _ => return Err(ImmuxError::Transaction(TransactionError::UnexpectedAnswer)),
-            },
-            Err(error) => {
-                return Err(error);
-            }
-        }
-    }
-
-    fn get_atomic_set_instruction(key: String, value: String) -> Instruction {
-        let key = key.as_bytes().to_vec();
-        let value = value.as_bytes().to_vec();
-        let set_target_spec = SetTargetSpec { key, value };
-        let atomic_set_instruction = AtomicSetInstruction {
-            targets: vec![set_target_spec],
-        };
-        return Instruction::AtomicSet(atomic_set_instruction);
-    }
-
-    fn atomic_set(
-        key: String,
-        value: String,
-        tkv: &mut ImmuxDBTransactionKeyValueStore,
-    ) -> Result<Answer, ImmuxError> {
-        let instruction = get_atomic_set_instruction(key, value);
         return tkv.execute(&instruction);
     }
 

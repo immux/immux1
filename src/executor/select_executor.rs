@@ -5,8 +5,7 @@ use crate::declarations::instructions::{
 };
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::{
-    get_id_list, get_kv_key, get_value_to_keys_map_key, insert_to_vec_in_hashmap_with_default,
-    ValData,
+    get_id_list, get_kv_key, get_value_to_keys_map_key,
 };
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::hashmap::HashmapStorageEngineError;

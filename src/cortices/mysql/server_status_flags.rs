@@ -90,6 +90,7 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxR
             key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
             value: buffer.to_vec(),
         }],
+        increment_height: false,
     };
 
     match core.execute(&Instruction::AtomicSet(instruction)) {

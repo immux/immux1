@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::storage::vkv::InstructionHeight;
+use crate::storage::vkv::{Entry, InstructionHeight};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetTargetSpec {
@@ -55,6 +55,7 @@ pub struct InTransactionGetOneInstruction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AtomicSetInstruction {
     pub targets: Vec<SetTargetSpec>,
+    pub increment_height: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -94,6 +95,11 @@ pub struct SwitchNamespaceInstruction {
 pub struct ReadNamespaceInstruction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetEntryInstruction {
+    pub key: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Instruction {
     StartTransaction,
     CommitTransaction(CommitTransactionInstruction),
@@ -110,6 +116,7 @@ pub enum Instruction {
     AtomicRevertAll(AtomicRevertAllInstruction),
     SwitchNamespace(SwitchNamespaceInstruction),
     ReadNamespace(ReadNamespaceInstruction),
+    GetEntry(GetEntryInstruction),
 }
 
 #[derive(Debug)]
@@ -199,6 +206,11 @@ pub struct ReadNamespaceOkAnswer {
 }
 
 #[derive(Debug)]
+pub struct GetEntryOkAnswer {
+    pub entry: Entry,
+}
+
+#[derive(Debug)]
 pub enum Answer {
     StartTransactionOk(StartTransactionOkAnswer),
     AppendTransactionOk(TransactionPendingAnswer),
@@ -216,4 +228,5 @@ pub enum Answer {
     RevertAllOk(RevertAllOkAnswer),
     SwitchNamespaceOk(SwitchNamespaceOkAnswer),
     ReadNamespaceOk(ReadNamespaceOkAnswer),
+    GetEntryOk(GetEntryOkAnswer),
 }

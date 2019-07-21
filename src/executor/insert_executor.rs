@@ -6,13 +6,12 @@ use crate::declarations::instructions::{
 };
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::{
-    construct_value_to_ids_map_from_js_obj, get_id_list, get_index_field_list, get_kv_key,
-    get_value_to_keys_map_key, insert_to_vec_in_hashmap_with_default, set_id_list,
+    construct_value_to_ids_map_from_js_obj, get_id_list, get_index_field_list, get_kv_key, set_id_list,
 };
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::hashmap::HashmapStorageEngineError;
 use crate::storage::kv::rocks::RocksEngineError;
-use crate::storage::vkv::VkvError;
+
 use bincode::{deserialize, serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -129,7 +128,10 @@ pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxRes
         }
     }
 
-    let store_data = AtomicSetInstruction { targets };
+    let store_data = AtomicSetInstruction {
+        targets,
+        increment_height: true,
+    };
     match core.execute(&Instruction::AtomicSet(store_data)) {
         Err(error) => return Err(error),
         Ok(answer) => match answer {

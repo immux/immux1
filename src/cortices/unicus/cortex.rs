@@ -1,16 +1,18 @@
+use std::collections::HashMap;
+
 use tiny_http::{Method, Request, Response};
+use url::Url;
 
 use crate::declarations::commands::{
-    Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand,
-    SelectCommand, SelectCondition,
+    Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, InspectCommand, Outcome,
+    PickChainCommand, RevertAllCommand, RevertCommand, RevertCommandTargetSpec, SelectCommand,
+    SelectCondition,
 };
 use crate::declarations::errors::ImmuxError::HttpResponse;
 use crate::declarations::errors::ImmuxResult;
 use crate::executor::execute::execute;
 use crate::storage::core::ImmuxDBCore;
 use crate::{config, utils};
-use std::collections::HashMap;
-use url::Url;
 
 #[derive(Debug)]
 pub enum HttpParsingError {
@@ -81,6 +83,12 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     condition: SelectCondition::UnconditionalMatch,
                 });
                 return Ok(command);
+            } else if let Some(_) = url_info.extract_string_query(config::INSPECT_KEYWORD) {
+                let command = Command::Inspect(InspectCommand {
+                    grouping: target_collection.as_bytes().to_vec(),
+                    id: target_id.as_bytes().to_vec(),
+                });
+                return Ok(command);
             } else {
                 let command = Command::Select(SelectCommand {
                     grouping: target_collection.as_bytes().to_vec(),
@@ -90,26 +98,22 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
             }
         }
         Method::Put => {
-            if let Ok(_height) = url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD) {
-                return unimplemented!();
-            /*
-            let instruction = Instruction::AtomicRevertAll(AtomicRevertAllInstruction {
-                target_height: height,
-            });
-            return Ok(instruction);
-            */
-            } else if let Ok(_height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD)
+            if let Ok(height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD) {
+                let command = Command::RevertOne(RevertCommand {
+                    grouping: target_collection.as_bytes().to_vec(),
+                    specs: vec![RevertCommandTargetSpec {
+                        id: target_id.as_bytes().to_vec(),
+                        target_height: height,
+                    }],
+                });
+                return Ok(command);
+            } else if let Ok(height) =
+                url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD)
             {
-                return unimplemented!();
-            /*
-            let instruction = Instruction::AtomicRevert(AtomicRevertInstruction {
-                targets: vec![RevertTargetSpec {
-                    key: low_key.into_bytes(),
-                    height,
-                }],
-            });
-            return Ok(instruction);
-            */
+                let command = Command::RevertAll(RevertAllCommand {
+                    target_height: height,
+                });
+                return Ok(command);
             } else if let Some(namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
                 let command = Command::PickChain(PickChainCommand {
                     new_chain_name: namespace.as_bytes().to_vec(),
@@ -158,9 +162,12 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
             Ok(outcome) => match outcome {
                 Outcome::Select(outcome) => {
                     status = 200;
+                    let should_break_line = outcome.values.len() >= 2;
                     for item in outcome.values {
                         body += &utils::utf8_to_string(&item);
-                        body += "\r\n";
+                        if should_break_line {
+                            body += "\r\n";
+                        }
                     }
                 }
                 Outcome::NameChain(outcome) => {
@@ -170,6 +177,17 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
                 Outcome::Insert(outcome) => {
                     status = 200;
                     body += &format!("Inserted {} items", outcome.count);
+                }
+                Outcome::Inspect(outcome) => {
+                    status = 200;
+                    for update in outcome.entry.updates.iter() {
+                        body += &format!(
+                            "{}{}{}\r\n",
+                            update.height,
+                            config::MULTIFIELD_SEPARATOR,
+                            &utils::utf8_to_string(&update.value)
+                        )
+                    }
                 }
                 _ => {
                     status = 200;

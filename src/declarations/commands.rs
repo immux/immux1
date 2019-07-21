@@ -1,5 +1,12 @@
 use crate::executor::shared::ValData;
+use crate::storage::vkv::{Entry, InstructionHeight};
 use serde::{Deserialize, Serialize};
+
+/***************************************************
+*
+*                   Commands
+*
+***************************************************/
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertCommandSpec {
@@ -40,13 +47,45 @@ pub struct SelectCommand {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevertCommandTargetSpec {
+    pub id: Vec<u8>,
+    pub target_height: InstructionHeight,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevertCommand {
+    pub grouping: Vec<u8>,
+    pub specs: Vec<RevertCommandTargetSpec>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevertAllCommand {
+    pub target_height: InstructionHeight,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InspectCommand {
+    pub grouping: Vec<u8>,
+    pub id: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Command {
     Insert(InsertCommand),
     PickChain(PickChainCommand),
     NameChain,
     Select(SelectCommand),
     CreateIndex(CreateIndexCommand),
+    RevertOne(RevertCommand),
+    RevertAll(RevertAllCommand),
+    Inspect(InspectCommand),
 }
+
+/***************************************************
+*
+*                   Outcomes
+*
+***************************************************/
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertOutcome {
@@ -71,10 +110,26 @@ pub struct SelectOutcome {
 pub struct CreateIndexOutcome {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevertOutcome {
+    pub count: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RevertAllOutcome {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InspectOutcome {
+    pub entry: Entry,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Outcome {
     Insert(InsertOutcome),
     PickChain(PickChainOutcome),
     Select(SelectOutcome),
     NameChain(NameChainOutcome),
     CreateIndex(CreateIndexOutcome),
+    Revert(RevertOutcome),
+    RevertAll(RevertAllOutcome),
+    Inspect(InspectOutcome),
 }
