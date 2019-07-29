@@ -130,7 +130,7 @@ fn bind_tcp_port(
 }
 
 pub fn setup_cortices(mut core: ImmuxDBCore, config: &ImmuxDBConfiguration) -> ImmuxResult<()> {
-    let server = Server::http("0.0.0.0:1991").unwrap();
+    let server = Server::http(&config.unicus_endpoint).unwrap();
     for request in server.incoming_requests() {
         responder(request, &mut core)?
     }

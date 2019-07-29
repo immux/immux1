@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+
+use bincode::{deserialize, serialize};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
 use crate::declarations::errors::ImmuxResult;
 use crate::declarations::instructions::{
     Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
@@ -5,11 +11,6 @@ use crate::declarations::instructions::{
 };
 use crate::executor::errors::ExecutorError;
 use crate::storage::core::{CoreStore, ImmuxDBCore};
-use crate::utils::utf8_to_string;
-use bincode::{deserialize, serialize};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashMap;
 
 pub const SEPARATORS: &[u8] = &['/' as u8, '/' as u8];
 pub const ID_LIST_KEY: &[u8] = &[
@@ -164,13 +165,7 @@ fn get_bytestring_vec(grouping: &[u8], list_key: Vec<u8>, core: &mut ImmuxDBCore
                     Ok(key_list) => key_list,
                 }
             }
-            _ => {
-                println!(
-                    "DEBUG: keylist not found for grouping {}",
-                    utf8_to_string(grouping)
-                );
-                vec![]
-            }
+            _ => vec![],
         }
     };
     bytestring_vec
@@ -229,6 +224,7 @@ pub fn set_id_list(
 
 #[cfg(test)]
 mod executor_shared_functions_test {
+    use crate::config::DEFAULT_PERMANENCE_PATH;
     use crate::executor::shared::{get_id_list, get_kv_key, set_id_list};
     use crate::storage::core::ImmuxDBCore;
     use crate::storage::kv::KeyValueEngine;
@@ -244,7 +240,11 @@ mod executor_shared_functions_test {
     #[test]
     fn test_id_list() {
         let chain_name = "chain";
-        match ImmuxDBCore::new(&KeyValueEngine::HashMap, chain_name.as_bytes()) {
+        match ImmuxDBCore::new(
+            &KeyValueEngine::HashMap,
+            DEFAULT_PERMANENCE_PATH,
+            chain_name.as_bytes(),
+        ) {
             Err(_error) => panic!("Cannot initialize core"),
             Ok(mut core) => {
                 let collection = "collection".as_bytes();

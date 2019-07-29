@@ -35,9 +35,10 @@ pub struct ImmuxDBTransactionKeyValueStore {
 impl ImmuxDBTransactionKeyValueStore {
     pub fn new(
         engine_choice: &KeyValueEngine,
+        data_root: &str,
         namespace: &[u8],
     ) -> Result<ImmuxDBTransactionKeyValueStore, ImmuxError> {
-        let vkv = ImmuxDBVersionedKeyValueStore::new(engine_choice, namespace)?;
+        let vkv = ImmuxDBVersionedKeyValueStore::new(engine_choice, data_root, namespace)?;
         let executed_instructions = Vec::new();
         let height_before_transaction = 0;
         let queue = VecDeque::new();
@@ -379,7 +380,7 @@ impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
 
 #[cfg(test)]
 mod tkv_tests {
-    use crate::config::compile_config;
+    use crate::config::{ImmuxDBConfiguration, DEFAULT_PERMANENCE_PATH};
     use crate::declarations::errors::ImmuxError;
     use crate::declarations::instructions::Instruction::InTransactionRevertAll;
     use crate::declarations::instructions::{
@@ -396,9 +397,14 @@ mod tkv_tests {
 
     fn init_tkv() -> ImmuxDBTransactionKeyValueStore {
         let commandline_args = vec![String::from(""), String::from("--memory"), String::from("")];
-        let config = compile_config(commandline_args);
+        let config = ImmuxDBConfiguration::compile_from_args(&commandline_args);
         let namespace = "test_namespace".as_bytes();
-        let tkv = ImmuxDBTransactionKeyValueStore::new(&config.engine_choice, namespace).unwrap();
+        let tkv = ImmuxDBTransactionKeyValueStore::new(
+            &config.engine_choice,
+            DEFAULT_PERMANENCE_PATH,
+            namespace,
+        )
+        .unwrap();
         return tkv;
     }
 

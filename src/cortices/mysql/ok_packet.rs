@@ -123,7 +123,7 @@ pub fn serialize_ok_packet(
 #[cfg(test)]
 mod ok_packet_tests {
 
-    use crate::config::DEFAULT_CHAIN_NAME;
+    use crate::config::{DEFAULT_CHAIN_NAME, DEFAULT_PERMANENCE_PATH};
     use crate::cortices::mysql::handshake_response_41::save_handshake_response;
     use crate::cortices::mysql::ok_packet::{serialize_ok_packet, HeaderOption, OkPacket};
     use crate::cortices::mysql::server_status_flags::save_server_status_flags;
@@ -153,7 +153,12 @@ mod ok_packet_tests {
         };
 
         let engine_choice = KeyValueEngine::HashMap;
-        let mut core = ImmuxDBCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(
+            &engine_choice,
+            DEFAULT_PERMANENCE_PATH,
+            DEFAULT_CHAIN_NAME.as_bytes(),
+        )
+        .unwrap();
         let server_status_flags_buffer = [0x02, 0x00];
         let handshake_response_buffer = [
             0xa7, 0x00, 0x00, 0x01, 0x85, 0xa6, 0xff, 0x01, 0x00, 0x00, 0x00, 0x01, 0x2d, 0x00,

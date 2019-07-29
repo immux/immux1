@@ -18,8 +18,6 @@ use crate::storage::kv::hashmap::HashMapStore;
 use crate::storage::kv::rocks::RocksStore;
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::kv::KeyValueStore;
-
-use crate::utils;
 use crate::utils::{u64_to_u8_array, u8_array_to_u64};
 
 pub type InstructionHeight = u64;
@@ -73,11 +71,12 @@ pub struct ImmuxDBVersionedKeyValueStore {
 impl ImmuxDBVersionedKeyValueStore {
     pub fn new(
         engine_choice: &KeyValueEngine,
+        data_root: &str,
         namespace: &[u8],
     ) -> Result<ImmuxDBVersionedKeyValueStore, ImmuxError> {
         let engine: Box<KeyValueStore> = match engine_choice {
             KeyValueEngine::HashMap => Box::new(HashMapStore::new(namespace)),
-            KeyValueEngine::Rocks => Box::new(RocksStore::new(namespace)?),
+            KeyValueEngine::Rocks => Box::new(RocksStore::new(data_root, namespace)?),
         };
         let store = ImmuxDBVersionedKeyValueStore { kv_engine: engine };
         Ok(store)
@@ -263,10 +262,6 @@ impl ImmuxDBVersionedKeyValueStore {
                 match serialize(&new_meta) {
                     Err(error) => Err(VkvError::CannotSerializeInstructionMeta(error).into()),
                     Ok(serialized_meta) => {
-                        println!(
-                            "Saving new update on key {:?}",
-                            String::from_utf8_lossy(key)
-                        );
                         return self.set_with_key_prefix(
                             KeyPrefix::KeyToEntry,
                             key,
@@ -292,10 +287,6 @@ impl ImmuxDBVersionedKeyValueStore {
         match serialized {
             Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
             Ok(serialized_meta) => {
-                println!(
-                    "Updating existing index on key {:?}",
-                    String::from_utf8_lossy(primary_key)
-                );
                 return self.set_with_key_prefix(
                     KeyPrefix::KeyToEntry,
                     primary_key,

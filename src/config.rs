@@ -52,7 +52,7 @@ struct ImmuxDBCommandlineOptions {
     kv_engine: Option<KeyValueEngine>,
 }
 
-fn parse_commandline_options(args: Vec<String>) -> ImmuxDBCommandlineOptions {
+fn parse_commandline_options(args: &[String]) -> ImmuxDBCommandlineOptions {
     let mut options = ImmuxDBCommandlineOptions { kv_engine: None };
     if args.len() > 2 {
         options.kv_engine = match args[1].as_ref() {
@@ -70,6 +70,7 @@ pub struct ImmuxDBConfiguration {
     pub unicus_endpoint: String,
     pub mongo_endpoint: String,
     pub mysql_endpoint: String,
+    pub data_root: String,
 
     pub is_master: bool,
     pub max_bson_object_size: u32,
@@ -81,27 +82,36 @@ pub struct ImmuxDBConfiguration {
     pub read_only: bool,
 }
 
-pub fn compile_config(commandline_args: Vec<String>) -> ImmuxDBConfiguration {
-    let mut config = ImmuxDBConfiguration {
-        immuxdb_version: IMMUXDB_VERSION,
-        engine_choice: DEFAULT_KV_ENGINE,
-        unicus_endpoint: UNICUS_ENDPOINT.to_string(),
-        mongo_endpoint: MONGO_ENDPOINT.to_string(),
-        mysql_endpoint: MYSQL_ENDPOINT.to_string(),
-        is_master: IS_MASTER,
-        max_bson_object_size: MAX_BSON_OBJECT_SIZE,
-        max_message_size_in_bytes: MAX_MESSAGE_SIZE_BYTES,
-        max_write_batch_size: MAX_WRITE_BATCH_SIZE,
-        logical_session_timeout_minutes: LOGICAL_SESSION_TIMEOUT_MINUTES,
-        min_mongo_wire_version: MIN_MONGO_WIRE_VERSION,
-        max_mongo_wire_version: MAX_MONGO_WIRE_VERSION,
-        read_only: READ_ONLY,
-    };
-    let commandline_options = parse_commandline_options(commandline_args);
-    if let Some(choice) = commandline_options.kv_engine {
-        config.engine_choice = choice
-    };
-    config
+impl Default for ImmuxDBConfiguration {
+    fn default() -> Self {
+        Self {
+            immuxdb_version: IMMUXDB_VERSION,
+            engine_choice: DEFAULT_KV_ENGINE,
+            unicus_endpoint: UNICUS_ENDPOINT.to_string(),
+            mongo_endpoint: MONGO_ENDPOINT.to_string(),
+            mysql_endpoint: MYSQL_ENDPOINT.to_string(),
+            data_root: DEFAULT_PERMANENCE_PATH.to_string(),
+            is_master: IS_MASTER,
+            max_bson_object_size: MAX_BSON_OBJECT_SIZE,
+            max_message_size_in_bytes: MAX_MESSAGE_SIZE_BYTES,
+            max_write_batch_size: MAX_WRITE_BATCH_SIZE,
+            logical_session_timeout_minutes: LOGICAL_SESSION_TIMEOUT_MINUTES,
+            min_mongo_wire_version: MIN_MONGO_WIRE_VERSION,
+            max_mongo_wire_version: MAX_MONGO_WIRE_VERSION,
+            read_only: READ_ONLY,
+        }
+    }
+}
+
+impl ImmuxDBConfiguration {
+    pub fn compile_from_args(commandline_args: &[String]) -> Self {
+        let mut config = Self::default();
+        let commandline_options = parse_commandline_options(commandline_args);
+        if let Some(choice) = commandline_options.kv_engine {
+            config.engine_choice = choice
+        };
+        config
+    }
 }
 
 const GLOBAL_CONFIG_KEY: &str = "_CONFIG";

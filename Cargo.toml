@@ -19,5 +19,26 @@ chrono = "0.4"
 # sqlparser is introduced to parse sql statement, See issue #58
 sqlparser = "0.3.0"
 
-# For Testing
+[dev-dependencies]
 reqwest = "0.9"
+csv = "1.1"
+immuxdb_client = { path = "src/connectors/rust" }
+
+[[bin]]
+name = "immuxdb"
+path = "src/bin/server.rs"
+
+[lib]
+name = "libimmuxdb"
+path = "src/lib.rs"
+
+[[bench]]
+name = "realistic"
+harness = false
+path = "benches/realistic/mod.rs"
+
+[workspace]
+members = [
+    "src/connectors/rust",
+]
+

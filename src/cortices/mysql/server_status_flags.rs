@@ -133,7 +133,7 @@ pub fn load_server_status_flags(core: &mut ImmuxDBCore) -> ImmuxResult<ServerSta
 #[cfg(test)]
 mod server_status_flags_tests {
 
-    use crate::config::DEFAULT_CHAIN_NAME;
+    use crate::config::{DEFAULT_CHAIN_NAME, DEFAULT_PERMANENCE_PATH};
     use crate::cortices::mysql::server_status_flags::{
         load_server_status_flags, parse_status_flags, save_server_status_flags,
         serialize_status_flags, ServerStatusFlags,
@@ -173,7 +173,12 @@ mod server_status_flags_tests {
     fn test_save_load_server_status_flags() {
         let engine_choice = KeyValueEngine::HashMap;
         let server_status_flags_buffer = [0x02, 0x00];
-        let mut core = ImmuxDBCore::new(&engine_choice, DEFAULT_CHAIN_NAME.as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(
+            &engine_choice,
+            DEFAULT_PERMANENCE_PATH,
+            DEFAULT_CHAIN_NAME.as_bytes(),
+        )
+        .unwrap();
         save_server_status_flags(&server_status_flags_buffer, &mut core).unwrap();
         let res = load_server_status_flags(&mut core).unwrap();
         assert_eq!(res.intrans, false);

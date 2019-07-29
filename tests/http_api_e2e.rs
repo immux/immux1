@@ -1,70 +1,14 @@
 #[cfg(test)]
+use std::error::Error;
+
 use reqwest;
 
-type HttpResult = Result<String, reqwest::Error>;
-
-struct DatabaseHttpAccess {
-    host: String,
-}
-
-impl DatabaseHttpAccess {
-    fn new(host: &str) -> DatabaseHttpAccess {
-        return DatabaseHttpAccess {
-            host: host.to_string(),
-        };
-    }
-
-    fn get_by_key(&self, grouping: &str, key: &str) -> HttpResult {
-        let mut response = reqwest::get(&format!("http://{}/{}/{}", &self.host, grouping, key))?;
-        return response.text();
-    }
-
-    fn inspect_by_key(&self, grouping: &str, key: &str) -> HttpResult {
-        let mut response = reqwest::get(&format!(
-            "http://{}/{}/{}?inspect",
-            &self.host, grouping, key
-        ))?;
-        return response.text();
-    }
-
-    fn revert_by_key(&self, grouping: &str, key: &str, height: u64) -> HttpResult {
-        let client = reqwest::Client::new();
-        let mut response = client
-            .put(&format!(
-                "http://{}/{}/{}?revert={}",
-                &self.host, grouping, key, height
-            ))
-            .send()?;
-        return response.text();
-    }
-
-    fn set_key_value(&self, collection: &str, key: &str, value: &str) -> HttpResult {
-        let client = reqwest::Client::new();
-        let mut response = client
-            .put(&format!("http://{}/{}/{}", &self.host, collection, key))
-            .body(value.to_string())
-            .send()?;
-        return response.text();
-    }
-
-    fn switch_namespace(&self, namespace: &str) -> HttpResult {
-        let client = reqwest::Client::new();
-        let mut response = client
-            .put(&format!("http://{}/?chain={}", &self.host, namespace))
-            .send()?;
-        return response.text();
-    }
-}
-
-fn get_db(port: u16) -> DatabaseHttpAccess {
-    let host = format!("localhost:{}", port);
-    DatabaseHttpAccess::new(&host)
-}
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 
 #[test]
 #[ignore]
-fn e2e_change_database_namespace() -> Result<(), reqwest::Error> {
-    let db = get_db(1991);
+fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
+    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
 
     let id = "doc";
     let grouping = "GROUPING";
@@ -98,8 +42,8 @@ const INITIAL_HEIGHT: u64 = 1; // The height 0 is empty; hence first data starts
 
 #[test]
 #[ignore]
-fn e2e_single_document_versioning() -> Result<(), reqwest::Error> {
-    let db = get_db(1991);
+fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
+    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
     db.switch_namespace("immuxtest-single-document-versioning")?;
     let id = "doc_id";
     let grouping = "GROUPING";
@@ -146,8 +90,8 @@ fn e2e_single_document_versioning() -> Result<(), reqwest::Error> {
 
 #[test]
 #[ignore]
-fn e2e_multiple_document_versioning() -> Result<(), reqwest::Error> {
-    let db = get_db(1991);
+fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
+    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
     db.switch_namespace("immuxtest-multiple-document-versioning")?;
 
     let grouping = "GROUPING";

@@ -14,9 +14,10 @@ pub struct ImmuxDBCore {
 impl ImmuxDBCore {
     pub fn new(
         engine_choice: &KeyValueEngine,
+        data_root: &str,
         namespace: &[u8],
     ) -> Result<ImmuxDBCore, ImmuxError> {
-        let tkv = ImmuxDBTransactionKeyValueStore::new(engine_choice, namespace)?;
+        let tkv = ImmuxDBTransactionKeyValueStore::new(engine_choice, data_root, namespace)?;
         let core = ImmuxDBCore { tkv };
         Ok(core)
     }

@@ -382,7 +382,7 @@ mod mongo_command_transformer_tests {
 mod mongo_outcome_transformer_tests {
     use bson::Document;
 
-    use crate::config::compile_config;
+    use crate::config::ImmuxDBConfiguration;
     use crate::cortices::mongo::ops::msg_header::MsgHeader;
     use crate::cortices::mongo::ops::op::MongoOp;
     use crate::cortices::mongo::ops::op_msg::{OpMsg, OpMsgFlags, Section};
@@ -393,7 +393,7 @@ mod mongo_outcome_transformer_tests {
 
     #[test]
     fn test_pickchain() {
-        let mock_config = compile_config(vec![]);
+        let mock_config = ImmuxDBConfiguration::default();
         let mock_incoming_op = OpMsg {
             message_header: MsgHeader {
                 message_length: 0,
@@ -464,7 +464,7 @@ mod mongo_outcome_transformer_tests {
 
     #[test]
     fn test_insert() {
-        let mock_config = compile_config(vec![]);
+        let mock_config = ImmuxDBConfiguration::default();
         let mock_incoming_op = OpMsg {
             message_header: MsgHeader {
                 message_length: 0,
@@ -502,7 +502,7 @@ mod mongo_outcome_transformer_tests {
 
     #[test]
     fn test_select() {
-        let mock_config = compile_config(vec![]);
+        let mock_config = ImmuxDBConfiguration::default();
         let mock_incoming_op = OpMsg {
             message_header: MsgHeader {
                 message_length: 0,

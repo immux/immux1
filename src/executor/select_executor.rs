@@ -1,26 +1,18 @@
+use bincode::deserialize;
+
 use crate::declarations::commands::{Outcome, SelectCommand, SelectCondition, SelectOutcome};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{
     Answer, AtomicGetOneInstruction, GetTargetSpec, Instruction,
 };
 use crate::executor::errors::ExecutorError;
-use crate::executor::shared::{
-    get_id_list, get_kv_key, get_value_to_keys_map_key,
-};
+use crate::executor::shared::{get_id_list, get_kv_key, get_value_to_keys_map_key};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::hashmap::HashmapStorageEngineError;
 use crate::storage::kv::rocks::RocksEngineError;
 use crate::utils;
-use crate::utils::utf8_to_string;
-use bincode::deserialize;
 
 pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {
-    println!(
-        "Executing select on grouping {} for condition {:#?}",
-        utf8_to_string(&select.grouping),
-        select.condition
-    );
-
     let mut values: Vec<Vec<u8>> = Vec::new();
     match &select.condition {
         SelectCondition::UnconditionalMatch => {
@@ -37,7 +29,6 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                 match core.execute(&Instruction::AtomicGetOne(get_instruction)) {
                     Err(error) => return Err(error),
                     Ok(Answer::GetOneOk(answer)) => {
-                        println!("Using select.condition {:?}", select.condition);
                         let value = answer.item;
                         values.push(value);
                     }
@@ -55,7 +46,6 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
             match core.execute(&Instruction::AtomicGetOne(get_instruction)) {
                 Err(error) => return Err(error),
                 Ok(Answer::GetOneOk(answer)) => {
-                    println!("Using select.condition {:?}", select.condition);
                     let value = answer.item;
                     values.push(value);
                     Ok(Outcome::Select(SelectOutcome { values }))
@@ -92,7 +82,6 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                     }
                 },
                 Ok(Answer::GetOneOk(answer)) => {
-                    println!("Using select.condition {:?}", select.condition);
                     let value = answer.item;
                     match deserialize::<Vec<Vec<u8>>>(&value) {
                         Err(_error) => {
@@ -113,7 +102,6 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                                         return Err(error);
                                     }
                                     Ok(Answer::GetOneOk(answer)) => {
-                                        println!("Using select.condition {:?}", select.condition);
                                         let value = answer.item;
                                         values.push(value);
                                     }

@@ -43,3 +43,45 @@ rm -rf immuxtest-*
 # must be executed one by one.
 cargo test -- --ignored --test-threads 1
 ```
+
+#### Benchmarking
+
+###### 1. Download
+
+```bash
+git submodule init
+git submodule update
+```
+
+You only need to download data once.
+
+###### 2. Execute benchmark
+
+```bash
+cargo bench
+```
+
+#### Profiling
+
+##### 1. Install flamegraph
+
+```
+cargo install flamegraph
+```
+
+##### 2. Generate binary executable
+
+```
+cargo bench
+```
+
+###### 3. Run flamegraph
+
+```bash
+# Use sudo if prompted
+flamegraph target/release/realistic-SOME_HASH
+```
+
+Inspect the "flamegraph.svg" in a web browser (it's interactive).
+
+The exact executable name needs to be checked manually at the moment.
