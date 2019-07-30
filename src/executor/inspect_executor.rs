@@ -2,7 +2,7 @@ use crate::declarations::commands::{InspectCommand, InspectOutcome, Outcome};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::declarations::instructions::{Answer, GetEntryInstruction, Instruction};
 use crate::executor::errors::ExecutorError;
-use crate::executor::shared::{get_id_list, get_kv_key, set_id_list};
+use crate::executor::shared::get_kv_key;
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 
 pub fn execute_inspect(inspect: InspectCommand, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {

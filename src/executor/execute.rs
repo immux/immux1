@@ -42,7 +42,11 @@ mod executor_test {
         let command = Command::PickChain(PickChainCommand {
             new_chain_name: target_chain.to_vec(),
         });
-        match ImmuxDBCore::new(&KeyValueEngine::HashMap, default_chain) {
+        match ImmuxDBCore::new(
+            &KeyValueEngine::HashMap,
+            DEFAULT_PERMANENCE_PATH,
+            default_chain,
+        ) {
             Err(_error) => panic!("Cannot initialized core"),
             Ok(mut core) => match execute(command, &mut core) {
                 Err(_error) => panic!("Failed to execute pick chain command"),
@@ -85,7 +89,11 @@ mod executor_test {
             targets: specs.clone(),
             insert_with_index: true,
         });
-        match ImmuxDBCore::new(&KeyValueEngine::HashMap, default_chain) {
+        match ImmuxDBCore::new(
+            &KeyValueEngine::HashMap,
+            DEFAULT_PERMANENCE_PATH,
+            default_chain,
+        ) {
             Err(_error) => panic!("Cannot initialized core"),
             Ok(mut core) => match execute(insert_command, &mut core) {
                 Err(_error) => panic!("Failed to execute insert command"),
@@ -111,8 +119,9 @@ mod executor_test {
         }
     }
 
-    use crate::executor::shared::{ValData};
-    
+    use crate::executor::shared::ValData;
+
+    use crate::config::DEFAULT_PERMANENCE_PATH;
     use serde_json::Value;
     use std::collections::HashMap;
 
@@ -131,7 +140,12 @@ mod executor_test {
             r#"{"id": 9, "index_field_f64": 8.0, "index_field_string": "string_8", "index_field_bool": false}"#.to_string(),
         ];
         let grouping = "grouping".as_bytes();
-        let mut core = ImmuxDBCore::new(&KeyValueEngine::HashMap, "default".as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(
+            &KeyValueEngine::HashMap,
+            DEFAULT_PERMANENCE_PATH,
+            "default".as_bytes(),
+        )
+        .unwrap();
         let index_fields_vec: Vec<Vec<&str>> = vec![
             vec!["index_field_f64"],
             vec!["index_field_string"],
@@ -384,7 +398,12 @@ mod executor_test {
                 r#"{"id": 9, "index_field_f64": 8.0, "index_field_string": "string_8", "index_field_bool": false}"#.to_string(),
             ];
         let grouping = "grouping".as_bytes();
-        let mut core = ImmuxDBCore::new(&KeyValueEngine::HashMap, "default".as_bytes()).unwrap();
+        let mut core = ImmuxDBCore::new(
+            &KeyValueEngine::HashMap,
+            DEFAULT_PERMANENCE_PATH,
+            "default".as_bytes(),
+        )
+        .unwrap();
 
         let index_field = "index_field_f64".to_string().as_bytes().to_vec();
         let index_fields = [index_field].to_vec();
