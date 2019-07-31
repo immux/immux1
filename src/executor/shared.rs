@@ -165,10 +165,10 @@ fn get_bytestring_vec(grouping: &[u8], list_key: Vec<u8>, core: &mut ImmuxDBCore
                 }
             }
             _ => {
-                println!(
-                    "DEBUG: keylist not found for grouping {}",
-                    utf8_to_string(grouping)
-                );
+                //                println!(
+                //                    "DEBUG: keylist not found for grouping {}",
+                //                    utf8_to_string(grouping)
+                //                );
                 vec![]
             }
         }

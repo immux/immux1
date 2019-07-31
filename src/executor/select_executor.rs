@@ -28,7 +28,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
             let grouping = &select.grouping;
             let key_list = get_id_list(grouping, core);
             for key in key_list {
-                println!("reading key {:#?}", utils::utf8_to_string(&key));
+                //                println!("reading key {:#?}", utils::utf8_to_string(&key));
                 let get_instruction = AtomicGetOneInstruction {
                     target: GetTargetSpec {
                         key: key.clone(),
@@ -38,7 +38,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                 match core.execute(&Instruction::AtomicGetOne(get_instruction)) {
                     Err(error) => return Err(error),
                     Ok(Answer::GetOneOk(answer)) => {
-                        println!("Using select.condition {:?}", select.condition);
+                        //                        println!("Using select.condition {:?}", select.condition);
                         let value = answer.item;
                         values.push(value);
                     }
@@ -56,7 +56,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
             match core.execute(&Instruction::AtomicGetOne(get_instruction)) {
                 Err(error) => return Err(error),
                 Ok(Answer::GetOneOk(answer)) => {
-                    println!("Using select.condition {:?}", select.condition);
+                    //                    println!("Using select.condition {:?}", select.condition);
                     let value = answer.item;
                     values.push(value);
                     Ok(Outcome::Select(SelectOutcome { values }))
@@ -93,7 +93,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                     }
                 },
                 Ok(Answer::GetOneOk(answer)) => {
-                    println!("Using select.condition {:?}", select.condition);
+                    //                    println!("Using select.condition {:?}", select.condition);
                     let value = answer.item;
                     match deserialize::<Vec<Vec<u8>>>(&value) {
                         Err(_error) => {
@@ -101,7 +101,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                         }
                         Ok(id_list) => {
                             for key in id_list.iter() {
-                                println!("reading key {:#?}", utils::utf8_to_string(&key));
+                                //                                println!("reading key {:#?}", utils::utf8_to_string(&key));
                                 let get_instruction = AtomicGetOneInstruction {
                                     target: GetTargetSpec {
                                         key: key.clone(),
@@ -114,7 +114,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                                         return Err(error);
                                     }
                                     Ok(Answer::GetOneOk(answer)) => {
-                                        println!("Using select.condition {:?}", select.condition);
+                                        //                                        println!("Using select.condition {:?}", select.condition);
                                         let value = answer.item;
                                         values.push(value);
                                     }

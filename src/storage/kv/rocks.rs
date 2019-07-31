@@ -1,10 +1,11 @@
 use std::ffi::OsString;
 
-use rocksdb::{Error as RocksError, DB};
+use rocksdb::{Error as RocksError, Options, DB};
 
 use crate::config::DEFAULT_PERMANENCE_PATH;
-use crate::declarations::errors::{ImmuxResult};
+use crate::declarations::errors::ImmuxResult;
 use crate::storage::kv::KeyValueStore;
+use std::path::Path;
 
 #[derive(Debug)]
 pub enum RocksEngineError {

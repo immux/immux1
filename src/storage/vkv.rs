@@ -262,10 +262,10 @@ impl ImmuxDBVersionedKeyValueStore {
                 match serialize(&new_meta) {
                     Err(error) => Err(VkvError::CannotSerializeInstructionMeta(error).into()),
                     Ok(serialized_meta) => {
-                        println!(
-                            "Saving new update on key {:?}",
-                            String::from_utf8_lossy(key)
-                        );
+                        //                        println!(
+                        //                            "Saving new update on key {:?}",
+                        //                            String::from_utf8_lossy(key)
+                        //                        );
                         return self.set_with_key_prefix(
                             KeyPrefix::KeyToEntry,
                             key,
@@ -291,10 +291,10 @@ impl ImmuxDBVersionedKeyValueStore {
         match serialized {
             Err(_error) => Err(VkvError::CannotSerializeEntry.into()),
             Ok(serialized_meta) => {
-                println!(
-                    "Updating existing index on key {:?}",
-                    String::from_utf8_lossy(primary_key)
-                );
+                //                println!(
+                //                    "Updating existing index on key {:?}",
+                //                    String::from_utf8_lossy(primary_key)
+                //                );
                 return self.set_with_key_prefix(
                     KeyPrefix::KeyToEntry,
                     primary_key,
