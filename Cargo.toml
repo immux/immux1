@@ -23,6 +23,7 @@ sqlparser = "0.3.0"
 reqwest = "0.9"
 csv = "1.1"
 immuxdb_client = { path = "src/connectors/rust" }
+immuxdb_dev_utils = { path = "src/dev" }
 
 [[bin]]
 name = "immuxdb"
@@ -40,5 +41,6 @@ path = "benches/realistic/mod.rs"
 [workspace]
 members = [
     "src/connectors/rust",
+    "src/dev"
 ]
 
