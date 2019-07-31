@@ -6,7 +6,8 @@ use crate::declarations::instructions::{
 };
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::{
-    construct_value_to_ids_map_from_js_obj, get_id_list, get_index_field_list, get_kv_key, set_id_list,
+    construct_value_to_ids_map_from_js_obj, get_id_list, get_index_field_list, get_kv_key,
+    set_id_list,
 };
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::kv::hashmap::HashmapStorageEngineError;
