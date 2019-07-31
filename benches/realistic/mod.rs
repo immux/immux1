@@ -7,32 +7,12 @@ use std::time::{Duration, Instant};
 use std::{io, thread};
 
 use csv;
+use immuxdb_dev_utils::{launch_db, notified_sleep};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use berka99::berka99;
 use census90::census90;
-use libimmuxdb::config::ImmuxDBConfiguration;
-use libimmuxdb::run_immuxdb;
-
-pub fn launch_db(project_name: &str, port: u16) -> io::Result<()> {
-    let data_root = format!("/tmp/{}/", project_name);
-    println!("Initializing database in {}", data_root);
-    create_dir_all(&data_root)?;
-    remove_dir_all(&data_root)?;
-    println!("Existing test data removed");
-
-    let mut config = ImmuxDBConfiguration::default();
-    config.data_root = data_root;
-    config.unicus_endpoint = format!("127.0.0.1:{}", port);
-    match run_immuxdb(&config) {
-        Ok(_) => println!("Database started"),
-        Err(error) => {
-            println!("Cannot start database: {:?}", error);
-        }
-    }
-    return Ok(());
-}
 
 pub struct BenchSpec {
     name: &'static str,
@@ -129,8 +109,7 @@ fn main() {
         let bench_name = bench.name;
         let db_port = bench.unicus_port;
         thread::spawn(move || launch_db(bench_name, db_port));
-        println!("Waiting 5s for database to be ready...");
-        thread::sleep(Duration::from_secs(5));
+        notified_sleep(5);
 
         println!("Start benching...");
         let f = bench.main;

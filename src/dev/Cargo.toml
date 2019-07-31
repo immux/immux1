@@ -1,0 +1,13 @@
+[package]
+name = "immuxdb_dev_utils"
+version = "0.1.0"
+authors = ["Yiwang Network Technology Company, Limited"]
+edition = "2018"
+
+[lib]
+name = "immuxdb_dev_utils"
+path = "dev_utils.rs"
+
+[dependencies]
+immuxdb = { path = "../.." }
+

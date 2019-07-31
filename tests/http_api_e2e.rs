@@ -1,14 +1,19 @@
 #[cfg(test)]
 use std::error::Error;
-
-use reqwest;
+use std::thread;
+use std::time::Duration;
 
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use immuxdb_dev_utils::{launch_db, notified_sleep};
 
 #[test]
-#[ignore]
 fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
-    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
+    let db_port = 20001;
+
+    thread::spawn(move || launch_db("e2e_change_database_namespace", db_port));
+    notified_sleep(5);
+
+    let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
 
     let id = "doc";
     let grouping = "GROUPING";
@@ -22,17 +27,17 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
     assert_ne!(namespace_a, namespace_b);
     assert_ne!(data_in_a, data_in_b);
 
-    db.switch_namespace(namespace_a)?;
-    db.set_key_value(grouping, id, data_in_a)?;
+    client.switch_namespace(namespace_a)?;
+    client.set_key_value(grouping, id, data_in_a)?;
 
-    db.switch_namespace(namespace_b)?;
-    db.set_key_value(grouping, id, data_in_b)?;
+    client.switch_namespace(namespace_b)?;
+    client.set_key_value(grouping, id, data_in_b)?;
 
-    let data_out_b = db.get_by_key(grouping, id)?;
+    let data_out_b = client.get_by_key(grouping, id)?;
     assert_eq!(data_in_b, data_out_b);
 
-    db.switch_namespace(namespace_a)?;
-    let data_out_a = db.get_by_key(grouping, id)?;
+    client.switch_namespace(namespace_a)?;
+    let data_out_a = client.get_by_key(grouping, id)?;
     assert_eq!(data_in_a, data_out_a);
 
     Ok(())
@@ -41,10 +46,14 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
 const INITIAL_HEIGHT: u64 = 1; // The height 0 is empty; hence first data starts at height 1.
 
 #[test]
-#[ignore]
 fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
-    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
-    db.switch_namespace("immuxtest-single-document-versioning")?;
+    let db_port = 20002;
+
+    thread::spawn(move || launch_db("e2e_single_document_versioning", db_port));
+    notified_sleep(5);
+
+    let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
+    client.switch_namespace("immuxtest-single-document-versioning")?;
     let id = "doc_id";
     let grouping = "GROUPING";
 
@@ -55,10 +64,10 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
     let range = INITIAL_HEIGHT..100;
 
     for height in range.clone() {
-        db.set_key_value(grouping, id, &dummy_data(height))?;
+        client.set_key_value(grouping, id, &dummy_data(height))?;
     }
 
-    let body_text = db.inspect_by_key(grouping, id)?;
+    let body_text = client.inspect_by_key(grouping, id)?;
     let data: Vec<(&str, &str)> = body_text
         .split("\r\n")
         .filter(|line| line.len() > 0)
@@ -79,8 +88,8 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
 
     // Test revert
     for target_height in range.clone() {
-        db.revert_by_key(grouping, id, target_height)?;
-        let current_value = db.get_by_key(grouping, id)?;
+        client.revert_by_key(grouping, id, target_height)?;
+        let current_value = client.get_by_key(grouping, id)?;
         let expected_value = dummy_data(target_height);
         assert_eq!(current_value, expected_value);
     }
@@ -89,10 +98,14 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[ignore]
 fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
-    let db = ImmuxDBClient::new(&format!("localhost:{}", 1991))?;
-    db.switch_namespace("immuxtest-multiple-document-versioning")?;
+    let db_port = 20003;
+
+    thread::spawn(move || launch_db("e2e_multiple_document_versioning", db_port));
+    notified_sleep(5);
+
+    let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
+    client.switch_namespace("immuxtest-multiple-document-versioning")?;
 
     let grouping = "GROUPING";
 
@@ -110,15 +123,15 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
     // Store data in specified order
     for input in inputs.iter() {
         let (id, data) = input;
-        db.set_key_value(grouping, id, data)?;
+        client.set_key_value(grouping, id, data)?;
     }
 
     // Revert in input order and check consistency
     for (index, input) in inputs.iter().enumerate() {
         let height = INITIAL_HEIGHT + (index as u64);
         let (id, input_data) = input;
-        db.revert_by_key(grouping, id, height)?;
-        let current_data = db.get_by_key(grouping, id)?;
+        client.revert_by_key(grouping, id, height)?;
+        let current_data = client.get_by_key(grouping, id)?;
         assert_eq!(&current_data, input_data);
     }
 

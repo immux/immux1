@@ -619,6 +619,7 @@ dependencies = [
  "chrono 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "csv 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "immuxdb_client 0.1.0",
+ "immuxdb_dev_utils 0.1.0",
  "reqwest 0.9.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocksdb 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.98 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -633,6 +634,13 @@ name = "immuxdb_client"
 version = "0.1.0"
 dependencies = [
  "reqwest 0.9.19 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "immuxdb_dev_utils"
+version = "0.1.0"
+dependencies = [
+ "immuxdb 0.1.0",
 ]
 
 [[package]]
