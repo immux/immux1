@@ -72,8 +72,12 @@ where
             let elapsed = start.elapsed().as_millis();
             let average_time = elapsed as f64 / report_period as f64;
             println!(
-                "took {}ms to execute {} {} operations, average {:.2}ms per item",
-                elapsed, count, operation_name, average_time
+                "took {}ms to execute {} {} operations (out of total {}), average {:.2}ms per item",
+                elapsed,
+                report_period,
+                operation_name,
+                data.len(),
+                average_time
             );
             start = Instant::now();
             times.push((count as f64, average_time));
