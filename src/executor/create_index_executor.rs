@@ -26,6 +26,7 @@ pub fn execute_create_index(
     let grouping = &command.grouping;
     let mut indexed_names = get_indexed_names_list_with_fallback(grouping, core)?;
     indexed_names.add(command.name.clone());
+
     set_indexed_names_list(grouping, &indexed_names, core)?;
 
     let reverse_index: ReverseIndex = {

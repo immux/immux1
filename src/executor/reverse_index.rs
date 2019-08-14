@@ -142,7 +142,6 @@ mod reverse_index_test {
     use crate::declarations::basics::{PropertyName, PropertyNameList, UnitContent, UnitId};
     use crate::executor::reverse_index::ReverseIndex;
     use crate::utils::utf8_to_string;
-    
 
     #[test]
     fn test_single_name_single_property_indexing() {

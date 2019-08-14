@@ -53,14 +53,17 @@ impl PropertyNameList {
     pub fn new(names: Vec<PropertyName>) -> Self {
         Self(names)
     }
+
     fn dedup(&mut self) -> () {
         self.0.sort_by(|v1, v2| v1.cmp(v2));
         self.0.dedup_by(|v1, v2| v1 == v2);
     }
+
     pub fn add(&mut self, data: PropertyName) {
         self.0.push(data);
         self.dedup()
     }
+
     pub fn as_slice(&self) -> &[PropertyName] {
         &self.0
     }
