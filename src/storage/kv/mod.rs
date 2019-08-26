@@ -1,19 +1,11 @@
-pub mod hashmap;
-pub mod rocks;
+mod hashmap;
+mod kv;
+mod rocks;
 
-use serde::{Deserialize, Serialize};
+pub use kv::{
+    BoxedKVKey, BoxedKVValue, KVError, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueEngine,
+    KeyValueStore,
+};
 
-use crate::declarations::errors::ImmuxResult;
-
-pub trait KeyValueStore {
-    fn get(&self, key: &[u8]) -> ImmuxResult<Vec<u8>>;
-    fn set(&mut self, key: &[u8], value: &[u8]) -> ImmuxResult<Vec<u8>>;
-    fn switch_namespace(&mut self, namespace: &[u8]) -> ImmuxResult<()>;
-    fn read_namespace(&self) -> &[u8];
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum KeyValueEngine {
-    HashMap,
-    Rocks,
-}
+pub use hashmap::HashMapStore;
+pub use rocks::RocksStore;

@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 
-use crate::declarations::instructions::{
-    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
-    SetTargetSpec,
-};
+use crate::declarations::basics::{StoreKey, StoreValue};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::storage::instructions::{
+    Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteInstruction,
+    GetOneInstruction, Instruction, SetManyInstruction, SetTargetSpec,
+};
 use crate::storage::kv::KeyValueEngine;
 
 pub const IMMUXDB_VERSION: u32 = 1;
@@ -27,6 +28,8 @@ pub const MULTIFIELD_SEPARATOR: &str = "|";
 
 pub const DEFAULT_CHAIN_NAME: &str = "default";
 pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
+
+pub const INITIAL_TRANSACTION_ID_DATA: u64 = 1;
 
 const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
 
@@ -61,6 +64,25 @@ fn parse_commandline_options(args: &[String]) -> ImmuxDBCommandlineOptions {
         }
     };
     options
+}
+
+#[repr(u8)]
+pub enum KVKeySigil {
+    // Shared by whole chain
+    ChainInfo = 0x10,
+    ChainHeight = 0x11,
+
+    // Shared by whole grouping
+    GroupingInfo = 0x20,
+    GroupingIndexedNames = 0x21,
+
+    // By VKV
+    UnitJournal = 0x30,
+    HeightToInstructionMeta = 0x31,
+    HeightToInstructionRecord = 0x32,
+
+    // By executor
+    ReverseIndexIdList = 0xA0,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -119,15 +141,15 @@ const GLOBAL_CONFIG_KEY: &str = "_CONFIG";
 pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     match serialize(&config) {
         Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotSerialize)),
-        Ok(data) => {
-            let instruction = AtomicSetInstruction {
-                targets: vec![SetTargetSpec {
-                    key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
-                    value: data,
-                }],
-                increment_height: false,
-            };
-            match core.execute(&Instruction::AtomicSet(instruction)) {
+        Ok(bytes) => {
+            let key: StoreKey = GLOBAL_CONFIG_KEY.as_bytes().into();
+            let value: StoreValue = bytes.into();
+            let instruction = Instruction::Data(DataInstruction::Write(
+                DataWriteInstruction::SetMany(SetManyInstruction {
+                    targets: vec![SetTargetSpec { key, value }],
+                }),
+            ));
+            match core.execute(&instruction) {
                 Err(_error) => Err(ImmuxError::Config(ConfigError::CannotSet)),
                 Ok(_) => Ok(()),
             }
@@ -136,23 +158,19 @@ pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> Imm
 }
 
 pub fn load_config(core: &mut ImmuxDBCore) -> ImmuxResult<ImmuxDBConfiguration> {
-    let instruction = AtomicGetOneInstruction {
-        target: GetTargetSpec {
-            key: GLOBAL_CONFIG_KEY.as_bytes().to_vec(),
-            height: None,
-        },
-    };
-    match core.execute(&Instruction::AtomicGetOne(instruction)) {
+    let key: StoreKey = GLOBAL_CONFIG_KEY.as_bytes().into();
+    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+        GetOneInstruction { key, height: None },
+    )));
+    match core.execute(&instruction) {
         Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotRead)),
-        Ok(answer) => match answer {
-            Answer::GetOneOk(get_answer) => {
-                let target = &get_answer.item;
-                match deserialize::<ImmuxDBConfiguration>(&target) {
-                    Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotDeserialize)),
-                    Ok(config) => return Ok(config),
-                }
+        Ok(Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(answer)))) => {
+            let data: Vec<u8> = answer.value.into();
+            match deserialize::<ImmuxDBConfiguration>(&data) {
+                Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotDeserialize)),
+                Ok(config) => return Ok(config),
             }
-            _ => return Err(ImmuxError::Config(ConfigError::UnexpectedCoreAnswer)),
-        },
+        }
+        _ => return Err(ImmuxError::Config(ConfigError::UnexpectedCoreAnswer)),
     }
 }

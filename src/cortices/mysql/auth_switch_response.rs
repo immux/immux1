@@ -33,9 +33,7 @@ pub fn parse_auth_switch_response(buffer: &[u8]) -> ImmuxResult<AuthSwitchRespon
 #[cfg(test)]
 mod auth_switch_response_tests {
 
-    use crate::cortices::mysql::auth_switch_response::{
-        parse_auth_switch_response,
-    };
+    use crate::cortices::mysql::auth_switch_response::parse_auth_switch_response;
 
     #[test]
     fn test_serialize_auth_switch_response() {

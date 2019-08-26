@@ -1,12 +1,13 @@
-use crate::cortices::mysql::error::MySQLParserError;
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use sqlparser::dialect::Dialect;
 use sqlparser::sqlast::SQLStatement;
 use sqlparser::sqlparser::Parser;
 
+use crate::cortices::mysql::error::MySQLParserError;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
+
 pub fn parse_mysql_op_string_to_ast(
     mysql_op_string: String,
-    dialect: &Dialect,
+    dialect: &dyn Dialect,
 ) -> ImmuxResult<Vec<SQLStatement>> {
     match Parser::parse_sql(dialect, mysql_op_string) {
         Err(error) => {

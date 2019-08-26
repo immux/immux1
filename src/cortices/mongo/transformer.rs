@@ -7,6 +7,7 @@ use crate::cortices::mongo::ops::op_msg::{OpMsg, Section};
 
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
 
+use crate::declarations::basics::{GroupingLabel, UnitContent, UnitId};
 use crate::declarations::commands::{
     Command, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand, SelectCommand,
     SelectCondition,
@@ -36,12 +37,32 @@ fn encode_document(doc: &Document) -> ImmuxResult<Vec<u8>> {
     }
 }
 
-fn get_obj_id(doc: &Document, key: &str) -> ImmuxResult<Vec<u8>> {
-    match doc.get_object_id(key) {
-        Err(_error) => Err(ImmuxError::MongoTransformer(
-            MongoTransformerError::GetObjectId,
-        )),
-        Ok(object_id) => Ok(object_id.bytes().to_vec()),
+fn get_doc_unit_id(doc: &Document) -> ImmuxResult<UnitId> {
+    // TODO(#137): Handle MongoDB ObjectId properly
+    match doc.get_object_id("_id") {
+        Ok(id) => {
+            let id_bytes = id.bytes();
+            let bytes: [u8; 16] = [
+                id_bytes[0],
+                id_bytes[1],
+                id_bytes[2],
+                id_bytes[3],
+                id_bytes[4],
+                id_bytes[5],
+                id_bytes[6],
+                id_bytes[7],
+                id_bytes[8],
+                id_bytes[9],
+                id_bytes[10],
+                id_bytes[11],
+                0,
+                0,
+                0,
+                0,
+            ];
+            Ok(UnitId::from(&bytes))
+        }
+        _ => Ok(UnitId::new(0)),
     }
 }
 
@@ -67,15 +88,16 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                                         let mut targets: Vec<InsertCommandSpec> = Vec::new();
                                         for doc in &sequence.documents {
                                             let spec = InsertCommandSpec {
-                                                id: get_obj_id(doc, "_id")?,
-                                                value: encode_document(doc)?,
+                                                id: get_doc_unit_id(doc)?,
+                                                content: UnitContent::BsonBytes(encode_document(
+                                                    doc,
+                                                )?),
                                             };
                                             targets.push(spec)
                                         }
                                         let instruction = InsertCommand {
                                             targets,
-                                            grouping: collection.as_bytes().to_vec(),
-                                            insert_with_index: false,
+                                            grouping: GroupingLabel::from(collection.as_bytes()),
                                         };
                                         Ok(Command::Insert(instruction))
                                     }
@@ -88,7 +110,7 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                             }
                         } else if let Ok(collection) = request_doc.get_str("find") {
                             if let Ok(filter) = request_doc.get_document("filter") {
-                                let grouping = collection.as_bytes().to_vec();
+                                let grouping = GroupingLabel::from(collection.as_bytes());
                                 if filter.is_empty() {
                                     let command = SelectCommand {
                                         grouping,
@@ -166,14 +188,17 @@ pub fn transform_outcome_to_mongo_msg(
             let mut doc = Document::new();
             let mut cursor = Document::new();
             let documents: Vec<Bson> = ok
-                .values
+                .units
                 .iter()
-                .map(|value| {
-                    let buffer = value.clone();
-                    match bson::decode_document(&mut buffer.as_slice()) {
-                        Err(_) => Bson::Document(Document::new()),
-                        Ok(doc) => Bson::Document(doc),
+                .map(|unit| match &unit.content {
+                    UnitContent::BsonBytes(bytes) => {
+                        let buffer = bytes.clone();
+                        match bson::decode_document(&mut buffer.as_slice()) {
+                            Err(_) => Bson::Document(Document::new()),
+                            Ok(doc) => Bson::Document(doc),
+                        }
                     }
+                    _ => Bson::Document(Document::new()),
                 })
                 .collect();
             cursor.insert("firstBatch", documents);
@@ -185,7 +210,6 @@ pub fn transform_outcome_to_mongo_msg(
         }
         Outcome::NameChain(_ok) => unimplemented!(),
         Outcome::CreateIndex(_ok) => unimplemented!(),
-        Outcome::NameChain(_ok) => unimplemented!(),
         Outcome::Revert(_) => unimplemented!(),
         Outcome::RevertAll(_) => unimplemented!(),
         Outcome::Inspect(_) => unimplemented!(),
@@ -207,6 +231,7 @@ mod mongo_command_transformer_tests {
     use crate::cortices::mongo::transformer::transform_mongo_op_to_command;
     use crate::cortices::mongo::utils::construct_single_doc_op_msg;
 
+    use crate::declarations::basics::UnitContent;
     use crate::declarations::commands::{Command, SelectCondition};
 
     static HEADER: MsgHeader = MsgHeader {
@@ -228,7 +253,10 @@ mod mongo_command_transformer_tests {
         let op = construct_single_doc_op_msg(doc, &HEADER);
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::PickChain(pick_chain)) => {
-                assert_eq!(pick_chain.new_chain_name, target_db_name.as_bytes());
+                assert_eq!(
+                    pick_chain.new_chain_name.as_bytes(),
+                    target_db_name.as_bytes()
+                );
             }
             Ok(_) => panic!("ismaster should be translated to pick_chain"),
             Err(error) => panic!("Failed to transform command {:#?}", error),
@@ -290,18 +318,26 @@ mod mongo_command_transformer_tests {
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::Insert(insert)) => {
                 assert_eq!(data.len(), insert.targets.len());
-                assert_eq!(insert.grouping, collection.as_bytes());
+                assert_eq!(insert.grouping.as_bytes(), collection.as_bytes());
                 let mut i = 0;
                 while i < data.len() {
                     let datum = data[i];
                     let target = insert.targets[i].clone();
-                    let doc_bytes = target.value.clone();
-                    match bson::decode_document(&mut doc_bytes.as_slice()) {
-                        Err(error) => panic!("Failed to parse document bytes: {:#?}", error),
-                        Ok(doc) => match doc.get_i32(datum_key) {
-                            Err(_error) => panic!("Missing datum on datum key {}", datum_key),
-                            Ok(num) => assert_eq!(datum as i32, num),
-                        },
+                    match target.content {
+                        UnitContent::BsonBytes(bytes) => {
+                            match bson::decode_document(&mut bytes.as_slice()) {
+                                Err(error) => {
+                                    panic!("Failed to parse document bytes: {:#?}", error)
+                                }
+                                Ok(doc) => match doc.get_i32(datum_key) {
+                                    Err(_error) => {
+                                        panic!("Missing datum on datum key {}", datum_key)
+                                    }
+                                    Ok(num) => assert_eq!(datum as i32, num),
+                                },
+                            }
+                        }
+                        _ => panic!("Content of unexpected type: {}", target.content.to_string()),
                     }
                     i += 1;
                 }
@@ -337,7 +373,7 @@ mod mongo_command_transformer_tests {
         let op = construct_single_doc_op_msg(doc, &HEADER);
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::Select(select)) => {
-                assert_eq!(select.grouping, collection.as_bytes());
+                assert_eq!(select.grouping.as_bytes(), collection.as_bytes());
                 match select.condition {
                     SelectCondition::UnconditionalMatch => (),
                     _ => panic!("select.condition is unexpected"),
@@ -364,7 +400,7 @@ mod mongo_command_transformer_tests {
         let op = construct_single_doc_op_msg(doc, &HEADER);
         match transform_mongo_op_to_command(&MongoOp::Msg(op)) {
             Ok(Command::Select(select)) => {
-                assert_eq!(select.grouping, collection.as_bytes());
+                assert_eq!(select.grouping.as_bytes(), collection.as_bytes());
                 match select.condition {
                     SelectCondition::JSCode(transformed_code) => {
                         assert_eq!(transformed_code, js_code)
@@ -389,6 +425,7 @@ mod mongo_outcome_transformer_tests {
     use crate::cortices::mongo::ops::opcodes::MongoOpCode;
     use crate::cortices::mongo::transformer::transform_outcome_to_mongo_msg;
 
+    use crate::declarations::basics::ChainName;
     use crate::declarations::commands::{InsertOutcome, Outcome, PickChainOutcome, SelectOutcome};
 
     #[test]
@@ -414,7 +451,7 @@ mod mongo_outcome_transformer_tests {
             }],
         };
         let outcome = PickChainOutcome {
-            new_chain_name: "hello".as_bytes().to_vec(),
+            new_chain_name: ChainName::from("hello"),
         };
         match transform_outcome_to_mongo_msg(
             &Outcome::PickChain(outcome),
@@ -517,7 +554,7 @@ mod mongo_outcome_transformer_tests {
             },
             sections: vec![],
         };
-        let outcome = SelectOutcome { values: vec![] };
+        let outcome = SelectOutcome { units: vec![] };
         match transform_outcome_to_mongo_msg(
             &Outcome::Select(outcome.clone()),
             &mock_config,

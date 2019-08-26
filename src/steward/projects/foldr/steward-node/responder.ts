@@ -1,6 +1,6 @@
 import { FoldrAction, UserData } from "../types";
 import { FoldrProject } from "../../meta";
-import { ImmuxDbJS } from "../../../../connectors/immuxdb.types";
+import { ImmuxDbJS } from "../../../../connectors/typescript/immuxdb.types";
 
 function escapeHtml(unsafe: string): string {
     return unsafe

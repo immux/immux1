@@ -1,8 +1,13 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 use tiny_http::{Method, Request, Response};
 use url::Url;
 
+use crate::config;
+use crate::declarations::basics::{
+    ChainName, GroupingLabel, PropertyName, UnitContent, UnitId, UnitIdError, UnitSpecifier,
+};
 use crate::declarations::commands::{
     Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, InspectCommand, Outcome,
     PickChainCommand, RevertAllCommand, RevertCommand, RevertCommandTargetSpec, SelectCommand,
@@ -12,13 +17,20 @@ use crate::declarations::errors::ImmuxError::HttpResponse;
 use crate::declarations::errors::ImmuxResult;
 use crate::executor::execute::execute;
 use crate::storage::core::ImmuxDBCore;
-use crate::{config, utils};
+use crate::storage::vkv::ChainHeight;
 
 #[derive(Debug)]
 pub enum HttpParsingError {
     UrlParsingError,
     BodyParsingError,
     BodyExtractionError,
+    UnitIdError(UnitIdError),
+}
+
+impl From<UnitIdError> for HttpParsingError {
+    fn from(error: UnitIdError) -> Self {
+        HttpParsingError::UnitIdError(error)
+    }
 }
 
 pub struct UrlInformation {
@@ -62,13 +74,15 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
     let url_info = parse_path(&request.url())?;
 
     let segments: Vec<&str> = url_info.main_path.split("/").collect();
-    let (target_collection, target_id) = if segments.len() >= 3 {
+    let (target_grouping_str, target_id_str) = if segments.len() >= 3 {
         (segments[1], segments[2])
     } else if segments.len() == 2 {
         (segments[1], "")
     } else {
         ("", "")
     };
+
+    let target_grouping = GroupingLabel::from(target_grouping_str.as_bytes());
 
     match request.method() {
         Method::Get => {
@@ -79,64 +93,68 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 url_info.extract_string_query(config::SELECT_CONDITION_KEYWORD)
             {
                 let command = Command::Select(SelectCommand {
-                    grouping: target_collection.as_bytes().to_vec(),
+                    grouping: target_grouping,
                     condition: SelectCondition::UnconditionalMatch,
                 });
                 return Ok(command);
             } else if let Some(_) = url_info.extract_string_query(config::INSPECT_KEYWORD) {
+                let target_id = UnitId::try_from(target_id_str)?;
                 let command = Command::Inspect(InspectCommand {
-                    grouping: target_collection.as_bytes().to_vec(),
-                    id: target_id.as_bytes().to_vec(),
+                    specifier: UnitSpecifier::new(target_grouping, target_id),
                 });
                 return Ok(command);
             } else {
+                let target_id = UnitId::try_from(target_id_str)?;
                 let command = Command::Select(SelectCommand {
-                    grouping: target_collection.as_bytes().to_vec(),
-                    condition: SelectCondition::Id(target_id.as_bytes().to_vec()),
+                    grouping: target_grouping,
+                    condition: SelectCondition::Id(target_id),
                 });
                 return Ok(command);
             }
         }
         Method::Put => {
-            if let Ok(height) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD) {
+            if let Ok(height_u64) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD) {
+                let height = ChainHeight::new(height_u64);
+                let target_id = UnitId::try_from(target_id_str)?;
+                let specifier = UnitSpecifier::new(target_grouping, target_id);
                 let command = Command::RevertOne(RevertCommand {
-                    grouping: target_collection.as_bytes().to_vec(),
                     specs: vec![RevertCommandTargetSpec {
-                        id: target_id.as_bytes().to_vec(),
+                        specifier,
                         target_height: height,
                     }],
                 });
                 return Ok(command);
-            } else if let Ok(height) =
+            } else if let Ok(height_u64) =
                 url_info.extract_numeric_query(config::REVERTALL_QUERY_KEYWORD)
             {
+                let height = ChainHeight::new(height_u64);
                 let command = Command::RevertAll(RevertAllCommand {
                     target_height: height,
                 });
                 return Ok(command);
             } else if let Some(namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
                 let command = Command::PickChain(PickChainCommand {
-                    new_chain_name: namespace.as_bytes().to_vec(),
+                    new_chain_name: ChainName::from(namespace.as_str()),
                 });
                 return Ok(command);
             } else if let Some(index) = url_info.extract_string_query(config::CREATE_INDEX_KEYWORD)
             {
                 let command = Command::CreateIndex(CreateIndexCommand {
-                    grouping: target_collection.as_bytes().to_vec(),
-                    field: index.as_bytes().to_vec(),
+                    grouping: target_grouping,
+                    name: PropertyName::new(index.as_bytes()),
+                });
+                return Ok(command);
+            } else {
+                let target_id = UnitId::try_from(target_id_str)?;
+                let command = Command::Insert(InsertCommand {
+                    grouping: target_grouping,
+                    targets: vec![InsertCommandSpec {
+                        id: target_id,
+                        content: UnitContent::JsonString(body.to_string()),
+                    }],
                 });
                 return Ok(command);
             }
-
-            let command = Command::Insert(InsertCommand {
-                grouping: target_collection.as_bytes().to_vec(),
-                targets: vec![InsertCommandSpec {
-                    id: target_id.as_bytes().to_vec(),
-                    value: body.as_bytes().to_vec(),
-                }],
-                insert_with_index: true,
-            });
-            Ok(command)
         }
         _ => Err(HttpParsingError::BodyParsingError.into()),
     }
@@ -144,55 +162,39 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
 
 pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
     let mut req = request;
-    let mut status = 200;
-    let mut body = String::new();
     let mut incoming_body = String::new();
     match req.as_reader().read_to_string(&mut incoming_body) {
         Ok(_) => (),
         Err(_error) => return Err(HttpParsingError::BodyExtractionError.into()),
     }
 
-    match parse_http_request(&req, &incoming_body) {
-        Err(_error) => {
-            status = 500;
-            body += "request parsing error";
-        }
+    let (status, body): (u16, String) = match parse_http_request(&req, &incoming_body) {
+        Err(error) => (500, format!("request parsing error {:?}", error)),
         Ok(command) => match execute(command, core) {
-            Err(_error) => status = 500,
+            Err(error) => (500, format!("executing error {:?}", error)),
             Ok(outcome) => match outcome {
                 Outcome::Select(outcome) => {
-                    status = 200;
-                    let should_break_line = outcome.values.len() >= 2;
-                    for item in outcome.values {
-                        body += &utils::utf8_to_string(&item);
+                    let mut body = String::new();
+                    let should_break_line = outcome.units.len() >= 2;
+                    for unit in outcome.units {
+                        body += &unit.content.to_string();
                         if should_break_line {
                             body += "\r\n";
                         }
                     }
+                    (200, body)
                 }
-                Outcome::NameChain(outcome) => {
-                    status = 200;
-                    body += &utils::utf8_to_string(&outcome.chain_name);
-                }
-                Outcome::Insert(outcome) => {
-                    status = 200;
-                    body += &format!("Inserted {} items", outcome.count);
-                }
+                Outcome::NameChain(outcome) => (200, outcome.chain_name.to_string()),
+                Outcome::Insert(outcome) => (200, format!("Inserted {} items", outcome.count)),
                 Outcome::Inspect(outcome) => {
-                    status = 200;
-                    for update in outcome.entry.updates.iter() {
-                        body += &format!(
-                            "{}{}{}\r\n",
-                            update.height,
-                            config::MULTIFIELD_SEPARATOR,
-                            &utils::utf8_to_string(&update.value)
-                        )
+                    let mut body = String::new();
+                    for inspection in outcome.inspections {
+                        body += &inspection.to_string();
+                        body += "\r\n";
                     }
+                    (200, body)
                 }
-                _ => {
-                    status = 200;
-                    body += "Unspecified outcome";
-                }
+                _ => (200, String::from("Unspecified outcome")),
             },
         },
     };

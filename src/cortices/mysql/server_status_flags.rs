@@ -1,11 +1,12 @@
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::utils::parse_u16;
+use crate::declarations::basics::{StoreKey, StoreValue};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::declarations::instructions::{
-    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
-    SetTargetSpec,
-};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::storage::instructions::{
+    Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteInstruction,
+    GetOneInstruction, Instruction, SetManyInstruction, SetTargetSpec,
+};
 use crate::utils::{get_bit_u16, set_bit_u16};
 
 /// @see https://dev.mysql.com/doc/internals/en/status-flags.html#packet-Protocol::StatusFlags
@@ -85,15 +86,16 @@ pub fn parse_status_flags(flags_vec: u16) -> ServerStatusFlags {
 const SERVER_STATUS_FLAGS_KEY: &str = "_SERVER_STATUS_FLAGS";
 
 pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
-    let instruction = AtomicSetInstruction {
-        targets: vec![SetTargetSpec {
-            key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
-            value: buffer.to_vec(),
-        }],
-        increment_height: false,
-    };
+    let instruction = Instruction::Data(DataInstruction::Write(DataWriteInstruction::SetMany(
+        SetManyInstruction {
+            targets: vec![SetTargetSpec {
+                key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
+                value: StoreValue::new(buffer.to_vec()),
+            }],
+        },
+    )));
 
-    match core.execute(&Instruction::AtomicSet(instruction)) {
+    match core.execute(&instruction) {
         Err(_error) => Err(ImmuxError::MySQLParser(
             MySQLParserError::CannotSetServerStatusFlags,
         )),
@@ -102,22 +104,22 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxR
 }
 
 pub fn load_server_status_flags(core: &mut ImmuxDBCore) -> ImmuxResult<ServerStatusFlags> {
-    let instruction = AtomicGetOneInstruction {
-        target: GetTargetSpec {
-            key: SERVER_STATUS_FLAGS_KEY.as_bytes().to_vec(),
+    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+        GetOneInstruction {
+            key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
             height: None,
         },
-    };
-    match core.execute(&Instruction::AtomicGetOne(instruction)) {
+    )));
+    match core.execute(&instruction) {
         Err(_error) => {
             return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::CannotReadServerStatusFlags,
             ));
         }
         Ok(answer) => match answer {
-            Answer::GetOneOk(get_answer) => {
-                let target = &get_answer.item;
-                let (status_flags, _) = parse_u16(target)?;
+            Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(get_answer))) => {
+                let target: Vec<u8> = get_answer.value.into();
+                let (status_flags, _) = parse_u16(&target)?;
                 let res = parse_status_flags(status_flags);
                 return Ok(res);
             }
@@ -139,6 +141,7 @@ mod server_status_flags_tests {
         serialize_status_flags, ServerStatusFlags,
     };
     use crate::storage::core::ImmuxDBCore;
+    use crate::storage::instructions::StoreNamespace;
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -176,7 +179,7 @@ mod server_status_flags_tests {
         let mut core = ImmuxDBCore::new(
             &engine_choice,
             DEFAULT_PERMANENCE_PATH,
-            DEFAULT_CHAIN_NAME.as_bytes(),
+            &StoreNamespace::new(DEFAULT_CHAIN_NAME.as_bytes()),
         )
         .unwrap();
         save_server_status_flags(&server_status_flags_buffer, &mut core).unwrap();

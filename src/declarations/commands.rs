@@ -1,6 +1,9 @@
-use crate::executor::shared::ValData;
-use crate::storage::vkv::{Entry, InstructionHeight};
 use serde::{Deserialize, Serialize};
+
+use crate::declarations::basics::{
+    ChainName, GroupingLabel, PropertyName, Unit, UnitContent, UnitId, UnitSpecifier,
+};
+use crate::storage::vkv::ChainHeight;
 
 /***************************************************
 *
@@ -10,63 +13,60 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertCommandSpec {
-    pub id: Vec<u8>,
-    pub value: Vec<u8>,
+    pub id: UnitId,
+    pub content: UnitContent,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InsertCommand {
-    pub grouping: Vec<u8>,
+    pub grouping: GroupingLabel,
     pub targets: Vec<InsertCommandSpec>,
-    pub insert_with_index: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateIndexCommand {
-    pub grouping: Vec<u8>,
-    pub field: Vec<u8>,
+    pub grouping: GroupingLabel,
+    pub name: PropertyName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PickChainCommand {
-    pub new_chain_name: Vec<u8>,
+    pub new_chain_name: ChainName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SelectCondition {
     UnconditionalMatch,
-    Id(Vec<u8>),
+    Id(UnitId),
     JSCode(String),
-    Kv(Vec<u8>, ValData),
+    NameProperty(PropertyName, UnitContent),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SelectCommand {
-    pub grouping: Vec<u8>,
+    pub grouping: GroupingLabel,
     pub condition: SelectCondition,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevertCommandTargetSpec {
-    pub id: Vec<u8>,
-    pub target_height: InstructionHeight,
+    pub specifier: UnitSpecifier,
+    pub target_height: ChainHeight,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevertCommand {
-    pub grouping: Vec<u8>,
     pub specs: Vec<RevertCommandTargetSpec>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevertAllCommand {
-    pub target_height: InstructionHeight,
+    pub target_height: ChainHeight,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectCommand {
-    pub grouping: Vec<u8>,
-    pub id: Vec<u8>,
+    pub specifier: UnitSpecifier,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -94,32 +94,48 @@ pub struct InsertOutcome {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PickChainOutcome {
-    pub new_chain_name: Vec<u8>,
+    pub new_chain_name: ChainName,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NameChainOutcome {
-    pub chain_name: Vec<u8>,
+    pub chain_name: ChainName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SelectOutcome {
-    pub values: Vec<Vec<u8>>,
+    pub units: Vec<Unit>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CreateIndexOutcome {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RevertOutcome {
-    pub count: u64,
-}
+pub struct RevertOutcome {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevertAllOutcome {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Inspection {
+    pub deleted: bool,
+    pub height: ChainHeight,
+    pub current_content: UnitContent,
+}
+
+impl ToString for Inspection {
+    fn to_string(&self) -> String {
+        format!(
+            "{}|{}|{}",
+            self.deleted,
+            self.height.as_u64(),
+            self.current_content.to_string()
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InspectOutcome {
-    pub entry: Entry,
+    pub inspections: Vec<Inspection>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

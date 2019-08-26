@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::cortices::mysql::capability_flags::{parse_capability_flags, CapabilityFlags};
 use crate::cortices::mysql::character_set::{parse_character_set, CharacterSet};
 use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
@@ -6,12 +8,11 @@ use crate::cortices::mysql::utils::{
 };
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::declarations::instructions::{
-    Answer, AtomicGetOneInstruction, AtomicSetInstruction, GetTargetSpec, Instruction,
-    SetTargetSpec,
-};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
-use std::collections::HashMap;
+use crate::storage::instructions::{
+    Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteInstruction,
+    GetOneInstruction, Instruction, SetManyInstruction, SetTargetSpec,
+};
 
 pub struct HandshakeResponse {
     pub payload_length: u32,
@@ -29,15 +30,16 @@ pub struct HandshakeResponse {
 const MYSQL_HANDSHAKE_RESPONSE_KEY: &str = "_MYSQL_HANDSHAKE_RESPONSE";
 
 pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
-    let instruction = AtomicSetInstruction {
-        targets: vec![SetTargetSpec {
-            key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
-            value: buffer.to_vec(),
-        }],
-        increment_height: false,
-    };
+    let instruction: Instruction = Instruction::Data(DataInstruction::Write(
+        DataWriteInstruction::SetMany(SetManyInstruction {
+            targets: vec![SetTargetSpec {
+                key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec().into(),
+                value: buffer.to_vec().into(),
+            }],
+        }),
+    ));
 
-    match core.execute(&Instruction::AtomicSet(instruction)) {
+    match core.execute(&instruction) {
         Err(_error) => Err(ImmuxError::MySQLParser(
             MySQLParserError::CannotSetClientStatus,
         )),
@@ -46,23 +48,22 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxRe
 }
 
 pub fn load_handshake_response(core: &mut ImmuxDBCore) -> ImmuxResult<HandshakeResponse> {
-    let instruction = AtomicGetOneInstruction {
-        target: GetTargetSpec {
-            key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec(),
+    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+        GetOneInstruction {
+            key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec().into(),
             height: None,
         },
-    };
-    match core.execute(&Instruction::AtomicGetOne(instruction)) {
+    )));
+    match core.execute(&instruction) {
         Err(_error) => {
             return Err(ImmuxError::MySQLSerializer(
                 MySQLSerializeError::CannotReadClientStatus,
             ));
         }
         Ok(answer) => match answer {
-            Answer::GetOneOk(get_answer) => {
-                let target = &get_answer.item;
-                let res = parse_handshake_response(target)?;
-                return Ok(res);
+            Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(get_answer))) => {
+                let data: Vec<u8> = get_answer.value.into();
+                return Ok(parse_handshake_response(&data)?);
             }
             _ => {
                 return Err(ImmuxError::MySQLSerializer(

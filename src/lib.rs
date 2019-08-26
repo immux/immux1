@@ -9,12 +9,13 @@ use crate::config::{save_config, ImmuxDBConfiguration, DEFAULT_CHAIN_NAME};
 use crate::cortices::tcp::setup_cortices;
 use crate::declarations::errors::ImmuxResult;
 use crate::storage::core::ImmuxDBCore;
+use crate::storage::instructions::StoreNamespace;
 
 pub fn run_immuxdb(config: &ImmuxDBConfiguration) -> ImmuxResult<()> {
     let mut core = ImmuxDBCore::new(
         &config.engine_choice,
         &config.data_root,
-        DEFAULT_CHAIN_NAME.as_bytes(),
+        &StoreNamespace::new(DEFAULT_CHAIN_NAME.as_bytes()),
     )?;
     save_config(config, &mut core)?;
     setup_cortices(core, config)?;

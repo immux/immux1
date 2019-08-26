@@ -5,12 +5,17 @@ use std::{io, thread};
 use libimmuxdb::config::ImmuxDBConfiguration;
 use libimmuxdb::run_immuxdb;
 
+pub fn reset_db_dir(path: &str) -> io::Result<()> {
+    println!("Initializing database in {}", path);
+    create_dir_all(&path)?;
+    remove_dir_all(path)?;
+    println!("Existing test data removed");
+    return Ok(());
+}
+
 pub fn launch_db(project_name: &str, port: u16) -> io::Result<()> {
     let data_root = format!("/tmp/{}/", project_name);
-    println!("Initializing database in {}", data_root);
-    create_dir_all(&data_root)?;
-    remove_dir_all(&data_root)?;
-    println!("Existing test data removed");
+    reset_db_dir(&data_root)?;
 
     let mut config = ImmuxDBConfiguration::default();
     config.data_root = data_root;

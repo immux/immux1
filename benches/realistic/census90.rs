@@ -1,51 +1,11 @@
 use std::error::Error;
 
-use crate::{csv_to_jsons_and_id, measure_iteration, BenchSpec};
-use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use serde::{Deserialize, Serialize};
 
-mod least_squares {
-    fn average(data: &[f64]) -> f64 {
-        let sum: f64 = data.iter().sum();
-        return sum / (data.len() as f64);
-    }
-
-    // for y = kx+b
-    // data: [(x1, y1), (x2, y2)...] -> (k, b)
-    pub fn solve(data: &[(f64, f64)]) -> (f64, f64) {
-        let xs: Vec<f64> = data.iter().map(|pair| pair.0).collect();
-        let ys: Vec<f64> = data.iter().map(|pair| pair.1).collect();
-        let x_average = average(&xs);
-        let y_average = average(&ys);
-
-        let slope: f64 = {
-            let numerator: f64 = {
-                let mut sum: f64 = 0.0;
-                for i in 0..data.len() {
-                    sum += (xs[i] - x_average) * (ys[i] - y_average)
-                }
-                sum
-            };
-            let denominator: f64 = {
-                let mut sum: f64 = 0.0;
-                for i in 0..data.len() {
-                    sum += (xs[i] - x_average).powi(2)
-                }
-                sum
-            };
-            if denominator == 0.0 {
-                0.0
-            } else {
-                numerator / denominator
-            }
-        };
-
-        let intercept = y_average - slope * x_average;
-        return (slope, intercept);
-    }
-}
-
-use least_squares::solve;
+use crate::utils::least_squares::solve;
+use crate::utils::{csv_to_jsons_and_id, measure_iteration};
+use crate::BenchSpec;
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CensusEntry {
@@ -135,7 +95,7 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
             &data,
             |datum| {
                 client
-                    .set_key_value(grouping_name, &datum.0, &datum.1)
+                    .set_by_id(grouping_name, datum.0, &datum.1)
                     .map_err(|err| err.into())
             },
             "insert",
@@ -148,7 +108,7 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
             &data,
             |datum| {
                 client
-                    .get_by_key(grouping_name, &datum.0)
+                    .get_by_id(grouping_name, datum.0)
                     .map_err(|err| err.into())
             },
             "get",
@@ -163,9 +123,6 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
     let time_get_1 = get()?;
     let (k_get_1, _) = solve(&time_get_1);
     println!("Gained {:.2e} ms per item on average", k_get_1);
-
-    insert()?;
-    get()?;
 
     Ok(())
 }

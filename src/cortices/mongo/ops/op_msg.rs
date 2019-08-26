@@ -1,3 +1,5 @@
+use std::mem;
+
 use bson::Document;
 
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
@@ -6,7 +8,6 @@ use crate::cortices::mongo::utils::parse_bson_document;
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::utils::{get_bit_u32, set_bit_u32, u32_to_u8_array, u8_array_to_u32};
-use std::mem;
 
 const CHECK_SUM_PRESENT_DIGIT: u8 = 0;
 const MORE_TO_COME_DIGIT: u8 = 1;
