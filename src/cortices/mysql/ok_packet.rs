@@ -128,6 +128,7 @@ mod ok_packet_tests {
     use crate::cortices::mysql::ok_packet::{serialize_ok_packet, HeaderOption, OkPacket};
     use crate::cortices::mysql::server_status_flags::save_server_status_flags;
     use crate::storage::core::ImmuxDBCore;
+    use crate::storage::instructions::StoreNamespace;
     use crate::storage::kv::KeyValueEngine;
 
     #[test]
@@ -156,7 +157,7 @@ mod ok_packet_tests {
         let mut core = ImmuxDBCore::new(
             &engine_choice,
             DEFAULT_PERMANENCE_PATH,
-            DEFAULT_CHAIN_NAME.as_bytes(),
+            &StoreNamespace::new(DEFAULT_CHAIN_NAME.as_bytes()),
         )
         .unwrap();
         let server_status_flags_buffer = [0x02, 0x00];

@@ -1,22 +1,23 @@
-use reqwest;
 use std::fmt::Formatter;
 
+use reqwest;
+
 pub trait ImmuxDBConnector {
-    fn get_by_key(&self, grouping: &str, key: &str) -> ClientResult;
-    fn inspect_by_key(&self, grouping: &str, key: &str) -> ClientResult;
-    fn revert_by_key(&self, grouping: &str, key: &str, height: u64) -> ClientResult;
-    fn set_key_value(&self, collection: &str, key: &str, value: &str) -> ClientResult;
+    fn get_by_id(&self, grouping: &str, id: u128) -> ClientResult;
+    fn inspect_by_id(&self, grouping: &str, id: u128) -> ClientResult;
+    fn revert_by_id(&self, grouping: &str, id: u128, height: u64) -> ClientResult;
+    fn set_by_id(&self, collection: &str, id: u128, value: &str) -> ClientResult;
     fn switch_namespace(&self, namespace: &str) -> ClientResult;
 }
 
 #[derive(Debug)]
 pub enum ImmuxDBClientError {
     Everything,
-    Reqewest(reqwest::Error),
+    Reqwest(reqwest::Error),
 }
 
 impl std::fmt::Display for ImmuxDBClientError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, _f: &mut Formatter) -> Result<(), std::fmt::Error> {
         return Ok(());
     }
 }
@@ -27,9 +28,9 @@ impl std::error::Error for ImmuxDBClientError {
     }
 }
 
-impl std::convert::From<reqwest::Error> for ImmuxDBClientError {
+impl From<reqwest::Error> for ImmuxDBClientError {
     fn from(error: reqwest::Error) -> ImmuxDBClientError {
-        return ImmuxDBClientError::Reqewest(error);
+        return ImmuxDBClientError::Reqwest(error);
     }
 }
 
@@ -48,34 +49,35 @@ impl ImmuxDBClient {
 }
 
 impl ImmuxDBConnector for ImmuxDBClient {
-    fn get_by_key(&self, grouping: &str, key: &str) -> ClientResult {
-        let mut response = reqwest::get(&format!("http://{}/{}/{}", &self.host, grouping, key))?;
+    fn get_by_id(&self, grouping: &str, id: u128) -> ClientResult {
+        let url = format!("http://{}/{}/{}", &self.host, grouping, id);
+        let mut response = reqwest::get(&url)?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn inspect_by_key(&self, grouping: &str, key: &str) -> ClientResult {
+    fn inspect_by_id(&self, grouping: &str, id: u128) -> ClientResult {
         let mut response = reqwest::get(&format!(
             "http://{}/{}/{}?inspect",
-            &self.host, grouping, key
+            &self.host, grouping, id
         ))?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn revert_by_key(&self, grouping: &str, key: &str, height: u64) -> ClientResult {
+    fn revert_by_id(&self, grouping: &str, id: u128, height: u64) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
             .put(&format!(
                 "http://{}/{}/{}?revert={}",
-                &self.host, grouping, key, height
+                &self.host, grouping, id, height
             ))
             .send()?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn set_key_value(&self, collection: &str, key: &str, value: &str) -> ClientResult {
+    fn set_by_id(&self, collection: &str, id: u128, value: &str) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
-            .put(&format!("http://{}/{}/{}", &self.host, collection, key))
+            .put(&format!("http://{}/{}/{}", &self.host, collection, id))
             .body(value.to_string())
             .send()?;
         return response.text().map_err(|e| e.into());

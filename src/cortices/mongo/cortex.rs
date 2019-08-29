@@ -17,7 +17,7 @@ use crate::cortices::mongo::transformer::{
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::{Cortex, CortexResponse};
-use crate::declarations::errors::{ImmuxResult};
+use crate::declarations::errors::ImmuxResult;
 use crate::executor::execute::execute;
 use crate::storage::core::ImmuxDBCore;
 
@@ -33,7 +33,7 @@ enum ExceptionQueryHandlerResult {
 // @see https://github.com/immux/immux/issues/37
 fn serialize_op_with_computed_length<OP>(
     op: &OP,
-    serializer: &Fn(&OP) -> ImmuxResult<Vec<u8>>,
+    serializer: &dyn Fn(&OP) -> ImmuxResult<Vec<u8>>,
 ) -> ImmuxResult<Vec<u8>> {
     match serializer(op) {
         Err(error) => Err(error),
@@ -94,7 +94,7 @@ fn handle_exceptional_query(
             fn construct_reply_result_of_response_type(
                 response_doc: Document,
                 incoming_header: &MsgHeader,
-                response_type: &Fn(Vec<u8>) -> CortexResponse,
+                response_type: &dyn Fn(Vec<u8>) -> CortexResponse,
             ) -> ExceptionQueryHandlerResult {
                 let reply = construct_single_doc_op_msg(response_doc, incoming_header);
                 match serialize_op_with_computed_length(&reply, &serialize_op_msg) {

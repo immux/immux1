@@ -1,5 +1,6 @@
+use crate::declarations::basics::GroupingLabel;
 use crate::declarations::commands::SelectCondition;
-use crate::declarations::instructions::Answer;
+use crate::storage::instructions::Answer;
 
 #[derive(Debug)]
 pub enum ExecutorError {
@@ -8,4 +9,5 @@ pub enum ExecutorError {
     UnimplementedSelectCondition(SelectCondition),
     CannotDeserialize,
     UnexpectedNumberType,
+    NoIndexedNamesList(GroupingLabel),
 }

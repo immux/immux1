@@ -16,6 +16,7 @@ pub struct OpReplyResponseFlags {
     pub await_capable: bool,
 }
 
+#[allow(dead_code)]
 fn parse_op_reply_response_flags(flag_int: u32) -> OpReplyResponseFlags {
     return OpReplyResponseFlags {
         cursor_not_found: get_bit_u32(flag_int, 0),

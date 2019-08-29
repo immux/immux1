@@ -47,7 +47,7 @@ pub fn u8_array_to_u16(data: &[u8; 2]) -> u16 {
 
 pub fn get_bit_u32(input: u32, digit: u8) -> bool {
     if digit < 32 {
-        input & (1u32 << digit) != 0
+        input & (1u32 << (digit as u32)) != 0
     } else {
         false
     }
@@ -55,7 +55,7 @@ pub fn get_bit_u32(input: u32, digit: u8) -> bool {
 
 pub fn get_bit_u16(input: u16, digit: u8) -> bool {
     if digit < 16 {
-        input & (1u16 << digit) != 0
+        input & (1u16 << (digit as u16)) != 0
     } else {
         false
     }
@@ -63,17 +63,17 @@ pub fn get_bit_u16(input: u16, digit: u8) -> bool {
 
 pub fn set_bit_u32(int: &mut u32, digit: u8, value: bool) {
     if value {
-        *int |= 1u32 << digit;
+        *int |= 1u32 << (digit as u32);
     } else {
-        *int &= !(1u32 << digit);
+        *int &= !(1u32 << (digit as u32));
     }
 }
 
 pub fn set_bit_u16(int: &mut u16, digit: u8, value: bool) {
     if value {
-        *int |= 1u16 << digit;
+        *int |= 1u16 << (digit as u16);
     } else {
-        *int &= !(1u16 << digit);
+        *int &= !(1u16 << (digit as u16));
     }
 }
 
@@ -114,11 +114,80 @@ pub fn u16_to_u8_array(x: u16) -> [u8; 2] {
     [b0, b1]
 }
 
+pub fn u128_to_u8_array(x: u128) -> [u8; 16] {
+    let b15 = ((x >> 120) & 0xff) as u8;
+    let b14 = ((x >> 112) & 0xff) as u8;
+    let b13 = ((x >> 104) & 0xff) as u8;
+    let b12 = ((x >> 96) & 0xff) as u8;
+    let b11 = ((x >> 88) & 0xff) as u8;
+    let b10 = ((x >> 80) & 0xff) as u8;
+    let b9 = ((x >> 72) & 0xff) as u8;
+    let b8 = ((x >> 64) & 0xff) as u8;
+
+    let b7 = ((x >> 56) & 0xff) as u8;
+    let b6 = ((x >> 48) & 0xff) as u8;
+    let b5 = ((x >> 40) & 0xff) as u8;
+    let b4 = ((x >> 32) & 0xff) as u8;
+    let b3 = ((x >> 24) & 0xff) as u8;
+    let b2 = ((x >> 16) & 0xff) as u8;
+    let b1 = ((x >> 8) & 0xff) as u8;
+    let b0 = ((x >> 0) & 0xff) as u8;
+
+    [
+        b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15,
+    ]
+}
+
+pub fn u8_array_to_u128(data: &[u8; 16]) -> u128 {
+    (((data[0] as u128) << 0)
+        + ((data[1] as u128) << 8)
+        + ((data[2] as u128) << 16)
+        + ((data[3] as u128) << 24)
+        + ((data[4] as u128) << 32)
+        + ((data[5] as u128) << 40)
+        + ((data[6] as u128) << 48)
+        + ((data[7] as u128) << 56)
+        + ((data[8] as u128) << 64)
+        + ((data[9] as u128) << 72)
+        + ((data[10] as u128) << 80)
+        + ((data[11] as u128) << 88)
+        + ((data[12] as u128) << 96)
+        + ((data[13] as u128) << 104)
+        + ((data[14] as u128) << 112)
+        + ((data[15] as u128) << 120))
+        .into()
+}
+
+pub fn bool_to_u8(b: bool) -> u8 {
+    if b {
+        1
+    } else {
+        0
+    }
+}
+
+pub fn u8_to_bool(u: u8) -> bool {
+    if u == 0 {
+        false
+    } else {
+        true
+    }
+}
+
+pub fn f64_to_u8_array(f: f64) -> [u8; 8] {
+    return u64_to_u8_array(f.to_bits());
+}
+
+pub fn u8_array_to_f64(data: &[u8; 8]) -> f64 {
+    return f64::from_bits(u8_array_to_u64(data));
+}
+
 #[cfg(test)]
 mod utils_test {
     use crate::utils::{
-        get_bit_u16, get_bit_u32, set_bit_u16, set_bit_u32, u16_to_u8_array, u32_to_u8_array,
-        u64_to_u8_array, u8_array_to_u16, u8_array_to_u32, u8_array_to_u64, utf8_to_string,
+        f64_to_u8_array, get_bit_u16, get_bit_u32, set_bit_u16, set_bit_u32, u16_to_u8_array,
+        u32_to_u8_array, u64_to_u8_array, u8_array_to_f64, u8_array_to_u16, u8_array_to_u32,
+        u8_array_to_u64, utf8_to_string,
     };
 
     #[test]
@@ -256,6 +325,36 @@ mod utils_test {
             set_bit_u16(&mut data, i, false);
         }
         assert_eq!(data, 0);
+    }
+
+    #[test]
+    fn spot_check_f64_array_reversibility() {
+        fn is_reversible(f: f64) -> bool {
+            let bytes = f64_to_u8_array(f);
+            let f_parsed = u8_array_to_f64(&[
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ]);
+            return f == f_parsed;
+        }
+
+        // large numbers
+        {
+            let mut f = 0.0;
+            while f < 1e20 {
+                assert!(is_reversible(f));
+                f += 1.1e6;
+                f *= -1.3;
+            }
+        }
+
+        // small numbers
+        {
+            let mut f = 1e-10;
+            while f < 1.0 {
+                assert!(is_reversible(f));
+                f *= -1.9;
+            }
+        }
     }
 
 }

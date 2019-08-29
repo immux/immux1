@@ -1,3 +1,5 @@
+use std::io::Error;
+
 use crate::config::ConfigError;
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
 use crate::cortices::mongo::transformer::MongoTransformerError;
@@ -5,22 +7,23 @@ use crate::cortices::mysql::error::{MySQLParserError, MySQLSerializeError};
 use crate::cortices::tcp::TcpError;
 use crate::cortices::unicus::cortex::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
+use crate::declarations::basics::id_list::IdListError;
+use crate::declarations::basics::property_names::PropertyNameListError;
+use crate::declarations::basics::unit_id::UnitIdError;
+use crate::declarations::basics::{StoreKeyError, UnitContentError};
 use crate::executor::errors::ExecutorError;
-use crate::storage::kv::hashmap::HashmapStorageEngineError;
-use crate::storage::kv::rocks::RocksEngineError;
+use crate::executor::reverse_index::ReverseIndexError;
+use crate::storage::kv::KVError;
 use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::VkvError;
-use std::io::Error;
 
 #[derive(Debug)]
 pub enum ImmuxError {
-    RocksEngine(RocksEngineError),
-    HashmapEngine(HashmapStorageEngineError),
-
     HttpParser(HttpParsingError),
     HttpResponse(Error),
 
     VKV(VkvError),
+    KV(KVError),
 
     Config(ConfigError),
 
@@ -38,89 +41,96 @@ pub enum ImmuxError {
     MySQLSerializer(MySQLSerializeError),
 
     Transaction(TransactionError),
+
+    UnitContentProcessing(UnitContentError),
+    ReverseIndexProcessing(ReverseIndexError),
+    UnitId(UnitIdError),
+    StoreKey(StoreKeyError),
+    PropertyName(PropertyNameListError),
+    IdList(IdListError),
 }
 
-impl std::convert::From<MongoParserError> for ImmuxError {
+impl From<MongoParserError> for ImmuxError {
     fn from(error: MongoParserError) -> ImmuxError {
         ImmuxError::MongoParser(error)
     }
 }
 
-impl std::convert::From<MongoSerializeError> for ImmuxError {
+impl From<MongoSerializeError> for ImmuxError {
     fn from(error: MongoSerializeError) -> ImmuxError {
         ImmuxError::MongoSerializer(error)
     }
 }
 
-impl std::convert::From<MySQLParserError> for ImmuxError {
+impl From<MySQLParserError> for ImmuxError {
     fn from(error: MySQLParserError) -> ImmuxError {
         ImmuxError::MySQLParser(error)
     }
 }
 
-impl std::convert::From<MySQLSerializeError> for ImmuxError {
+impl From<MySQLSerializeError> for ImmuxError {
     fn from(error: MySQLSerializeError) -> ImmuxError {
         ImmuxError::MySQLSerializer(error)
     }
 }
 
-impl std::convert::From<TcpError> for ImmuxError {
+impl From<TcpError> for ImmuxError {
     fn from(error: TcpError) -> ImmuxError {
         ImmuxError::Tcp(error)
     }
 }
 
-impl std::convert::From<ConfigError> for ImmuxError {
+impl From<ConfigError> for ImmuxError {
     fn from(error: ConfigError) -> ImmuxError {
         ImmuxError::Config(error)
     }
 }
 
-impl std::convert::From<MongoTransformerError> for ImmuxError {
+impl From<MongoTransformerError> for ImmuxError {
     fn from(error: MongoTransformerError) -> ImmuxError {
         ImmuxError::MongoTransformer(error)
     }
 }
 
-impl std::convert::From<VkvError> for ImmuxError {
+impl From<VkvError> for ImmuxError {
     fn from(error: VkvError) -> ImmuxError {
         ImmuxError::VKV(error)
     }
 }
 
-impl std::convert::From<DeserializationError> for ImmuxError {
+impl From<DeserializationError> for ImmuxError {
     fn from(error: DeserializationError) -> ImmuxError {
         ImmuxError::Deserialization(error)
     }
 }
 
-impl std::convert::From<ExecutorError> for ImmuxError {
+impl From<ExecutorError> for ImmuxError {
     fn from(error: ExecutorError) -> ImmuxError {
         ImmuxError::Executor(error)
     }
 }
 
-impl std::convert::From<TransactionError> for ImmuxError {
+impl From<TransactionError> for ImmuxError {
     fn from(error: TransactionError) -> ImmuxError {
         ImmuxError::Transaction(error)
     }
 }
 
-impl std::convert::From<RocksEngineError> for ImmuxError {
-    fn from(error: RocksEngineError) -> ImmuxError {
-        ImmuxError::RocksEngine(error)
-    }
-}
-
-impl std::convert::From<HashmapStorageEngineError> for ImmuxError {
-    fn from(error: HashmapStorageEngineError) -> ImmuxError {
-        ImmuxError::HashmapEngine(error)
-    }
-}
-
-impl std::convert::From<HttpParsingError> for ImmuxError {
+impl From<HttpParsingError> for ImmuxError {
     fn from(error: HttpParsingError) -> ImmuxError {
         ImmuxError::HttpParser(error)
+    }
+}
+
+impl From<UnitContentError> for ImmuxError {
+    fn from(error: UnitContentError) -> ImmuxError {
+        ImmuxError::UnitContentProcessing(error)
+    }
+}
+
+impl From<ReverseIndexError> for ImmuxError {
+    fn from(error: ReverseIndexError) -> ImmuxError {
+        ImmuxError::ReverseIndexProcessing(error)
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::declarations::instructions::{Answer, Instruction};
+use crate::storage::instructions::{Answer, Instruction, StoreNamespace};
 use crate::storage::kv::KeyValueEngine;
 use crate::storage::tkv::{ImmuxDBTransactionKeyValueStore, TransactionKeyValueStore};
 
@@ -15,7 +15,7 @@ impl ImmuxDBCore {
     pub fn new(
         engine_choice: &KeyValueEngine,
         data_root: &str,
-        namespace: &[u8],
+        namespace: &StoreNamespace,
     ) -> Result<ImmuxDBCore, ImmuxError> {
         let tkv = ImmuxDBTransactionKeyValueStore::new(engine_choice, data_root, namespace)?;
         let core = ImmuxDBCore { tkv };

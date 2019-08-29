@@ -1,68 +1,128 @@
 use std::ffi::OsString;
 
-use rocksdb::{Error as RocksError, DB};
+use rocksdb::{
+    Direction, Error as RocksError, IteratorMode, Options, ReadOptions, SliceTransform, WriteBatch,
+    DB,
+};
 
-use crate::declarations::errors::ImmuxResult;
-use crate::storage::kv::KeyValueStore;
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
+use crate::storage::kv::{
+    BoxedKVKey, BoxedKVValue, KVError, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueStore,
+};
+
+pub type PrefixExtractor = fn(&[u8]) -> &[u8];
 
 #[derive(Debug)]
 pub enum RocksEngineError {
     InitializationError(RocksError),
-    NotFound,
     GetError(RocksError),
     PutError(RocksError),
+    BatchPutError(RocksError),
+    BatchWriteError(RocksError),
+}
+
+impl From<RocksEngineError> for ImmuxError {
+    fn from(error: RocksEngineError) -> ImmuxError {
+        ImmuxError::KV(KVError::RocksEngine(error))
+    }
 }
 
 pub struct RocksStore {
     data_root: String,
-    namespace: Vec<u8>,
+    namespace: KVNamespace,
     db: DB,
+    extractor: PrefixExtractor,
 }
 
-fn get_data_dir(data_root: &str, namespace: &[u8]) -> OsString {
-    let path = format!("{}{}", data_root, String::from_utf8_lossy(namespace));
+fn get_data_dir(data_root: &str, namespace: &KVNamespace) -> OsString {
+    let path = format!("{}{}", data_root, namespace.to_string());
     path.into()
 }
 
-fn get_new_db(data_root: &str, namespace: &[u8]) -> ImmuxResult<DB> {
-    match DB::open_default(get_data_dir(data_root, namespace)) {
+fn get_new_db(
+    data_root: &str,
+    namespace: &KVNamespace,
+    prefix_extractor: PrefixExtractor,
+) -> ImmuxResult<DB> {
+    let mut options = Options::default();
+    options.create_if_missing(true);
+    options.set_prefix_extractor(SliceTransform::create("all", prefix_extractor, None));
+    match DB::open(&options, get_data_dir(data_root, namespace)) {
         Err(error) => Err(RocksEngineError::InitializationError(error).into()),
         Ok(db) => Ok(db),
     }
 }
 
 impl RocksStore {
-    pub fn new(data_root: &str, namespace: &[u8]) -> ImmuxResult<RocksStore> {
-        let db = get_new_db(data_root, namespace)?;
+    pub fn new(
+        data_root: &str,
+        namespace: &KVNamespace,
+        prefix_extractor: PrefixExtractor,
+    ) -> ImmuxResult<RocksStore> {
+        let db = get_new_db(data_root, namespace, prefix_extractor)?;
         let store = RocksStore {
-            namespace: namespace.to_vec(),
+            namespace: namespace.to_owned(),
             data_root: data_root.to_string(),
             db,
+            extractor: prefix_extractor,
         };
         Ok(store)
     }
 }
 
 impl KeyValueStore for RocksStore {
-    fn get(&self, key: &[u8]) -> ImmuxResult<Vec<u8>> {
-        match self.db.get(key) {
-            Ok(Some(value)) => Ok(value.to_vec()),
-            Ok(None) => Err(RocksEngineError::NotFound.into()),
+    fn get(&self, key: &KVKey) -> ImmuxResult<KVValue> {
+        match self.db.get(key.as_bytes()) {
+            Ok(Some(value)) => Ok(value.to_vec().into()),
+            Ok(None) => Err(KVError::NotFound(key.clone()).into()),
             Err(error) => Err(RocksEngineError::GetError(error).into()),
         }
     }
-    fn set(&mut self, key: &[u8], value: &[u8]) -> ImmuxResult<Vec<u8>> {
-        match self.db.put(key, value) {
+
+    fn set(&mut self, key: &KVKey, value: &KVValue) -> ImmuxResult<()> {
+        match self.db.put(key.as_bytes(), value.as_bytes()) {
             Err(error) => Err(RocksEngineError::PutError(error).into()),
-            Ok(_null) => Ok(vec![]),
+            Ok(_) => Ok(()),
         }
     }
-    fn switch_namespace(&mut self, namespace: &[u8]) -> ImmuxResult<()> {
-        self.namespace = namespace.to_vec();
-        self.db = get_new_db(&self.data_root, namespace)?;
+
+    fn set_many(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()> {
+        let mut batch = WriteBatch::default();
+        for pair in pairs {
+            let (key, value) = pair;
+            match batch.put(key.as_bytes(), value.as_bytes()) {
+                Err(error) => return Err(RocksEngineError::BatchPutError(error).into()),
+                Ok(_) => {}
+            };
+        }
+        match self.db.write(batch) {
+            Err(error) => return Err(RocksEngineError::BatchWriteError(error).into()),
+            Ok(_) => Ok(()),
+        }
+    }
+
+    fn switch_namespace(&mut self, namespace: &KVNamespace) -> ImmuxResult<()> {
+        self.namespace = namespace.to_owned();
+        self.db = get_new_db(&self.data_root, namespace, self.extractor)?;
         return Ok(());
     }
-    fn read_namespace(&self) -> &[u8] {
-        &self.namespace
+
+    fn read_namespace(&self) -> KVNamespace {
+        self.namespace.clone()
+    }
+
+    fn filter_prefix(&self, prefix: &KVKeySegment) -> Box<Vec<(BoxedKVKey, BoxedKVValue)>> {
+        let read_options = ReadOptions::default();
+        let iterator = self
+            .db
+            .iterator_opt(
+                IteratorMode::From(prefix.as_bytes(), Direction::Forward),
+                &read_options,
+            )
+            .take_while(|pair| pair.0.starts_with(prefix.as_bytes()));
+        let data: Vec<_> = iterator
+            .map(|item| (BoxedKVKey::new(item.0), BoxedKVValue::new(item.1)))
+            .collect();
+        return Box::new(data);
     }
 }

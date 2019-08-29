@@ -2,7 +2,8 @@ use std::error::Error;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{csv_to_jsons_and_id, measure_iteration, BenchSpec, JsonTableWithId};
+use crate::utils::{csv_to_jsons_and_id, measure_iteration, JsonTableWithId};
+use crate::BenchSpec;
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -133,7 +134,7 @@ pub fn berka99(bench: &BenchSpec) -> Result<(), Box<dyn Error>> {
             &table.1,
             |row| {
                 client
-                    .set_key_value(bench.name, &row.0, &row.1)
+                    .set_by_id(bench.name, row.0, &row.1)
                     .map_err(|err| err.into())
             },
             "get",

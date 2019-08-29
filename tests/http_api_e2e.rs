@@ -1,7 +1,6 @@
 #[cfg(test)]
 use std::error::Error;
 use std::thread;
-use std::time::Duration;
 
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
@@ -15,7 +14,7 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
 
-    let id = "doc";
+    let id = 0;
     let grouping = "GROUPING";
 
     let namespace_a = "immuxtest-ns-A";
@@ -28,16 +27,16 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
     assert_ne!(data_in_a, data_in_b);
 
     client.switch_namespace(namespace_a)?;
-    client.set_key_value(grouping, id, data_in_a)?;
+    client.set_by_id(grouping, id, data_in_a)?;
 
     client.switch_namespace(namespace_b)?;
-    client.set_key_value(grouping, id, data_in_b)?;
+    client.set_by_id(grouping, id, data_in_b)?;
 
-    let data_out_b = client.get_by_key(grouping, id)?;
+    let data_out_b = client.get_by_id(grouping, id)?;
     assert_eq!(data_in_b, data_out_b);
 
     client.switch_namespace(namespace_a)?;
-    let data_out_a = client.get_by_key(grouping, id)?;
+    let data_out_a = client.get_by_id(grouping, id)?;
     assert_eq!(data_in_a, data_out_a);
 
     Ok(())
@@ -54,7 +53,7 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
     client.switch_namespace("immuxtest-single-document-versioning")?;
-    let id = "doc_id";
+    let id = 1;
     let grouping = "GROUPING";
 
     fn dummy_data(height: u64) -> String {
@@ -64,32 +63,36 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
     let range = INITIAL_HEIGHT..100;
 
     for height in range.clone() {
-        client.set_key_value(grouping, id, &dummy_data(height))?;
+        client.set_by_id(grouping, id, &dummy_data(height))?;
     }
 
-    let body_text = client.inspect_by_key(grouping, id)?;
-    let data: Vec<(&str, &str)> = body_text
+    println!("A");
+    let body_text = client.inspect_by_id(grouping, id)?;
+    println!("Output text {}", body_text);
+    let data: Vec<(&str, &str, &str)> = body_text
         .split("\r\n")
         .filter(|line| line.len() > 0)
         .map(|line| {
             let segments: Vec<_> = line.split("|").collect();
-            return (segments[0], segments[1]);
+            return (segments[0], segments[1], segments[2]);
         })
         .collect();
 
+    println!("B");
     // Test inspection of version changes
     for expected_height in range.clone() {
         let index = (expected_height - INITIAL_HEIGHT) as usize;
-        let (actual_height, actual_data) = data[index];
+        let (_actual_deleted, actual_height, actual_data) = data[index];
         let expected_data = dummy_data(expected_height);
         assert_eq!(expected_height, actual_height.parse::<u64>().unwrap());
         assert_eq!(expected_data, actual_data);
     }
 
+    println!("C");
     // Test revert
     for target_height in range.clone() {
-        client.revert_by_key(grouping, id, target_height)?;
-        let current_value = client.get_by_key(grouping, id)?;
+        client.revert_by_id(grouping, id, target_height)?;
+        let current_value = client.get_by_id(grouping, id)?;
         let expected_value = dummy_data(target_height);
         assert_eq!(current_value, expected_value);
     }
@@ -109,29 +112,29 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
 
     let grouping = "GROUPING";
 
-    let inputs: Vec<(&str, &str)> = vec![
+    let inputs: Vec<(u128, &str)> = vec![
         //id, data
-        ("A", "a1"),
-        ("A", "a2"),
-        ("B", "b1"),
-        ("A", "a3"),
-        ("C", "c1"),
-        ("B", "b2"),
-        ("C", "c2"),
+        (0, "a1"),
+        (0, "a2"),
+        (1, "b1"),
+        (0, "a3"),
+        (2, "c1"),
+        (1, "b2"),
+        (2, "c2"),
     ];
 
     // Store data in specified order
     for input in inputs.iter() {
         let (id, data) = input;
-        client.set_key_value(grouping, id, data)?;
+        client.set_by_id(grouping, *id, data)?;
     }
 
     // Revert in input order and check consistency
     for (index, input) in inputs.iter().enumerate() {
         let height = INITIAL_HEIGHT + (index as u64);
         let (id, input_data) = input;
-        client.revert_by_key(grouping, id, height)?;
-        let current_data = client.get_by_key(grouping, id)?;
+        client.revert_by_id(grouping, *id, height)?;
+        let current_data = client.get_by_id(grouping, *id)?;
         assert_eq!(&current_data, input_data);
     }
 
