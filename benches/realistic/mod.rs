@@ -1,12 +1,45 @@
 mod berka99;
 mod census90;
-mod realistic_bench;
 mod utils;
 
-pub use berka99::berka99;
-pub use census90::census90;
+use std::error::Error;
 
-pub use realistic_bench::{bench_all, BenchSpec};
+use berka99::berka99;
+use census90::census90;
+use immuxdb_dev_utils::launch_db;
+
+use std::thread;
+use std::time::Duration;
+
+pub struct BenchSpec {
+    pub name: &'static str,
+    pub unicus_port: u16,
+    pub main: &'static dyn Fn(&BenchSpec) -> Result<(), Box<dyn Error>>,
+    pub row_limit: usize,
+    pub report_period: usize,
+}
+
+pub fn bench(benches: Vec<BenchSpec>) {
+    for bench in benches {
+        println!(
+            "\nExecuting bench {}, with tables truncated at row {}",
+            bench.name, bench.row_limit
+        );
+
+        let bench_name = bench.name;
+        let db_port = bench.unicus_port;
+        thread::spawn(move || launch_db(bench_name, db_port));
+        println!("Waiting 5s for database to be ready...");
+        thread::sleep(Duration::from_secs(5));
+
+        println!("Start benching...");
+        let f = bench.main;
+        match f(&bench) {
+            Err(error) => eprintln!("Failed to bench {}: {:?}", bench.name, error),
+            Ok(_) => {}
+        }
+    }
+}
 
 fn main() {
     let benches: Vec<BenchSpec> = vec![
@@ -25,5 +58,5 @@ fn main() {
             report_period: 1_000,
         },
     ];
-    bench_all(&benches);
+    bench(benches);
 }

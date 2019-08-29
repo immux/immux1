@@ -3,9 +3,10 @@ use std::error::Error;
 use serde::{Deserialize, Serialize};
 
 use crate::utils::least_squares::solve;
-use crate::utils::{csv_to_jsons_and_id, measure_iteration};
+use crate::utils::{csv_to_json_table, measure_iteration};
 use crate::BenchSpec;
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use libimmuxdb::declarations::basics::GroupingLabel;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CensusEntry {
@@ -81,21 +82,21 @@ struct CensusEntry {
 }
 
 pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
-    let data = csv_to_jsons_and_id::<CensusEntry>(
+    let table = csv_to_json_table::<CensusEntry>(
         "benches/realistic/data-raw/census1990/USCensus1990.data.csv",
         b',',
         spec.row_limit,
     )?;
 
-    let grouping_name = "GROUPING";
+    let grouping_label = GroupingLabel::new("GROUPING".as_bytes());
     let client = ImmuxDBClient::new(&format!("localhost:{}", spec.unicus_port))?;
 
     let insert = || -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
         measure_iteration(
-            &data,
-            |datum| {
+            &table,
+            |unit| {
                 client
-                    .set_by_id(grouping_name, datum.0, &datum.1)
+                    .set_unit(&grouping_label, unit)
                     .map_err(|err| err.into())
             },
             "insert",
@@ -105,10 +106,10 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
 
     let get = || -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
         measure_iteration(
-            &data,
-            |datum| {
+            &table,
+            |unit| {
                 client
-                    .get_by_id(grouping_name, datum.0)
+                    .get_by_id(&grouping_label, &unit.id)
                     .map_err(|err| err.into())
             },
             "get",

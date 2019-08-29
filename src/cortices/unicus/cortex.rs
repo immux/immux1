@@ -137,11 +137,33 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     new_chain_name: ChainName::from(namespace.as_str()),
                 });
                 return Ok(command);
-            } else if let Some(index) = url_info.extract_string_query(config::CREATE_INDEX_KEYWORD)
+            } else if let Some(property_name_str) =
+                url_info.extract_string_query(config::CREATE_INDEX_KEYWORD)
             {
                 let command = Command::CreateIndex(CreateIndexCommand {
                     grouping: target_grouping,
-                    name: PropertyName::new(index.as_bytes()),
+                    name: PropertyName::new(property_name_str.as_bytes()),
+                });
+                return Ok(command);
+            } else if target_id_str == config::INTERNAL_API_TARGET_ID_IDENTIFIER {
+                //                this is an internal API
+                let mut targets: Vec<InsertCommandSpec> = vec![];
+
+                let units_string_vec: Vec<&str> = body.split("\r\n").collect();
+                for unit_str in units_string_vec {
+                    let id_property: Vec<&str> = unit_str.split("|").collect();
+                    let id_str = id_property[0];
+                    let property_str = id_property[1];
+                    let insert_command_spec = InsertCommandSpec {
+                        id: UnitId::try_from(id_str)?,
+                        content: UnitContent::JsonString(property_str.to_string()),
+                    };
+
+                    targets.push(insert_command_spec);
+                }
+                let command = Command::Insert(InsertCommand {
+                    grouping: target_grouping,
+                    targets,
                 });
                 return Ok(command);
             } else {

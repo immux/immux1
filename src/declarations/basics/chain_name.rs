@@ -7,6 +7,9 @@ use crate::utils::utf8_to_string;
 pub struct ChainName(Vec<u8>);
 
 impl ChainName {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self(bytes.to_vec())
+    }
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }

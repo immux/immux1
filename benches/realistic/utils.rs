@@ -4,33 +4,41 @@ use std::io;
 use std::time::Instant;
 
 use csv;
+use immuxdb_bench_utils::JsonTable;
+use libimmuxdb::declarations::basics::{Unit, UnitContent, UnitId};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-pub type JsonTableWithId = Vec<(u128, String)>;
-
-pub fn csv_to_jsons_and_id<J: DeserializeOwned + Serialize>(
+pub fn csv_to_json_table<J: DeserializeOwned + Serialize>(
     csv_file_path: &str,
     delimiter: u8,
     row_limit: usize,
-) -> Result<JsonTableWithId, Box<dyn Error>> {
+) -> Result<JsonTable, Box<dyn Error>> {
     let reading = read(csv_file_path)?;
-    type ID = u128;
-    type JsonString = String;
     let mut csv_parsing = csv::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reading.as_slice());
-    let data: Vec<(ID, JsonString)> = csv_parsing
+    let data: JsonTable = csv_parsing
         .records()
-        .map(|result| -> io::Result<(u128, String)> {
+        .map(|result| -> io::Result<Unit> {
             let record = result?;
             let journal: J = record.deserialize(None)?;
             let string = serde_json::to_string(&journal)?;
-            Ok((record[0].parse::<u128>().unwrap_or(0), string))
+            let id = UnitId::new(record[0].parse::<u128>().unwrap_or(0));
+            let content = UnitContent::String(string);
+            let unit = Unit { id, content };
+            Ok(unit)
         })
-        .map(|datum| match datum {
-            Err(_) => (0, String::from("json:error")),
-            Ok(datum) => datum,
+        .map(|datum| -> Unit {
+            match datum {
+                Err(_) => {
+                    let id = UnitId::new(0);
+                    let content = UnitContent::String(String::from("json:error"));
+                    let unit = Unit { id, content };
+                    return unit;
+                }
+                Ok(datum) => datum,
+            }
         })
         .take(row_limit)
         .collect();

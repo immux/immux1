@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils::utf8_to_string;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GroupingLabel(Vec<u8>);
 
@@ -43,6 +45,12 @@ impl From<&GroupingLabel> for Vec<u8> {
     }
 }
 
+impl ToString for GroupingLabel {
+    fn to_string(&self) -> String {
+        utf8_to_string(self.as_bytes())
+    }
+}
+
 #[cfg(test)]
 mod grouping_label_tests {
     use crate::declarations::basics::GroupingLabel;
@@ -57,5 +65,13 @@ mod grouping_label_tests {
             104, 101, 108, 108, 111, //"hello"
         ];
         assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn test_to_string() {
+        let expected_label_str = "hello".to_string();
+        let label = GroupingLabel::from(expected_label_str.as_bytes());
+        let actual_label_str = label.to_string();
+        assert_eq!(expected_label_str, actual_label_str);
     }
 }

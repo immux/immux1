@@ -81,7 +81,7 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                             } else {
                                 return Err(MongoTransformerError::UnexpectedInputShape.into());
                             }
-                        } else if let Ok(collection) = request_doc.get_str("insert") {
+                        } else if let Ok(grouping_str) = request_doc.get_str("insert") {
                             if let Some(first_section) = op_msg.sections.first() {
                                 match first_section {
                                     Section::Sequence(sequence) => {
@@ -97,7 +97,7 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                                         }
                                         let instruction = InsertCommand {
                                             targets,
-                                            grouping: GroupingLabel::from(collection.as_bytes()),
+                                            grouping: GroupingLabel::from(grouping_str.as_bytes()),
                                         };
                                         Ok(Command::Insert(instruction))
                                     }
@@ -108,9 +108,9 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                             } else {
                                 return Err(MongoTransformerError::UnexpectedInputShape.into());
                             }
-                        } else if let Ok(collection) = request_doc.get_str("find") {
+                        } else if let Ok(grouping_str) = request_doc.get_str("find") {
                             if let Ok(filter) = request_doc.get_document("filter") {
-                                let grouping = GroupingLabel::from(collection.as_bytes());
+                                let grouping = GroupingLabel::from(grouping_str.as_bytes());
                                 if filter.is_empty() {
                                     let command = SelectCommand {
                                         grouping,
