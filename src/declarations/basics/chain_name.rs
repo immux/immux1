@@ -26,7 +26,7 @@ impl ToString for ChainName {
 
 impl From<StoreNamespace> for ChainName {
     fn from(ns: StoreNamespace) -> Self {
-        ChainName(ns.inner().to_vec())
+        ChainName(ns.as_bytes().to_vec())
     }
 }
 

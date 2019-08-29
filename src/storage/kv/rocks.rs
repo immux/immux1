@@ -96,7 +96,7 @@ impl KeyValueStore for RocksStore {
             };
         }
         match self.db.write(batch) {
-            Err(error) => return Err(RocksEngineError::BatchWriteError(error).into()),
+            Err(error) => Err(RocksEngineError::BatchWriteError(error).into()),
             Ok(_) => Ok(()),
         }
     }
@@ -104,7 +104,7 @@ impl KeyValueStore for RocksStore {
     fn switch_namespace(&mut self, namespace: &KVNamespace) -> ImmuxResult<()> {
         self.namespace = namespace.to_owned();
         self.db = get_new_db(&self.data_root, namespace, self.extractor)?;
-        return Ok(());
+        Ok(())
     }
 
     fn read_namespace(&self) -> KVNamespace {
@@ -123,6 +123,21 @@ impl KeyValueStore for RocksStore {
         let data: Vec<_> = iterator
             .map(|item| (BoxedKVKey::new(item.0), BoxedKVValue::new(item.1)))
             .collect();
-        return Box::new(data);
+        Box::new(data)
+    }
+}
+
+#[cfg(test)]
+mod rocks_specific_tests {
+    use crate::storage::kv::{KVNamespace, RocksStore};
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_path_error() {
+        fn prefix_extract(key: &[u8]) -> &[u8] {
+            return key;
+        }
+        let ns = KVNamespace::from("");
+        RocksStore::new("\0\\", &ns, prefix_extract).unwrap();
     }
 }

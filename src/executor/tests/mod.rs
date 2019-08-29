@@ -43,7 +43,7 @@ mod executor_test {
                         Err(_error) => panic!("Cannot read namespace"),
                         Ok(Answer::DBSystem(DBSystemAnswer::ReadNamespaceOk(answer))) => {
                             // Inspect the actual namespace
-                            assert_eq!(answer.namespace.inner(), target_chain.as_bytes());
+                            assert_eq!(answer.namespace.as_bytes(), target_chain.as_bytes());
                         }
                         Ok(_) => panic!("Unexpected answer"),
                     }

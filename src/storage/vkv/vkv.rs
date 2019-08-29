@@ -534,7 +534,7 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                                     // Remove Sigil
                                     let (kvkey, kvvalue) = pair;
                                     let store_key = extract_journal_store_key(&kvkey.into());
-                                    let journal = UnitJournal::parse(kvvalue.inner())?;
+                                    let journal = UnitJournal::parse(kvvalue.as_bytes())?;
                                     result.push((store_key.into(), Box::new(journal)));
                                 }
                                 result
