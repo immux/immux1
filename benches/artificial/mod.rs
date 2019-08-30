@@ -15,6 +15,7 @@ use std::time::Duration;
 pub enum Action {
     GenerateTable {
         row_count: usize,
+        unit_id_spec: UnitIDSpec,
         json_spec: Vec<PropertySpec>,
     },
     CreateIndex,
@@ -27,9 +28,8 @@ pub enum Action {
     },
 }
 
-pub struct PropertySpec {
-    pub id_to_name_property_fn: Box<dyn Fn(&UnitId, usize) -> NameProperty>,
-}
+pub type PropertySpec = Box<dyn Fn(&UnitId, usize) -> NameProperty>;
+pub type UnitIDSpec = Box<dyn Fn(u64) -> UnitId>;
 
 pub struct ArtificialDataBenchSpec {
     pub name: &'static str,
@@ -46,126 +46,76 @@ fn main() {
         main: &execute_actions,
         actions: vec![
             Action::GenerateTable {
-                row_count: 50000,
+                row_count: 5000,
+                unit_id_spec: Box::new(|_row_number| -> UnitId { UnitId::new(1) }),
                 json_spec: vec![
-                    PropertySpec {
-                        id_to_name_property_fn: Box::new(
-                            |id, row_count| -> (PropertyName, UnitContent) {
-                                let id_int = id.as_int();
-                                let duplication_rate = 0.3;
-                                let duplication_value_size = 10;
-                                let property_name_length = 8;
-                                let property_name_string =
-                                    get_string_with_fix_size(property_name_length, 'S');
+                    Box::new(|id, row_count| -> (PropertyName, UnitContent) {
+                        let id_int = id.as_int();
+                        let duplication_rate = 0.8;
+                        let duplication_value_size = 10;
+                        let property_name_length = 8;
+                        let property_name_string =
+                            get_string_with_fix_size(property_name_length, 'S');
 
-                                if (id_int as f64) < (row_count as f64) * duplication_rate {
-                                    let unit_content_str =
-                                        get_string_with_fix_size(duplication_value_size, 'C');
-                                    return (
-                                        PropertyName::from(unit_content_str.as_str()),
-                                        UnitContent::String(unit_content_str),
-                                    );
-                                } else {
-                                    let unit_content_str =
-                                        get_string_with_fix_size((id_int % 30) as usize, 'C');
-                                    return (
-                                        PropertyName::from(property_name_string.as_str()),
-                                        UnitContent::String(unit_content_str),
-                                    );
-                                }
-                            },
-                        ),
-                    },
-                    PropertySpec {
-                        id_to_name_property_fn: Box::new(
-                            |id, row_count| -> (PropertyName, UnitContent) {
-                                let id_int = id.as_int();
-                                let duplication_rate = 0.2;
-                                let property_name_string =
-                                    get_string_with_fix_size((id_int % 30) as usize, 'B');
+                        if (id_int as f64) < (row_count as f64) * duplication_rate {
+                            let unit_content_str =
+                                get_string_with_fix_size(duplication_value_size, 'C');
+                            return (
+                                PropertyName::from(unit_content_str.as_str()),
+                                UnitContent::String(unit_content_str),
+                            );
+                        } else {
+                            let unit_content_str =
+                                get_string_with_fix_size((id_int % 30) as usize, 'C');
+                            return (
+                                PropertyName::from(property_name_string.as_str()),
+                                UnitContent::String(unit_content_str),
+                            );
+                        }
+                    }),
+                    Box::new(|id, row_count| -> (PropertyName, UnitContent) {
+                        let id_int = id.as_int();
+                        let duplication_rate = 0.2;
+                        let property_name_string =
+                            get_string_with_fix_size((id_int % 30) as usize, 'B');
 
-                                if (id_int as f64) < (row_count as f64) * duplication_rate {
-                                    return (
-                                        PropertyName::from(property_name_string.as_str()),
-                                        UnitContent::Bool(true),
-                                    );
-                                } else {
-                                    return (
-                                        PropertyName::from(property_name_string.as_str()),
-                                        UnitContent::Bool(false),
-                                    );
-                                }
-                            },
-                        ),
-                    },
-                    PropertySpec {
-                        id_to_name_property_fn: Box::new(
-                            |id, row_count| -> (PropertyName, UnitContent) {
-                                let id_int = id.as_int();
-                                let duplication_rate = 0.1;
-                                let property_name_length = 3;
-                                let property_name_string =
-                                    get_string_with_fix_size(property_name_length, 'F');
+                        if (id_int as f64) < (row_count as f64) * duplication_rate {
+                            return (
+                                PropertyName::from(property_name_string.as_str()),
+                                UnitContent::Bool(true),
+                            );
+                        } else {
+                            return (
+                                PropertyName::from(property_name_string.as_str()),
+                                UnitContent::Bool(false),
+                            );
+                        }
+                    }),
+                    Box::new(|id, row_count| -> (PropertyName, UnitContent) {
+                        let id_int = id.as_int();
+                        let duplication_rate = 0.1;
+                        let property_name_length = 3;
+                        let property_name_string =
+                            get_string_with_fix_size(property_name_length, 'F');
 
-                                if (id_int as f64) < (row_count as f64) * duplication_rate {
-                                    return (
-                                        PropertyName::from(property_name_string.as_str()),
-                                        UnitContent::Float64(1.0),
-                                    );
-                                } else {
-                                    let float_number = 100.0 * (id_int as f64).sin().powf(2.0);
-                                    return (
-                                        PropertyName::from(property_name_string.as_str()),
-                                        UnitContent::Float64(float_number),
-                                    );
-                                }
-                            },
-                        ),
-                    },
+                        if (id_int as f64) < (row_count as f64) * duplication_rate {
+                            return (
+                                PropertyName::from(property_name_string.as_str()),
+                                UnitContent::Float64(1.0),
+                            );
+                        } else {
+                            let float_number = 100.0 * (id_int as f64).sin().powf(2.0);
+                            return (
+                                PropertyName::from(property_name_string.as_str()),
+                                UnitContent::Float64(float_number),
+                            );
+                        }
+                    }),
                 ],
             },
             Action::CreateIndex,
             Action::Insert {
                 num_jsons_per_command: 100,
-            },
-            Action::GenerateTable {
-                row_count: 10000,
-                json_spec: vec![PropertySpec {
-                    id_to_name_property_fn: Box::new(
-                        |id, row_count| -> (PropertyName, UnitContent) {
-                            let id_int = id.as_int();
-                            let duplication_rate = 1.0;
-                            let duplication_value_size = 10;
-                            let property_name_length = 8;
-                            let property_name_string =
-                                get_string_with_fix_size(property_name_length, 'D');
-
-                            if (id_int as f64) < (row_count as f64) * duplication_rate {
-                                let unit_content_str =
-                                    get_string_with_fix_size(duplication_value_size, 'D');
-                                return (
-                                    PropertyName::from(property_name_string.as_str()),
-                                    UnitContent::String(unit_content_str),
-                                );
-                            } else {
-                                let unit_content_str =
-                                    get_string_with_fix_size((id_int % 30) as usize, 'D');
-                                return (
-                                    PropertyName::from(property_name_string.as_str()),
-                                    UnitContent::String(unit_content_str),
-                                );
-                            }
-                        },
-                    ),
-                }],
-            },
-            Action::CreateIndex,
-            Action::Insert {
-                num_jsons_per_command: 500,
-            },
-            Action::Select {
-                start: UnitId::new(0),
-                end: UnitId::new(999),
             },
         ],
         report_period: 10,
@@ -183,9 +133,11 @@ pub fn execute_actions(bench: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Er
         match action {
             Action::GenerateTable {
                 row_count,
+                unit_id_spec,
                 json_spec,
             } => {
-                let (new_table, new_property_name_vec) = generate_json_table(row_count, json_spec);
+                let (new_table, new_property_name_vec) =
+                    generate_json_table(row_count, unit_id_spec, json_spec);
                 table = new_table;
                 property_name_vec = new_property_name_vec;
             }

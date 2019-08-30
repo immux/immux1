@@ -1,4 +1,4 @@
-use crate::PropertySpec;
+use crate::{PropertySpec, UnitIDSpec};
 use immuxdb_bench_utils::JsonTable;
 use libimmuxdb::declarations::basics::{PropertyName, Unit, UnitContent, UnitId};
 use std::collections::HashSet;
@@ -15,14 +15,20 @@ pub fn get_string_with_fix_size(size: usize, pattern: char) -> String {
 
 pub fn generate_json_table(
     row_count: &usize,
+    unit_id_spec: &UnitIDSpec,
     json_spec: &Vec<PropertySpec>,
 ) -> (JsonTable, Vec<PropertyName>) {
     let mut res = vec![];
     let mut property_name_set = HashSet::new();
 
-    for id_int in 0..(*row_count as u128) {
-        let id = UnitId::new(id_int);
-        let json = generate_json(json_spec, &id, *row_count, &mut property_name_set);
+    for id_int in 0..(*row_count as u64) {
+        let id = unit_id_spec(id_int);
+        let json = generate_json(
+            json_spec,
+            &UnitId::new(id_int as u128),
+            *row_count,
+            &mut property_name_set,
+        );
         let content = UnitContent::JsonString(json.to_string());
         let unit = Unit { id, content };
         res.push(unit);
@@ -44,7 +50,7 @@ fn generate_json(
     let mut json = json!({});
 
     for property_spec in json_spec {
-        let (property_name, unit_content) = (property_spec.id_to_name_property_fn)(id, row_count);
+        let (property_name, unit_content) = (property_spec)(id, row_count);
         property_name_set.insert(property_name.clone());
         match unit_content {
             UnitContent::String(string) => {
