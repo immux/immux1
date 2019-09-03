@@ -8,7 +8,7 @@ use libimmuxdb::run_immuxdb;
 pub fn reset_db_dir(path: &str) -> io::Result<()> {
     println!("Initializing database in {}", path);
     create_dir_all(&path)?;
-    remove_dir_all(path)?;
+    remove_dir_all(&path)?;
     println!("Existing test data removed");
     return Ok(());
 }
@@ -26,7 +26,7 @@ pub fn launch_db(project_name: &str, port: u16) -> io::Result<()> {
             println!("Cannot start database: {:?}", error);
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 pub fn notified_sleep(sec: u16) -> () {

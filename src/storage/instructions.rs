@@ -20,7 +20,7 @@ impl StoreNamespace {
     pub fn new(ns: &[u8]) -> Self {
         StoreNamespace(ns.to_vec())
     }
-    pub fn inner(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }

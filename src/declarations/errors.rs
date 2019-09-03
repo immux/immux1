@@ -1,4 +1,4 @@
-use std::io::Error;
+use std::fmt::Formatter;
 
 use crate::config::ConfigError;
 use crate::cortices::mongo::error::{MongoParserError, MongoSerializeError};
@@ -20,7 +20,7 @@ use crate::storage::vkv::VkvError;
 #[derive(Debug)]
 pub enum ImmuxError {
     HttpParser(HttpParsingError),
-    HttpResponse(Error),
+    HttpResponse(std::io::Error),
 
     VKV(VkvError),
     KV(KVError),
@@ -49,6 +49,14 @@ pub enum ImmuxError {
     PropertyName(PropertyNameListError),
     IdList(IdListError),
 }
+
+impl std::fmt::Display for ImmuxError {
+    fn fmt(&self, _formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        return Ok(());
+    }
+}
+
+impl std::error::Error for ImmuxError {}
 
 impl From<MongoParserError> for ImmuxError {
     fn from(error: MongoParserError) -> ImmuxError {

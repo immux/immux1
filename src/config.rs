@@ -33,8 +33,10 @@ pub const INITIAL_TRANSACTION_ID_DATA: u64 = 1;
 
 const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
 
+pub const MAX_KVKEY_LENGTH: usize = 8 * 1024; // 8KB
+pub const MAX_KVVALUE_LENGTH: usize = 32 * 1024 * 1024; // 32MB
+
 const IS_MASTER: bool = true;
-const MAX_BSON_OBJECT_SIZE: u32 = 16777216;
 const MAX_MESSAGE_SIZE_BYTES: u32 = 48000000;
 const MAX_WRITE_BATCH_SIZE: u32 = 100000;
 const LOGICAL_SESSION_TIMEOUT_MINUTES: u32 = 30;
@@ -114,7 +116,7 @@ impl Default for ImmuxDBConfiguration {
             mysql_endpoint: MYSQL_ENDPOINT.to_string(),
             data_root: DEFAULT_PERMANENCE_PATH.to_string(),
             is_master: IS_MASTER,
-            max_bson_object_size: MAX_BSON_OBJECT_SIZE,
+            max_bson_object_size: MAX_KVVALUE_LENGTH as u32,
             max_message_size_in_bytes: MAX_MESSAGE_SIZE_BYTES,
             max_write_batch_size: MAX_WRITE_BATCH_SIZE,
             logical_session_timeout_minutes: LOGICAL_SESSION_TIMEOUT_MINUTES,
