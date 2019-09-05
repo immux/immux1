@@ -1,12 +1,12 @@
 use std::error::Error;
 
-use serde::{Deserialize, Serialize};
-
-use crate::utils::least_squares::solve;
-use crate::utils::{csv_to_json_table, measure_iteration};
-use crate::BenchSpec;
+use immuxdb_bench_utils::measure_iteration;
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use libimmuxdb::declarations::basics::GroupingLabel;
+use serde::{Deserialize, Serialize};
+
+use crate::utils::{csv_to_json_table, least_squares::solve};
+use crate::BenchSpec;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CensusEntry {

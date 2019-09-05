@@ -31,5 +31,5 @@ pub fn launch_db(project_name: &str, port: u16) -> io::Result<()> {
 
 pub fn notified_sleep(sec: u16) -> () {
     println!("Waiting {}s...", sec);
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(sec as u64));
 }

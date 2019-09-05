@@ -3,13 +3,12 @@ mod census90;
 mod utils;
 
 use std::error::Error;
+use std::thread;
+
+use immuxdb_dev_utils::{launch_db, notified_sleep};
 
 use berka99::berka99;
 use census90::census90;
-use immuxdb_dev_utils::launch_db;
-
-use std::thread;
-use std::time::Duration;
 
 pub struct BenchSpec {
     pub name: &'static str,
@@ -19,30 +18,8 @@ pub struct BenchSpec {
     pub report_period: usize,
 }
 
-pub fn bench(benches: Vec<BenchSpec>) {
-    for bench in benches {
-        println!(
-            "\nExecuting bench {}, with tables truncated at row {}",
-            bench.name, bench.row_limit
-        );
-
-        let bench_name = bench.name;
-        let db_port = bench.unicus_port;
-        thread::spawn(move || launch_db(bench_name, db_port));
-        println!("Waiting 5s for database to be ready...");
-        thread::sleep(Duration::from_secs(5));
-
-        println!("Start benching...");
-        let f = bench.main;
-        match f(&bench) {
-            Err(error) => eprintln!("Failed to bench {}: {:?}", bench.name, error),
-            Ok(_) => {}
-        }
-    }
-}
-
 fn main() {
-    let benches: Vec<BenchSpec> = vec![
+    let bench_specs: Vec<BenchSpec> = vec![
         BenchSpec {
             name: "census90",
             unicus_port: 10001,
@@ -58,5 +35,23 @@ fn main() {
             report_period: 1_000,
         },
     ];
-    bench(benches);
+
+    for bench_spec in bench_specs {
+        println!(
+            "\nExecuting bench {}, with tables truncated at row {}",
+            bench_spec.name, bench_spec.row_limit
+        );
+
+        let bench_name = bench_spec.name;
+        let db_port = bench_spec.unicus_port;
+        thread::spawn(move || launch_db(bench_name, db_port));
+        notified_sleep(5);
+
+        println!("Start benching...");
+        let f = bench_spec.main;
+        match f(&bench_spec) {
+            Err(error) => eprintln!("Failed to bench {}: {:?}", bench_spec.name, error),
+            Ok(_) => {}
+        }
+    }
 }

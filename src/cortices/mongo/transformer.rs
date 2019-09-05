@@ -6,7 +6,6 @@ use crate::cortices::mongo::ops::op::MongoOp;
 use crate::cortices::mongo::ops::op_msg::{OpMsg, Section};
 
 use crate::cortices::mongo::utils::{construct_single_doc_op_msg, is_1, make_bson_from_config};
-
 use crate::declarations::basics::{GroupingLabel, UnitContent, UnitId};
 use crate::declarations::commands::{
     Command, InsertCommand, InsertCommandSpec, Outcome, PickChainCommand, SelectCommand,
@@ -97,7 +96,7 @@ pub fn transform_mongo_op_to_command(op: &MongoOp) -> ImmuxResult<Command> {
                                         }
                                         let instruction = InsertCommand {
                                             targets,
-                                            grouping: GroupingLabel::from(grouping_str.as_bytes()),
+                                            grouping: GroupingLabel::from(grouping_str),
                                         };
                                         Ok(Command::Insert(instruction))
                                     }

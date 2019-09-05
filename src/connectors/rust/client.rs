@@ -1,7 +1,7 @@
-use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
-use libimmuxdb::storage::vkv::ChainHeight;
 use std::fmt::Formatter;
 
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
+use libimmuxdb::storage::vkv::ChainHeight;
 use reqwest;
 
 pub trait ImmuxDBConnector {
@@ -16,7 +16,7 @@ pub trait ImmuxDBConnector {
     fn set_unit(&self, grouping: &GroupingLabel, unit: &Unit) -> ClientResult;
     fn set_batch_units(&self, grouping: &GroupingLabel, units: &[Unit]) -> ClientResult;
     fn create_index(&self, grouping: &GroupingLabel, property_name: &PropertyName) -> ClientResult;
-    fn switch_chain_name(&self, chain_name: &ChainName) -> ClientResult;
+    fn switch_chain(&self, chain_name: &ChainName) -> ClientResult;
 }
 
 #[derive(Debug)]
@@ -145,7 +145,7 @@ impl ImmuxDBConnector for ImmuxDBClient {
         return response.text().map_err(|e| e.into());
     }
 
-    fn switch_chain_name(&self, chain_name: &ChainName) -> ClientResult {
+    fn switch_chain(&self, chain_name: &ChainName) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
             .put(&format!(

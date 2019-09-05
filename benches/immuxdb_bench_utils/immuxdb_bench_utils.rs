@@ -1,8 +1,9 @@
-use libimmuxdb::declarations::basics::Unit;
 use std::error::Error;
 use std::time::Instant;
 
-pub type JsonTable = Vec<Unit>;
+use libimmuxdb::declarations::basics::Unit;
+
+pub type UnitList = Vec<Unit>;
 
 pub fn measure_iteration<D, F>(
     data: &[D],
@@ -18,14 +19,19 @@ where
     let total_periods = data.len() / report_period;
     let mut times: Vec<(f64, f64)> = Vec::with_capacity(total_periods + 1);
     for datum in data.iter() {
-        operate(datum).unwrap();
+        operate(datum)?;
         count += 1;
         if count % report_period == 0 {
             let elapsed = start.elapsed().as_millis();
             let average_time = elapsed as f64 / report_period as f64;
             println!(
-                "took {}ms to execute {} {} operations, average {:.2}ms per item",
-                elapsed, count, operation_name, average_time
+                "took {}ms to execute {} {} operations ({}/{} done), average {:.2}ms per item",
+                elapsed,
+                report_period,
+                operation_name,
+                count,
+                data.len(),
+                average_time
             );
             start = Instant::now();
             times.push((count as f64, average_time));

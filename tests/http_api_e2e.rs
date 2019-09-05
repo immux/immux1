@@ -19,14 +19,14 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
     let id = UnitId::new(0);
     let grouping = GroupingLabel::new("GROUPING".as_bytes());
 
-    let chain_name_a = ChainName::new("immuxtest-ns-A".as_bytes());
+    let chain_name_a = ChainName::from("immuxtest-ns-A");
     let data_in_a = UnitContent::String("data-A".to_string());
     let unit_a = Unit {
         id,
         content: data_in_a.clone(),
     };
 
-    let chain_name_b = ChainName::new("immuxtest-ns-B".as_bytes());
+    let chain_name_b = ChainName::from("immuxtest-ns-B");
     let data_in_b = UnitContent::String("data-B".to_string());
     let unit_b = Unit {
         id,
@@ -36,16 +36,16 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
     assert_ne!(chain_name_a, chain_name_b);
     assert_ne!(data_in_a, data_in_b);
 
-    client.switch_chain_name(&chain_name_a)?;
+    client.switch_chain(&chain_name_a)?;
     client.set_unit(&grouping, &unit_a)?;
 
-    client.switch_chain_name(&chain_name_b)?;
+    client.switch_chain(&chain_name_b)?;
     client.set_unit(&grouping, &unit_b)?;
 
     let data_out_b = client.get_by_id(&grouping, &id)?;
     assert_eq!(data_in_b.to_string(), data_out_b.to_string());
 
-    client.switch_chain_name(&chain_name_a)?;
+    client.switch_chain(&chain_name_a)?;
     let data_out_a = client.get_by_id(&grouping, &id)?;
     assert_eq!(data_in_a.to_string(), data_out_a.to_string());
 
@@ -62,8 +62,8 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
     notified_sleep(5);
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
-    let chain_name = ChainName::new("immuxtest-single-document-versioning".as_bytes());
-    client.switch_chain_name(&chain_name)?;
+    let chain_name = ChainName::from("immuxtest-single-document-versioning");
+    client.switch_chain(&chain_name)?;
     let id = UnitId::new(1);
     let grouping = GroupingLabel::new("GROUPING".as_bytes());
 
@@ -124,41 +124,55 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
     notified_sleep(5);
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
-    let chian_name = ChainName::new("immuxtest-multiple-document-versioning".as_bytes());
-    client.switch_chain_name(&chian_name)?;
+    let chian_name = ChainName::from("immuxtest-multiple-document-versioning");
+    client.switch_chain(&chian_name)?;
 
     let grouping = GroupingLabel::new("GROUPING".as_bytes());
 
-    let inputs: Vec<(u128, &str)> = vec![
+    let inputs: Vec<(Unit)> = vec![
         //id, data
-        (0, "a1"),
-        (0, "a2"),
-        (1, "b1"),
-        (0, "a3"),
-        (2, "c1"),
-        (1, "b2"),
-        (2, "c2"),
+        Unit {
+            id: UnitId::new(0),
+            content: UnitContent::String("a1".to_string()),
+        },
+        Unit {
+            id: UnitId::new(0),
+            content: UnitContent::String("a2".to_string()),
+        },
+        Unit {
+            id: UnitId::new(1),
+            content: UnitContent::String("b1".to_string()),
+        },
+        Unit {
+            id: UnitId::new(0),
+            content: UnitContent::String("a3".to_string()),
+        },
+        Unit {
+            id: UnitId::new(2),
+            content: UnitContent::String("c1".to_string()),
+        },
+        Unit {
+            id: UnitId::new(1),
+            content: UnitContent::String("b2".to_string()),
+        },
+        Unit {
+            id: UnitId::new(2),
+            content: UnitContent::String("c2".to_string()),
+        },
     ];
 
     // Store data in specified order
     for input in inputs.iter() {
-        let (id_int, data) = input;
-        let unit = Unit {
-            id: UnitId::new(*id_int),
-            content: UnitContent::String(data.to_string()),
-        };
-        client.set_unit(&grouping, &unit)?;
+        client.set_unit(&grouping, input)?;
     }
 
     // Revert in input order and check consistency
     for (index, input) in inputs.iter().enumerate() {
         let height = INITIAL_HEIGHT + (index as u64);
         let chain_height = ChainHeight::new(height);
-        let (id_int, input_data) = input;
-        let id = UnitId::new(*id_int);
-        client.revert_by_id(&grouping, &id, &chain_height)?;
-        let current_data = client.get_by_id(&grouping, &id)?;
-        assert_eq!(&current_data, input_data);
+        client.revert_by_id(&grouping, &input.id, &chain_height)?;
+        let current_data = client.get_by_id(&grouping, &input.id)?;
+        assert_eq!(current_data, input.content.to_string());
     }
 
     Ok(())

@@ -39,6 +39,12 @@ impl Into<Vec<u8>> for GroupingLabel {
     }
 }
 
+impl From<&str> for GroupingLabel {
+    fn from(data: &str) -> GroupingLabel {
+        GroupingLabel(data.as_bytes().to_owned())
+    }
+}
+
 impl From<&GroupingLabel> for Vec<u8> {
     fn from(data: &GroupingLabel) -> Vec<u8> {
         data.as_bytes().to_vec()
@@ -69,7 +75,7 @@ mod grouping_label_tests {
 
     #[test]
     fn test_to_string() {
-        let expected_label_str = "hello".to_string();
+        let expected_label_str = "hello";
         let label = GroupingLabel::from(expected_label_str.as_bytes());
         let actual_label_str = label.to_string();
         assert_eq!(expected_label_str, actual_label_str);
