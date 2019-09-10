@@ -1,75 +1,47 @@
 use std::error::Error;
 use std::fs::read;
 use std::io;
-use std::time::Instant;
 
 use csv;
+use immuxdb_bench_utils::UnitList;
+use libimmuxdb::declarations::basics::{Unit, UnitContent, UnitId};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-pub type JsonTableWithId = Vec<(u128, String)>;
-
-pub fn csv_to_jsons_and_id<J: DeserializeOwned + Serialize>(
+pub fn csv_to_json_table<J: DeserializeOwned + Serialize>(
     csv_file_path: &str,
     delimiter: u8,
     row_limit: usize,
-) -> Result<JsonTableWithId, Box<dyn Error>> {
+) -> Result<UnitList, Box<dyn Error>> {
     let reading = read(csv_file_path)?;
-    type ID = u128;
-    type JsonString = String;
     let mut csv_parsing = csv::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reading.as_slice());
-    let data: Vec<(ID, JsonString)> = csv_parsing
+    let data: UnitList = csv_parsing
         .records()
-        .map(|result| -> io::Result<(u128, String)> {
+        .map(|result| -> io::Result<Unit> {
             let record = result?;
             let journal: J = record.deserialize(None)?;
             let string = serde_json::to_string(&journal)?;
-            Ok((record[0].parse::<u128>().unwrap_or(0), string))
+            let id = UnitId::new(record[0].parse::<u128>().unwrap_or(0));
+            let content = UnitContent::JsonString(string);
+            let unit = Unit { id, content };
+            Ok(unit)
         })
-        .map(|datum| match datum {
-            Err(_) => (0, String::from("json:error")),
-            Ok(datum) => datum,
+        .map(|datum| -> Unit {
+            match datum {
+                Err(_) => {
+                    let id = UnitId::new(0);
+                    let content = UnitContent::String(String::from("json:error"));
+                    let unit = Unit { id, content };
+                    return unit;
+                }
+                Ok(datum) => datum,
+            }
         })
         .take(row_limit)
         .collect();
     return Ok(data);
-}
-
-pub fn measure_iteration<D, F>(
-    data: &[D],
-    operate: F,
-    operation_name: &str,
-    report_period: usize,
-) -> Result<Vec<(f64, f64)>, Box<dyn Error>>
-where
-    F: Fn(&D) -> Result<String, Box<dyn Error>>,
-{
-    let mut start = Instant::now();
-    let mut count = 0;
-    let total_periods = data.len() / report_period;
-    let mut times: Vec<(f64, f64)> = Vec::with_capacity(total_periods + 1);
-    for datum in data.iter() {
-        operate(datum)?;
-        count += 1;
-        if count % report_period == 0 {
-            let elapsed = start.elapsed().as_millis();
-            let average_time = elapsed as f64 / report_period as f64;
-            println!(
-                "took {}ms to execute {} {} operations ({}/{} done), average {:.2}ms per item",
-                elapsed,
-                report_period,
-                operation_name,
-                count,
-                data.len(),
-                average_time
-            );
-            start = Instant::now();
-            times.push((count as f64, average_time));
-        }
-    }
-    Ok(times)
 }
 
 pub mod least_squares {

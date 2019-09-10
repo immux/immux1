@@ -19,3 +19,5 @@ pub use unit::Unit;
 pub use unit_content::{UnitContent, UnitContentError};
 pub use unit_id::{UnitId, UnitIdError, UNIT_ID_BYTES};
 pub use unit_specifier::UnitSpecifier;
+
+pub type NameProperty = (PropertyName, UnitContent);

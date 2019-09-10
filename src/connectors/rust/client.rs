@@ -1,13 +1,22 @@
 use std::fmt::Formatter;
 
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
+use libimmuxdb::storage::vkv::ChainHeight;
 use reqwest;
 
 pub trait ImmuxDBConnector {
-    fn get_by_id(&self, grouping: &str, id: u128) -> ClientResult;
-    fn inspect_by_id(&self, grouping: &str, id: u128) -> ClientResult;
-    fn revert_by_id(&self, grouping: &str, id: u128, height: u64) -> ClientResult;
-    fn set_by_id(&self, collection: &str, id: u128, value: &str) -> ClientResult;
-    fn switch_namespace(&self, namespace: &str) -> ClientResult;
+    fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
+    fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
+    fn revert_by_id(
+        &self,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+        height: &ChainHeight,
+    ) -> ClientResult;
+    fn set_unit(&self, grouping: &GroupingLabel, unit: &Unit) -> ClientResult;
+    fn set_batch_units(&self, grouping: &GroupingLabel, units: &[Unit]) -> ClientResult;
+    fn create_index(&self, grouping: &GroupingLabel, property_name: &PropertyName) -> ClientResult;
+    fn switch_chain(&self, chain_name: &ChainName) -> ClientResult;
 }
 
 #[derive(Debug)]
@@ -49,44 +58,101 @@ impl ImmuxDBClient {
 }
 
 impl ImmuxDBConnector for ImmuxDBClient {
-    fn get_by_id(&self, grouping: &str, id: u128) -> ClientResult {
-        let url = format!("http://{}/{}/{}", &self.host, grouping, id);
+    fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
+        let url = format!(
+            "http://{}/{}/{}",
+            &self.host,
+            grouping.to_string(),
+            id.as_int()
+        );
         let mut response = reqwest::get(&url)?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn inspect_by_id(&self, grouping: &str, id: u128) -> ClientResult {
+    fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
         let mut response = reqwest::get(&format!(
             "http://{}/{}/{}?inspect",
-            &self.host, grouping, id
+            &self.host,
+            grouping.to_string(),
+            id.as_int()
         ))?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn revert_by_id(&self, grouping: &str, id: u128, height: u64) -> ClientResult {
+    fn revert_by_id(
+        &self,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+        height: &ChainHeight,
+    ) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
             .put(&format!(
                 "http://{}/{}/{}?revert={}",
-                &self.host, grouping, id, height
+                &self.host,
+                grouping.to_string(),
+                id.as_int(),
+                height.as_u64()
             ))
             .send()?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn set_by_id(&self, collection: &str, id: u128, value: &str) -> ClientResult {
+    fn set_unit(&self, grouping: &GroupingLabel, unit: &Unit) -> ClientResult {
         let client = reqwest::Client::new();
+        let id = unit.id;
+        let property = unit.content.to_string();
+
         let mut response = client
-            .put(&format!("http://{}/{}/{}", &self.host, collection, id))
-            .body(value.to_string())
+            .put(&format!(
+                "http://{}/{}/{}",
+                &self.host,
+                grouping.to_string(),
+                id.as_int()
+            ))
+            .body(property)
             .send()?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn switch_namespace(&self, namespace: &str) -> ClientResult {
+    fn set_batch_units(&self, grouping: &GroupingLabel, units: &[Unit]) -> ClientResult {
+        let client = reqwest::Client::new();
+        let string_vec: Vec<String> = units
+            .iter()
+            .map(|unit| -> String { format!("{}|{}", unit.id.as_int(), unit.content.to_string()) })
+            .collect();
+        let mut response = client
+            .put(&format!(
+                "http://{}/{}/internal_api_target_id_indentifier",
+                &self.host,
+                grouping.to_string()
+            ))
+            .body(string_vec.join("\r\n"))
+            .send()?;
+        return response.text().map_err(|e| e.into());
+    }
+
+    fn create_index(&self, grouping: &GroupingLabel, property_name: &PropertyName) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
-            .put(&format!("http://{}/?chain={}", &self.host, namespace))
+            .put(&format!(
+                "http://{}/{}?index={}",
+                &self.host,
+                grouping.to_string(),
+                property_name.to_string()
+            ))
+            .send()?;
+        return response.text().map_err(|e| e.into());
+    }
+
+    fn switch_chain(&self, chain_name: &ChainName) -> ClientResult {
+        let client = reqwest::Client::new();
+        let mut response = client
+            .put(&format!(
+                "http://{}/?chain={}",
+                &self.host,
+                chain_name.to_string()
+            ))
             .send()?;
         return response.text().map_err(|e| e.into());
     }

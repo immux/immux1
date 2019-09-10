@@ -1,7 +1,6 @@
 use std::env;
 
-use libimmuxdb::config::ImmuxDBConfiguration;
-use libimmuxdb::run_immuxdb;
+use libimmuxdb::{config::ImmuxDBConfiguration, run_immuxdb};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

@@ -3,11 +3,10 @@ mod indexed_names_list;
 use crate::config::KVKeySigil;
 use crate::declarations::basics::property_names::PropertyName;
 use crate::declarations::basics::{GroupingLabel, StoreKey, UnitContent};
+use crate::utils::u32_to_u8_array;
 pub use indexed_names_list::{
     get_indexed_names_list, get_indexed_names_list_with_fallback, set_indexed_names_list,
 };
-
-use crate::utils::u32_to_u8_array;
 
 pub fn get_store_key_of_indexed_id_list(
     grouping: &GroupingLabel,

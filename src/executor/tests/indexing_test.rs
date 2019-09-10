@@ -5,7 +5,7 @@ mod indexing_test {
 
     use crate::config::DEFAULT_PERMANENCE_PATH;
     use crate::declarations::basics::{
-        GroupingLabel, PropertyName, PropertyNameList, UnitContent, UnitId,
+        GroupingLabel, NameProperty, PropertyName, PropertyNameList, UnitContent, UnitId,
     };
     use crate::declarations::commands::{
         Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, Outcome, SelectCommand,
@@ -18,8 +18,6 @@ mod indexing_test {
     use crate::storage::instructions::StoreNamespace;
     use crate::storage::kv::KeyValueEngine;
     use immuxdb_dev_utils::reset_db_dir;
-
-    type NameProperty = (PropertyName, UnitContent);
 
     type JsonTableRow = (UnitId, String);
 

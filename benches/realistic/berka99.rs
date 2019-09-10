@@ -1,10 +1,12 @@
 use std::error::Error;
 
+use immuxdb_bench_utils::{measure_iteration, UnitList};
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use libimmuxdb::declarations::basics::GroupingLabel;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{csv_to_jsons_and_id, measure_iteration, JsonTableWithId};
+use crate::utils::csv_to_json_table;
 use crate::BenchSpec;
-use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Account {
@@ -96,26 +98,24 @@ pub fn berka99(bench: &BenchSpec) -> Result<(), Box<dyn Error>> {
     let paths = vec![
         "account", "card", "client", "disp", "district", "loan", "order", "trans",
     ];
-    let dataset: Vec<(String, JsonTableWithId)> = paths
+    let dataset: Vec<(String, UnitList)> = paths
         .iter()
-        .map(
-            |table_name| -> (String, Result<JsonTableWithId, Box<dyn Error>>) {
-                let csv_path = format!("benches/realistic/data-raw/berka99/{}.asc", table_name);
-                let data = match table_name.as_ref() {
-                    "account" => csv_to_jsons_and_id::<Account>(&csv_path, b';', bench.row_limit),
-                    "card" => csv_to_jsons_and_id::<Card>(&csv_path, b';', bench.row_limit),
-                    "client" => csv_to_jsons_and_id::<Client>(&csv_path, b';', bench.row_limit),
-                    "disp" => csv_to_jsons_and_id::<Disp>(&csv_path, b';', bench.row_limit),
-                    "district" => csv_to_jsons_and_id::<District>(&csv_path, b';', bench.row_limit),
-                    "loan" => csv_to_jsons_and_id::<Loan>(&csv_path, b';', bench.row_limit),
-                    "order" => csv_to_jsons_and_id::<Order>(&csv_path, b';', bench.row_limit),
-                    "trans" => csv_to_jsons_and_id::<Trans>(&csv_path, b';', bench.row_limit),
-                    _ => panic!("Unexpected table {}", table_name),
-                };
-                return (table_name.to_string(), data);
-            },
-        )
-        .map(|result| -> (String, JsonTableWithId) {
+        .map(|table_name| -> (String, Result<UnitList, Box<dyn Error>>) {
+            let csv_path = format!("benches/realistic/data-raw/berka99/{}.asc", table_name);
+            let data = match table_name.as_ref() {
+                "account" => csv_to_json_table::<Account>(&csv_path, b';', bench.row_limit),
+                "card" => csv_to_json_table::<Card>(&csv_path, b';', bench.row_limit),
+                "client" => csv_to_json_table::<Client>(&csv_path, b';', bench.row_limit),
+                "disp" => csv_to_json_table::<Disp>(&csv_path, b';', bench.row_limit),
+                "district" => csv_to_json_table::<District>(&csv_path, b';', bench.row_limit),
+                "loan" => csv_to_json_table::<Loan>(&csv_path, b';', bench.row_limit),
+                "order" => csv_to_json_table::<Order>(&csv_path, b';', bench.row_limit),
+                "trans" => csv_to_json_table::<Trans>(&csv_path, b';', bench.row_limit),
+                _ => panic!("Unexpected table {}", table_name),
+            };
+            return (table_name.to_string(), data);
+        })
+        .map(|result| -> (String, UnitList) {
             match result.1 {
                 Err(error) => {
                     eprintln!("CSV error: {}", error);
@@ -132,9 +132,10 @@ pub fn berka99(bench: &BenchSpec) -> Result<(), Box<dyn Error>> {
         println!("Loading table '{}'", table.0);
         measure_iteration(
             &table.1,
-            |row| {
+            |unit| {
+                let grouping_label = GroupingLabel::new(bench.name.as_bytes());
                 client
-                    .set_by_id(bench.name, row.0, &row.1)
+                    .set_unit(&grouping_label, &unit)
                     .map_err(|err| err.into())
             },
             "get",

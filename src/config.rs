@@ -1,9 +1,8 @@
 use bincode::{deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
-use crate::declarations::errors::{ImmuxError, ImmuxResult};
-
 use crate::declarations::basics::{StoreKey, StoreValue};
+use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::instructions::{
     Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteInstruction,
@@ -23,6 +22,7 @@ pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 pub const CHAIN_KEYWORD: &str = "chain";
 pub const SELECT_CONDITION_KEYWORD: &str = "select";
 pub const CREATE_INDEX_KEYWORD: &str = "index";
+pub const INTERNAL_API_TARGET_ID_IDENTIFIER: &str = "internal_api_target_id_indentifier";
 
 pub const MULTIFIELD_SEPARATOR: &str = "|";
 
