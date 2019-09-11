@@ -71,9 +71,25 @@ pub struct GetOneInstruction {
     pub key: StoreKey,
 }
 
+impl From<GetOneInstruction> for Instruction {
+    fn from(instruction: GetOneInstruction) -> Instruction {
+        Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+            instruction,
+        )))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetManyInstruction {
     pub targets: Vec<SetTargetSpec>,
+}
+
+impl From<SetManyInstruction> for Instruction {
+    fn from(instruction: SetManyInstruction) -> Instruction {
+        Instruction::Data(DataInstruction::Write(DataWriteInstruction::SetMany(
+            instruction,
+        )))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -97,6 +113,14 @@ pub struct ReadNamespaceInstruction {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetJournalInstruction {
     pub key: StoreKey,
+}
+
+impl From<GetJournalInstruction> for Instruction {
+    fn from(instruction: GetJournalInstruction) -> Instruction {
+        Instruction::Data(DataInstruction::Read(DataReadInstruction::GetJournal(
+            instruction,
+        )))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,11 +155,23 @@ pub struct TransactionalDataInstruction {
     pub transaction_id: TransactionId,
 }
 
+impl From<TransactionalDataInstruction> for Instruction {
+    fn from(instruction: TransactionalDataInstruction) -> Self {
+        Instruction::TransactionalData(instruction)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionMetaInstruction {
     StartTransaction,
     CommitTransaction(CommitTransactionInstruction),
     AbortTransaction(AbortTransactionInstruction),
+}
+
+impl From<TransactionMetaInstruction> for Instruction {
+    fn from(instruction: TransactionMetaInstruction) -> Self {
+        Instruction::TransactionMeta(instruction)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

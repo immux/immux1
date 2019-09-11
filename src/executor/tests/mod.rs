@@ -95,8 +95,6 @@ mod executor_test {
                                     id: spec.id,
                                     content: spec.content.clone(),
                                 };
-                                println!("units: {:#?}", outcome.units);
-                                println!("Unit: {:#?}", &unit);
                                 assert!(outcome.units.contains(&unit))
                             }
                         }

@@ -6,7 +6,6 @@ use crate::storage::kv::{BoxedKVKey, BoxedKVValue, KVKey, KVKeySegment, KVNamesp
 
 #[derive(Debug)]
 pub enum KVError {
-    NotFound(KVKey),
     RocksEngine(RocksEngineError),
 }
 
@@ -17,7 +16,7 @@ impl From<KVError> for ImmuxError {
 }
 
 pub trait KeyValueStore {
-    fn get(&self, kvkey: &KVKey) -> ImmuxResult<KVValue>;
+    fn get(&self, kvkey: &KVKey) -> ImmuxResult<Option<KVValue>>;
     fn set(&mut self, kvkey: &KVKey, value: &KVValue) -> ImmuxResult<()>;
     fn set_many(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()>;
     fn switch_namespace(&mut self, namespace: &KVNamespace) -> ImmuxResult<()>;
@@ -37,9 +36,9 @@ mod base_kv_tests {
     use std::error::Error;
 
     use crate::config::{MAX_KVKEY_LENGTH, MAX_KVVALUE_LENGTH};
-    use crate::declarations::errors::ImmuxError;
+
     use crate::storage::kv::{
-        HashMapStore, KVError, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueStore, RocksStore,
+        HashMapStore, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueStore, RocksStore,
     };
     use crate::utils::u64_to_u8_array;
     use immuxdb_dev_utils::reset_db_dir;
@@ -93,7 +92,7 @@ mod base_kv_tests {
         let value = KVValue::from(value_bytes);
         store.set(&key, &value)?;
         let value_retrieved = store.get(&key)?;
-        assert_eq!(value, value_retrieved);
+        assert_eq!(Some(value), value_retrieved);
         Ok(())
     }
 
@@ -121,7 +120,7 @@ mod base_kv_tests {
             let key = get_key(i);
             let value = get_value(i);
             let value_retrieved = store.get(&key)?;
-            assert_eq!(value, value_retrieved);
+            assert_eq!(Some(value), value_retrieved);
         }
 
         Ok(())
@@ -155,9 +154,9 @@ mod base_kv_tests {
         let value_2 = store.get(&key_2)?;
         let value_3 = store.get(&key_3)?;
 
-        assert_eq!(value_1, value_d);
-        assert_eq!(value_2, value_a);
-        assert_eq!(value_3, value_c);
+        assert_eq!(value_1, Some(value_d));
+        assert_eq!(value_2, Some(value_a));
+        assert_eq!(value_3, Some(value_c));
 
         Ok(())
     }
@@ -246,10 +245,10 @@ mod base_kv_tests {
         let value_b = store.get(&key_b)?;
         let value_c = store.get(&key_c)?;
         let value_d = store.get(&key_d)?;
-        let value_expected_a = KVValue::new(&u64_to_u8_array(10));
-        let value_expected_b = KVValue::new(&u64_to_u8_array(5));
-        let value_expected_c = KVValue::new(&u64_to_u8_array(0));
-        let value_expected_d = KVValue::new(&u64_to_u8_array(100));
+        let value_expected_a = Some(KVValue::new(&u64_to_u8_array(10)));
+        let value_expected_b = Some(KVValue::new(&u64_to_u8_array(5)));
+        let value_expected_c = Some(KVValue::new(&u64_to_u8_array(0)));
+        let value_expected_d = Some(KVValue::new(&u64_to_u8_array(100)));
 
         assert_eq!(value_a, value_expected_a);
         assert_eq!(value_b, value_expected_b);
@@ -259,13 +258,13 @@ mod base_kv_tests {
     }
 
     fn test_get_nonexistent_key(store: &mut impl KeyValueStore) -> Result<(), Box<dyn Error>> {
-        // key = [], [1], [2,2], [3,3,3], ...
         for i in 0..=255 {
+            // key = [], [1], [2,2], [3,3,3], ...
             let key_bytes: Vec<u8> = [i as u8].iter().cycle().take(i).map(|x| *x).collect();
             let key = KVKey::from(key_bytes);
             match store.get(&key) {
+                Ok(None) => (),
                 Ok(_) => panic!("Should not get value from nonexistent key"),
-                Err(ImmuxError::KV(KVError::NotFound(error_key))) => assert_eq!(error_key, key),
                 Err(error) => panic!("Unexpected error {:?}", error),
             }
         }
@@ -302,17 +301,23 @@ mod base_kv_tests {
         // Switch back to namespace 1 and check read & write isolation
         store.switch_namespace(&ns_1)?;
         let value_out_1 = store.get(&key_1)?;
-        assert_eq!(value_out_1, value_1);
-        if store.get(&key_unique_2).is_ok() {
-            panic!("Should not get value from key unique to another namespace")
+        assert_eq!(value_out_1, Some(value_1));
+        if let Some(value) = store.get(&key_unique_2).unwrap() {
+            panic!(
+                "Should not get value from key unique to another namespace, got {:?}",
+                value
+            )
         }
 
         // Same for namespace 2
         store.switch_namespace(&ns_2)?;
         let value_out_2 = store.get(&key_2)?;
-        assert_eq!(value_out_2, value_2);
-        if store.get(&key_unique_1).is_ok() {
-            panic!("Should not get value from key unique to another namespace")
+        assert_eq!(value_out_2, Some(value_2));
+        if let Some(value) = store.get(&key_unique_1).unwrap() {
+            panic!(
+                "Should not get value from key unique to another namespace, got {:?}",
+                value
+            )
         }
 
         Ok(())
@@ -323,7 +328,7 @@ mod base_kv_tests {
         let key = KVKey::new(&[]);
         let value_in = KVValue::from("value");
         store.set(&key, &value_in)?;
-        let value_out = store.get(&key)?;
+        let value_out = store.get(&key)?.unwrap();
         assert_eq!(value_in, value_out);
         Ok(())
     }
@@ -339,10 +344,27 @@ mod base_kv_tests {
 
         for value in &values {
             store.set(&key, value)?;
-            let value_out = store.get(&key)?;
+            let value_out = store.get(&key)?.unwrap();
             assert_eq!(value, &value_out)
         }
 
+        Ok(())
+    }
+
+    /// Ensure the order of set_many with the same key
+    fn test_set_many_identical_keys(store: &mut impl KeyValueStore) -> Result<(), Box<dyn Error>> {
+        let pairs: Vec<(KVKey, KVValue)> = vec![
+            (KVKey::from("key"), KVValue::from("value-1")),
+            (KVKey::from("key"), KVValue::from("value-2")),
+            (KVKey::from("key"), KVValue::from("value-3")),
+            (KVKey::from("key"), KVValue::from("value-4")),
+            (KVKey::from("key"), KVValue::from("value-final")),
+        ];
+        store.set_many(&pairs)?;
+        match store.get(&KVKey::from("key"))? {
+            None => panic!("Cannget read back"),
+            Some(value) => assert_eq!(value, KVValue::from("value-final")),
+        };
         Ok(())
     }
 
@@ -457,4 +479,15 @@ mod base_kv_tests {
     fn test_key_overwrite_rocks() -> Result<(), Box<dyn Error>> {
         test_key_overwrite(&mut get_rocks_store("test_key_overwrite"))
     }
+
+    #[test]
+    fn test_set_many_identical_keys_hashmap() -> Result<(), Box<dyn Error>> {
+        test_set_many_identical_keys(&mut get_hashmap_store())
+    }
+
+    #[test]
+    fn test_set_many_identical_keys_rocks() -> Result<(), Box<dyn Error>> {
+        test_set_many_identical_keys(&mut get_rocks_store("test_set_many_identical_keys"))
+    }
+
 }

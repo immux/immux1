@@ -15,7 +15,7 @@ use crate::storage::instructions::{
     Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteAnswer,
     DataWriteInstruction, GetOneInstruction, Instruction, SetManyInstruction, SetTargetSpec,
 };
-use crate::storage::kv::KVError;
+use crate::storage::vkv::VkvError;
 
 pub fn get_updates_for_index(
     insert: InsertCommand,
@@ -54,21 +54,27 @@ pub fn get_updates_for_index(
             },
         )));
         match core.execute(&get_id_list) {
-            Err(ImmuxError::KV(KVError::NotFound(_))) => updates_for_index.push(SetTargetSpec {
-                key: id_list_key,
-                value: StoreValue::new(new_ids.marshal()),
-            }),
+            Err(ImmuxError::VKV(VkvError::MissingJournal(_))) => {
+                updates_for_index.push(SetTargetSpec {
+                    key: id_list_key,
+                    value: StoreValue::new(Some(new_ids.marshal())),
+                })
+            }
             Err(error) => {
                 return Err(error.into());
             }
             Ok(Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(answer)))) => {
-                let existing_id_list_bytes: Vec<u8> = answer.value.into();
-                let mut existing_id_list = IdList::try_from(existing_id_list_bytes.as_slice())?;
-                existing_id_list.merge(&new_ids);
-                updates_for_index.push(SetTargetSpec {
-                    key: id_list_key,
-                    value: StoreValue::new(existing_id_list.marshal()),
-                });
+                match answer.value.inner() {
+                    None => return Err(ExecutorError::NoneReverseIndex.into()),
+                    Some(data) => {
+                        let mut existing_id_list = IdList::try_from(data.as_slice())?;
+                        existing_id_list.merge(&new_ids);
+                        updates_for_index.push(SetTargetSpec {
+                            key: id_list_key,
+                            value: StoreValue::new(Some(existing_id_list.marshal())),
+                        });
+                    }
+                }
             }
             Ok(answer) => return Err(ExecutorError::UnexpectedAnswerType(answer).into()),
         }
@@ -83,7 +89,7 @@ pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxRes
         .iter()
         .map(|target| SetTargetSpec {
             key: StoreKey::build(&insert.grouping, target.id),
-            value: target.content.marshal().into(),
+            value: StoreValue::new(Some(target.content.marshal())),
         })
         .collect();
 

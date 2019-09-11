@@ -1,8 +1,11 @@
 use bincode::{deserialize, serialize};
+use serde::export::TryFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::declarations::basics::{StoreKey, StoreValue};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
+
+use crate::declarations::basics::db_version::DBVersion;
+use crate::declarations::basics::{StoreKey, StoreValue};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::instructions::{
     Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteInstruction,
@@ -11,6 +14,7 @@ use crate::storage::instructions::{
 use crate::storage::kv::KeyValueEngine;
 
 pub const IMMUXDB_VERSION: u32 = 1;
+pub static DB_VERSION: DBVersion = DBVersion::new(IMMUXDB_VERSION);
 
 pub const UNICUS_ENDPOINT: &str = "127.0.0.1:1991";
 pub const MONGO_ENDPOINT: &str = "127.0.0.1:27017";
@@ -22,7 +26,7 @@ pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
 pub const CHAIN_KEYWORD: &str = "chain";
 pub const SELECT_CONDITION_KEYWORD: &str = "select";
 pub const CREATE_INDEX_KEYWORD: &str = "index";
-pub const INTERNAL_API_TARGET_ID_IDENTIFIER: &str = "internal_api_target_id_indentifier";
+pub const INTERNAL_API_TARGET_ID_IDENTIFIER: &str = "internal_api_target_id_identifier";
 
 pub const MULTIFIELD_SEPARATOR: &str = "|";
 
@@ -44,6 +48,8 @@ const MIN_MONGO_WIRE_VERSION: u32 = 0;
 const MAX_MONGO_WIRE_VERSION: u32 = 7;
 const READ_ONLY: bool = false;
 
+pub const MAX_RECURSION: u16 = 128;
+
 #[derive(Debug)]
 pub enum ConfigError {
     CannotRead,
@@ -51,6 +57,7 @@ pub enum ConfigError {
     CannotSerialize,
     CannotSet,
     CannotDeserialize,
+    UnexpectedKeySigil(u8),
 }
 
 struct ImmuxDBCommandlineOptions {
@@ -80,11 +87,39 @@ pub enum KVKeySigil {
 
     // By VKV
     UnitJournal = 0x30,
-    HeightToInstructionMeta = 0x31,
-    HeightToInstructionRecord = 0x32,
+    HeightToInstructionRecord = 0x31,
 
     // By executor
     ReverseIndexIdList = 0xA0,
+}
+
+impl TryFrom<u8> for KVKeySigil {
+    type Error = ConfigError;
+    fn try_from(u: u8) -> Result<KVKeySigil, ConfigError> {
+        if u == KVKeySigil::ChainInfo as u8 {
+            return Ok(KVKeySigil::ChainInfo);
+        } else if u == KVKeySigil::ChainHeight as u8 {
+            return Ok(KVKeySigil::ChainHeight);
+        } else if u == KVKeySigil::GroupingInfo as u8 {
+            return Ok(KVKeySigil::GroupingInfo);
+        } else if u == KVKeySigil::GroupingIndexedNames as u8 {
+            return Ok(KVKeySigil::GroupingIndexedNames);
+        } else if u == KVKeySigil::UnitJournal as u8 {
+            return Ok(KVKeySigil::UnitJournal);
+        } else if u == KVKeySigil::HeightToInstructionRecord as u8 {
+            return Ok(KVKeySigil::HeightToInstructionRecord);
+        } else if u == KVKeySigil::ReverseIndexIdList as u8 {
+            return Ok(KVKeySigil::ReverseIndexIdList);
+        } else {
+            return Err(ConfigError::UnexpectedKeySigil(u));
+        }
+    }
+}
+
+impl From<KVKeySigil> for u8 {
+    fn from(sigil: KVKeySigil) -> u8 {
+        sigil as u8
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -145,7 +180,7 @@ pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> Imm
         Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotSerialize)),
         Ok(bytes) => {
             let key: StoreKey = GLOBAL_CONFIG_KEY.as_bytes().into();
-            let value: StoreValue = bytes.into();
+            let value = StoreValue::new(Some(bytes));
             let instruction = Instruction::Data(DataInstruction::Write(
                 DataWriteInstruction::SetMany(SetManyInstruction {
                     targets: vec![SetTargetSpec { key, value }],
@@ -167,10 +202,12 @@ pub fn load_config(core: &mut ImmuxDBCore) -> ImmuxResult<ImmuxDBConfiguration> 
     match core.execute(&instruction) {
         Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotRead)),
         Ok(Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(answer)))) => {
-            let data: Vec<u8> = answer.value.into();
-            match deserialize::<ImmuxDBConfiguration>(&data) {
-                Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotDeserialize)),
-                Ok(config) => return Ok(config),
+            match answer.value.inner() {
+                None => return Err(ConfigError::CannotRead.into()),
+                Some(value) => match deserialize::<ImmuxDBConfiguration>(value) {
+                    Err(_error) => return Err(ImmuxError::Config(ConfigError::CannotDeserialize)),
+                    Ok(config) => return Ok(config),
+                },
             }
         }
         _ => return Err(ImmuxError::Config(ConfigError::UnexpectedCoreAnswer)),

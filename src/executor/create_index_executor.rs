@@ -44,24 +44,31 @@ pub fn execute_create_index(
             Err(error) => return Err(error),
             Ok(Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetManyOk(answer)))) => {
                 for (store_key, store_value) in answer.data.into_iter() {
-                    let content = UnitContent::parse(store_value.inner())?;
-                    match content {
-                        UnitContent::JsonString(json_string) => {
-                            match serde_json::from_str::<JsonValue>(&json_string) {
-                                Err(_error) => {
-                                    println!("error!");
-                                    continue;
+                    match store_value.inner() {
+                        None => {
+                            continue;
+                        }
+                        Some(data) => {
+                            let content = UnitContent::parse(data)?;
+                            match content {
+                                UnitContent::JsonString(json_string) => {
+                                    match serde_json::from_str::<JsonValue>(&json_string) {
+                                        Err(_error) => {
+                                            println!("error!");
+                                            continue;
+                                        }
+                                        Ok(json) => {
+                                            let unboxed_key: StoreKey = store_key.into();
+                                            let specifier = UnitSpecifier::try_from(unboxed_key)?;
+                                            let id = specifier.get_id();
+                                            index.index_new_json(id, &json, &command.name)?;
+                                        }
+                                    }
                                 }
-                                Ok(json) => {
-                                    let unboxed_key: StoreKey = store_key.into();
-                                    let specifier = UnitSpecifier::try_from(unboxed_key)?;
-                                    let id = specifier.get_id();
-                                    index.index_new_json(id, &json, &command.name)?;
+                                _ => {
+                                    // Only JSON strings can be indexed right now
                                 }
                             }
-                        }
-                        _ => {
-                            println!("Skipping unexpected shape!");
                         }
                     }
                 }
@@ -76,7 +83,7 @@ pub fn execute_create_index(
         for ((name, property_bytes), ids) in reverse_index {
             let property = UnitContent::parse(&property_bytes)?;
             let key = get_store_key_of_indexed_id_list(grouping, &name, &property);
-            let value = StoreValue::new(ids.into());
+            let value = StoreValue::new(Some(ids.marshal()));
             let insert_command_spec = SetTargetSpec { key, value };
             targets.push(insert_command_spec);
         }

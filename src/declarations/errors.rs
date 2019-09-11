@@ -9,13 +9,14 @@ use crate::cortices::unicus::cortex::HttpParsingError;
 use crate::cortices::utils::DeserializationError;
 use crate::declarations::basics::id_list::IdListError;
 use crate::declarations::basics::property_names::PropertyNameListError;
+use crate::declarations::basics::store_value::StoreValueError;
 use crate::declarations::basics::unit_id::UnitIdError;
 use crate::declarations::basics::{StoreKeyError, UnitContentError};
 use crate::executor::errors::ExecutorError;
 use crate::executor::reverse_index::ReverseIndexError;
 use crate::storage::kv::KVError;
 use crate::storage::tkv::TransactionError;
-use crate::storage::vkv::VkvError;
+use crate::storage::vkv::{ChainHeightError, VkvError};
 
 #[derive(Debug)]
 pub enum ImmuxError {
@@ -46,6 +47,8 @@ pub enum ImmuxError {
     ReverseIndexProcessing(ReverseIndexError),
     UnitId(UnitIdError),
     StoreKey(StoreKeyError),
+    StoreValue(StoreValueError),
+    ChainHeight(ChainHeightError),
     PropertyName(PropertyNameListError),
     IdList(IdListError),
 }

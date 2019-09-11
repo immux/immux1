@@ -71,10 +71,10 @@ impl RocksStore {
 }
 
 impl KeyValueStore for RocksStore {
-    fn get(&self, key: &KVKey) -> ImmuxResult<KVValue> {
+    fn get(&self, key: &KVKey) -> ImmuxResult<Option<KVValue>> {
         match self.db.get(key.as_bytes()) {
-            Ok(Some(value)) => Ok(value.to_vec().into()),
-            Ok(None) => Err(KVError::NotFound(key.clone()).into()),
+            Ok(Some(value)) => Ok(Some(value.to_vec().into())),
+            Ok(None) => Ok(None),
             Err(error) => Err(RocksEngineError::GetError(error).into()),
         }
     }

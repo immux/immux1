@@ -117,19 +117,18 @@ pub struct RevertAllOutcome {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Inspection {
-    pub deleted: bool,
     pub height: ChainHeight,
-    pub current_content: UnitContent,
+    pub content: Option<UnitContent>,
 }
 
 impl ToString for Inspection {
     fn to_string(&self) -> String {
-        format!(
-            "{}|{}|{}",
-            self.deleted,
-            self.height.as_u64(),
-            self.current_content.to_string()
-        )
+        let height = self.height.as_u64();
+        let content = match &self.content {
+            None => String::from(""),
+            Some(data) => data.to_string(),
+        };
+        format!("{}|{}", height, content)
     }
 }
 

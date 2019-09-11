@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 use crate::declarations::errors::ImmuxResult;
 use crate::utils::{bool_to_u8, f64_to_u8_array, u8_array_to_f64, u8_to_bool, utf8_to_string};
@@ -121,6 +122,31 @@ impl UnitContent {
     }
 }
 
+impl PartialEq<JsonValue> for UnitContent {
+    fn eq(&self, other: &JsonValue) -> bool {
+        match other {
+            JsonValue::Array(_) => false,
+            JsonValue::Object(_) => false,
+            JsonValue::Bool(bool_json) => match self {
+                UnitContent::Bool(bool_content) => bool_content == bool_json,
+                _ => false,
+            },
+            JsonValue::Number(n_json) => match self {
+                UnitContent::Float64(f_content) => Some(*f_content) == n_json.as_f64(),
+                _ => false,
+            },
+            JsonValue::Null => match self {
+                UnitContent::Nil => true,
+                _ => false,
+            },
+            JsonValue::String(s_json) => match self {
+                UnitContent::String(s_content) => s_content == s_json,
+                _ => false,
+            },
+        }
+    }
+}
+
 impl ToString for UnitContent {
     fn to_string(&self) -> String {
         match self {
@@ -137,6 +163,8 @@ impl ToString for UnitContent {
 
 #[cfg(test)]
 mod unit_content_tests {
+    use serde_json::Value as JsonValue;
+
     use crate::declarations::basics::UnitContent;
 
     fn get_fixture() -> Vec<(Option<UnitContent>, Vec<u8>)> {
@@ -208,6 +236,53 @@ mod unit_content_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_partial_eq_json_null() {
+        let json_null = JsonValue::Null;
+        let content_null = UnitContent::Nil;
+        let content_bool = UnitContent::Bool(false);
+        assert_eq!(content_null, json_null);
+        assert_ne!(content_bool, json_null);
+    }
+
+    #[test]
+    fn test_partial_eq_json_string() {
+        let string = String::from("string value");
+        let json_string = JsonValue::String(string.clone());
+        let json_string_alternative = JsonValue::String("another string value".to_string());
+        let content_string = UnitContent::String(string.clone());
+        assert_eq!(content_string, json_string);
+        assert_ne!(content_string, json_string_alternative);
+    }
+
+    #[test]
+    fn test_partial_eq_float() {
+        let float = -3.14f64;
+        let json_float = JsonValue::from(float);
+        let json_float_alternative = JsonValue::from(0.1);
+        let content_number = UnitContent::Float64(float);
+        assert_eq!(content_number, json_float);
+        assert_ne!(content_number, json_float_alternative);
+    }
+
+    #[test]
+    fn test_partial_eq_int() {
+        let int = -3i8;
+        let json_int = JsonValue::from(int);
+        let json_int_alternative = JsonValue::from(100u8);
+        let content_number = UnitContent::Float64(int.into());
+        assert_eq!(content_number, json_int);
+        assert_ne!(content_number, json_int_alternative);
+    }
+
+    #[test]
+    fn test_partial_eq_bool() {
+        assert_eq!(UnitContent::Bool(true), JsonValue::from(true));
+        assert_eq!(UnitContent::Bool(false), JsonValue::from(false));
+        assert_ne!(UnitContent::Bool(true), JsonValue::from(false));
+        assert_ne!(UnitContent::Bool(false), JsonValue::from(true));
     }
 
 }
