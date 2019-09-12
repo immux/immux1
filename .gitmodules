@@ -1,3 +1,0 @@
-[submodule "benches/benchmark-data-raw"]
-	path = benches/realistic/data-raw
-	url = git@github.com:immux/benchmark-data-raw.git
