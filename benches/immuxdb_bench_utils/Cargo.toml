@@ -11,3 +11,6 @@ path = "immuxdb_bench_utils.rs"
 [dependencies]
 immuxdb_dev_utils = { path = "../../src/dev" }
 immuxdb = { path = "../.." }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+csv = "1.1"

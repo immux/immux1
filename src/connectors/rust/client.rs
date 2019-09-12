@@ -123,7 +123,7 @@ impl ImmuxDBConnector for ImmuxDBClient {
             .collect();
         let mut response = client
             .put(&format!(
-                "http://{}/{}/internal_api_target_id_indentifier",
+                "http://{}/{}/internal_api_target_id_identifier",
                 &self.host,
                 grouping.to_string()
             ))

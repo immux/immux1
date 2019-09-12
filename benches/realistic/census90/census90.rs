@@ -1,12 +1,13 @@
 use std::error::Error;
+use std::thread;
 
-use immuxdb_bench_utils::measure_iteration;
-use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
-use libimmuxdb::declarations::basics::GroupingLabel;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{csv_to_json_table, least_squares::solve};
-use crate::BenchSpec;
+use immuxdb_bench_utils::least_squares::solve;
+use immuxdb_bench_utils::{csv_to_json_table, measure_iteration, read_usize_from_arguments};
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use immuxdb_dev_utils::{launch_db, notified_sleep};
+use libimmuxdb::declarations::basics::GroupingLabel;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CensusEntry {
@@ -81,15 +82,35 @@ struct CensusEntry {
     d_yrsserv: u64,
 }
 
-pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
+fn main() {
+    let bench_name = "census90";
+    let row_limit = read_usize_from_arguments(1).unwrap_or(20_000);
+    let report_period = read_usize_from_arguments(2).unwrap_or(1_000);
+    let verify_correctness = read_usize_from_arguments(3).unwrap_or(0) > 0;
+    let db_port = 18000;
+
+    println!(
+        "\nExecuting bench {}, with tables truncated at row {}, aggregating {} operations",
+        bench_name, row_limit, report_period
+    );
+    if verify_correctness {
+        println!("Verification of 'get' results are turned on")
+    } else {
+        println!("Database outputs are ignored and not verified")
+    }
+
+    thread::spawn(move || launch_db(bench_name, db_port));
+    notified_sleep(5);
+
     let table = csv_to_json_table::<CensusEntry>(
-        "benches/realistic/data-raw/census1990/USCensus1990.data.csv",
+        "benches/realistic/census90/data-raw/USCensus1990.data.txt",
         b',',
-        spec.row_limit,
-    )?;
+        row_limit,
+    )
+    .unwrap();
 
     let grouping_label = GroupingLabel::new("GROUPING".as_bytes());
-    let client = ImmuxDBClient::new(&format!("localhost:{}", spec.unicus_port))?;
+    let client = ImmuxDBClient::new(&format!("localhost:{}", db_port)).unwrap();
 
     let insert = || -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
         measure_iteration(
@@ -100,7 +121,7 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
                     .map_err(|err| err.into())
             },
             "insert",
-            spec.report_period,
+            report_period,
         )
     };
 
@@ -110,20 +131,25 @@ pub fn census90(spec: &BenchSpec) -> Result<(), Box<dyn Error>> {
             |unit| {
                 client
                     .get_by_id(&grouping_label, &unit.id)
+                    .map(|output| {
+                        if verify_correctness {
+                            let original = &unit.content;
+                            assert_eq!(original.to_string(), output);
+                        };
+                        output
+                    })
                     .map_err(|err| err.into())
             },
             "get",
-            spec.report_period,
+            report_period,
         )
     };
 
-    let time_insert_1 = insert()?;
+    let time_insert_1 = insert().unwrap();
     let (k_insert_1, _) = solve(&time_insert_1);
     println!("Gained {:.2e} ms per item on average", k_insert_1);
 
-    let time_get_1 = get()?;
+    let time_get_1 = get().unwrap();
     let (k_get_1, _) = solve(&time_get_1);
     println!("Gained {:.2e} ms per item on average", k_get_1);
-
-    Ok(())
 }

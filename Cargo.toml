@@ -21,7 +21,6 @@ sqlparser = "0.3.0"
 
 [dev-dependencies]
 reqwest = "0.9"
-csv = "1.1"
 immuxdb_client = { path = "src/connectors/rust" }
 immuxdb_dev_utils = { path = "src/dev" }
 immuxdb_bench_utils = { path = "benches/immuxdb_bench_utils" }
@@ -35,9 +34,14 @@ name = "libimmuxdb"
 path = "src/lib.rs"
 
 [[bench]]
-name = "realistic"
+name = "census90"
 harness = false
-path = "benches/realistic/mod.rs"
+path = "benches/realistic/census90/census90.rs"
+
+[[bench]]
+name = "berka99"
+harness = false
+path = "benches/realistic/berka99/berka99.rs"
 
 [[bench]]
 name = "artificial"

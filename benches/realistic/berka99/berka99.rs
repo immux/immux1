@@ -1,12 +1,14 @@
 use std::error::Error;
 
-use immuxdb_bench_utils::{measure_iteration, UnitList};
-use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
-use libimmuxdb::declarations::basics::GroupingLabel;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::csv_to_json_table;
-use crate::BenchSpec;
+use immuxdb_bench_utils::{
+    csv_to_json_table, measure_iteration, read_usize_from_arguments, UnitList,
+};
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use immuxdb_dev_utils::{launch_db, notified_sleep};
+use libimmuxdb::declarations::basics::GroupingLabel;
+use std::thread;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Account {
@@ -94,23 +96,37 @@ struct Trans {
     account: String,
 }
 
-pub fn berka99(bench: &BenchSpec) -> Result<(), Box<dyn Error>> {
+fn main() {
+    let bench_name = "berka99";
+    let row_limit = read_usize_from_arguments(1).unwrap_or(20_000);
+    let report_period = read_usize_from_arguments(2).unwrap_or(1_000);
+    let verify_correctness = read_usize_from_arguments(3).unwrap_or(0) > 0;
+    let port = 18001;
+
+    println!(
+        "\nExecuting bench {}, with tables truncated at row {}, aggregating {} operations",
+        bench_name, row_limit, report_period
+    );
+
+    thread::spawn(move || launch_db("berka99", port));
+    notified_sleep(5);
+
     let paths = vec![
         "account", "card", "client", "disp", "district", "loan", "order", "trans",
     ];
     let dataset: Vec<(String, UnitList)> = paths
         .iter()
         .map(|table_name| -> (String, Result<UnitList, Box<dyn Error>>) {
-            let csv_path = format!("benches/realistic/data-raw/berka99/{}.asc", table_name);
+            let csv_path = format!("benches/realistic/berka99/data-raw/{}.asc", table_name);
             let data = match table_name.as_ref() {
-                "account" => csv_to_json_table::<Account>(&csv_path, b';', bench.row_limit),
-                "card" => csv_to_json_table::<Card>(&csv_path, b';', bench.row_limit),
-                "client" => csv_to_json_table::<Client>(&csv_path, b';', bench.row_limit),
-                "disp" => csv_to_json_table::<Disp>(&csv_path, b';', bench.row_limit),
-                "district" => csv_to_json_table::<District>(&csv_path, b';', bench.row_limit),
-                "loan" => csv_to_json_table::<Loan>(&csv_path, b';', bench.row_limit),
-                "order" => csv_to_json_table::<Order>(&csv_path, b';', bench.row_limit),
-                "trans" => csv_to_json_table::<Trans>(&csv_path, b';', bench.row_limit),
+                "account" => csv_to_json_table::<Account>(&csv_path, b';', row_limit),
+                "card" => csv_to_json_table::<Card>(&csv_path, b';', row_limit),
+                "client" => csv_to_json_table::<Client>(&csv_path, b';', row_limit),
+                "disp" => csv_to_json_table::<Disp>(&csv_path, b';', row_limit),
+                "district" => csv_to_json_table::<District>(&csv_path, b';', row_limit),
+                "loan" => csv_to_json_table::<Loan>(&csv_path, b';', row_limit),
+                "order" => csv_to_json_table::<Order>(&csv_path, b';', row_limit),
+                "trans" => csv_to_json_table::<Trans>(&csv_path, b';', row_limit),
                 _ => panic!("Unexpected table {}", table_name),
             };
             return (table_name.to_string(), data);
@@ -126,22 +142,35 @@ pub fn berka99(bench: &BenchSpec) -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let client = ImmuxDBClient::new(&format!("localhost:{}", bench.unicus_port))?;
+    let client = ImmuxDBClient::new(&format!("localhost:{}", port)).unwrap();
 
-    for table in dataset {
-        println!("Loading table '{}'", table.0);
+    for (table_name, table) in dataset.iter() {
+        println!("Loading table '{}'", table_name);
+        let grouping_label = GroupingLabel::from(table_name.as_str());
         measure_iteration(
-            &table.1,
+            table,
             |unit| {
-                let grouping_label = GroupingLabel::new(bench.name.as_bytes());
                 client
                     .set_unit(&grouping_label, &unit)
                     .map_err(|err| err.into())
             },
             "get",
-            bench.report_period,
-        )?;
+            report_period,
+        )
+        .unwrap();
     }
 
-    return Ok(());
+    if verify_correctness {
+        for (table_name, table) in dataset.iter() {
+            println!("Verifying table '{}'", table_name);
+            let grouping_label = GroupingLabel::from(table_name.as_str());
+            for unit in table {
+                let data = client.get_by_id(&grouping_label, &unit.id).unwrap();
+                assert_eq!(data, unit.content.to_string())
+            }
+        }
+        println!("Database entries match input tables")
+    } else {
+        println!("Data verification is skipped")
+    }
 }

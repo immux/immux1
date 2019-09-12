@@ -7,3 +7,4 @@ node_modules
 build
 tmp*
 foldr.json
+data-raw
