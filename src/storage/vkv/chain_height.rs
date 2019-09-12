@@ -1,6 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{u64_to_u8_array, u8_array_to_u64};
+use crate::declarations::errors::ImmuxError;
+use crate::utils::{varint_decode, varint_encode};
+
+#[derive(Debug)]
+pub enum ChainHeightError {
+    UnexpectedLength(usize),
+    ParseError,
+}
+
+impl From<ChainHeightError> for ImmuxError {
+    fn from(error: ChainHeightError) -> ImmuxError {
+        ImmuxError::ChainHeight(error)
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ChainHeight(u64);
@@ -21,28 +34,13 @@ impl ChainHeight {
     pub fn as_u64(&self) -> u64 {
         self.0
     }
-}
-
-impl Into<u64> for ChainHeight {
-    fn into(self) -> u64 {
-        self.0
+    pub fn marshal(&self) -> Vec<u8> {
+        varint_encode(self.as_u64())
     }
-}
-
-impl Into<[u8; 8]> for ChainHeight {
-    fn into(self) -> [u8; 8] {
-        u64_to_u8_array(self.into())
-    }
-}
-
-impl Into<Vec<u8>> for ChainHeight {
-    fn into(self) -> Vec<u8> {
-        u64_to_u8_array(self.0).to_vec()
-    }
-}
-
-impl From<[u8; 8]> for ChainHeight {
-    fn from(data: [u8; 8]) -> Self {
-        Self(u8_array_to_u64(&data))
+    pub fn parse(data: &[u8]) -> Result<(Self, usize), ChainHeightError> {
+        match varint_decode(data) {
+            Err(_) => Err(ChainHeightError::ParseError),
+            Ok((value, width)) => Ok((ChainHeight::new(value), width)),
+        }
     }
 }

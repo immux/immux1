@@ -86,6 +86,12 @@ impl From<&[u8]> for StoreKey {
     }
 }
 
+impl From<&str> for StoreKey {
+    fn from(data: &str) -> Self {
+        StoreKey(data.as_bytes().to_vec())
+    }
+}
+
 impl From<String> for StoreKey {
     fn from(data: String) -> Self {
         StoreKey(data.as_bytes().to_vec())

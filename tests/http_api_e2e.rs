@@ -81,29 +81,25 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
         client.set_unit(&grouping, &unit)?;
     }
 
-    println!("A");
     let body_text = client.inspect_by_id(&grouping, &id)?;
-    println!("Output text {}", body_text);
-    let data: Vec<(&str, &str, &str)> = body_text
+    let data: Vec<(&str, &str)> = body_text
         .split("\r\n")
         .filter(|line| line.len() > 0)
         .map(|line| {
             let segments: Vec<_> = line.split("|").collect();
-            return (segments[0], segments[1], segments[2]);
+            return (segments[0], segments[1]);
         })
         .collect();
 
-    println!("B");
     // Test inspection of version changes
     for expected_height in range.clone() {
         let index = (expected_height - INITIAL_HEIGHT) as usize;
-        let (_actual_deleted, actual_height, actual_data) = data[index];
+        let (actual_height, actual_data) = data[index];
         let expected_data = dummy_data(expected_height);
         assert_eq!(expected_height, actual_height.parse::<u64>().unwrap());
         assert_eq!(expected_data, actual_data);
     }
 
-    println!("C");
     // Test revert
     for target_height in range.clone() {
         let chain_height = ChainHeight::new(target_height);
@@ -124,55 +120,40 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
     notified_sleep(5);
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
-    let chian_name = ChainName::from("immuxtest-multiple-document-versioning");
-    client.switch_chain(&chian_name)?;
+    let chain_name = ChainName::from("immuxtest-multiple-document-versioning");
+    client.switch_chain(&chain_name)?;
 
     let grouping = GroupingLabel::new("GROUPING".as_bytes());
 
-    let inputs: Vec<(Unit)> = vec![
+    let units: Vec<Unit> = [
         //id, data
-        Unit {
-            id: UnitId::new(0),
-            content: UnitContent::String("a1".to_string()),
-        },
-        Unit {
-            id: UnitId::new(0),
-            content: UnitContent::String("a2".to_string()),
-        },
-        Unit {
-            id: UnitId::new(1),
-            content: UnitContent::String("b1".to_string()),
-        },
-        Unit {
-            id: UnitId::new(0),
-            content: UnitContent::String("a3".to_string()),
-        },
-        Unit {
-            id: UnitId::new(2),
-            content: UnitContent::String("c1".to_string()),
-        },
-        Unit {
-            id: UnitId::new(1),
-            content: UnitContent::String("b2".to_string()),
-        },
-        Unit {
-            id: UnitId::new(2),
-            content: UnitContent::String("c2".to_string()),
-        },
-    ];
+        (0, "a1"),
+        (0, "a2"),
+        (1, "b1"),
+        (0, "a3"),
+        (2, "c1"),
+        (1, "b2"),
+        (2, "c2"),
+    ]
+    .iter()
+    .map(|(id, data)| Unit {
+        id: UnitId::new(*id),
+        content: UnitContent::String(data.to_string()),
+    })
+    .collect();
 
     // Store data in specified order
-    for input in inputs.iter() {
-        client.set_unit(&grouping, input)?;
+    for unit in units.iter() {
+        client.set_unit(&grouping, unit)?;
     }
 
     // Revert in input order and check consistency
-    for (index, input) in inputs.iter().enumerate() {
+    for (index, unit) in units.iter().enumerate() {
         let height = INITIAL_HEIGHT + (index as u64);
         let chain_height = ChainHeight::new(height);
-        client.revert_by_id(&grouping, &input.id, &chain_height)?;
-        let current_data = client.get_by_id(&grouping, &input.id)?;
-        assert_eq!(current_data, input.content.to_string());
+        client.revert_by_id(&grouping, &unit.id, &chain_height)?;
+        let current_data = client.get_by_id(&grouping, &unit.id)?;
+        assert_eq!(current_data, unit.content.to_string());
     }
 
     Ok(())

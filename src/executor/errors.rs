@@ -1,4 +1,4 @@
-use crate::declarations::basics::GroupingLabel;
+use crate::declarations::basics::{GroupingLabel, UnitId};
 use crate::declarations::commands::SelectCondition;
 use crate::storage::instructions::Answer;
 
@@ -10,4 +10,6 @@ pub enum ExecutorError {
     CannotDeserialize,
     UnexpectedNumberType,
     NoIndexedNamesList(GroupingLabel),
+    CannotFindId(UnitId),
+    NoneReverseIndex,
 }

@@ -90,7 +90,7 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxR
         SetManyInstruction {
             targets: vec![SetTargetSpec {
                 key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
-                value: StoreValue::new(buffer.to_vec()),
+                value: StoreValue::new(Some(buffer.to_vec())),
             }],
         },
     )));
@@ -118,10 +118,18 @@ pub fn load_server_status_flags(core: &mut ImmuxDBCore) -> ImmuxResult<ServerSta
         }
         Ok(answer) => match answer {
             Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(get_answer))) => {
-                let target: Vec<u8> = get_answer.value.into();
-                let (status_flags, _) = parse_u16(&target)?;
-                let res = parse_status_flags(status_flags);
-                return Ok(res);
+                match get_answer.value.inner() {
+                    None => {
+                        return Err(ImmuxError::MySQLSerializer(
+                            MySQLSerializeError::CannotReadServerStatusFlags,
+                        ))
+                    }
+                    Some(data) => {
+                        let (status_flags, _) = parse_u16(&data)?;
+                        let result = parse_status_flags(status_flags);
+                        return Ok(result);
+                    }
+                }
             }
             _ => {
                 return Err(ImmuxError::MySQLSerializer(

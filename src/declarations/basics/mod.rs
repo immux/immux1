@@ -1,4 +1,5 @@
 pub mod chain_name;
+pub mod db_version;
 pub mod grouping_label;
 pub mod id_list;
 pub mod property_names;

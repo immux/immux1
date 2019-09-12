@@ -1,18 +1,7 @@
-use std::collections::{HashSet, VecDeque};
-
-use crate::config::INITIAL_TRANSACTION_ID_DATA;
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
-use crate::storage::instructions::{
-    AbortTransactionOkAnswer, Answer, CommitTransactionOkAnswer, DBSystemInstruction,
-    DataInstruction, DataWriteInstruction, Instruction, StartTransactionOkAnswer, StoreNamespace,
-    TransactionMetaAnswer, TransactionMetaInstruction, TransactionPendingAnswer,
-    TransactionalDataAnswer,
-};
-use crate::storage::kv::KeyValueEngine;
-use crate::storage::tkv::TransactionId;
-use crate::storage::vkv::{
-    extract_affected_keys, ChainHeight, ImmuxDBVersionedKeyValueStore, VersionedKeyValueStore,
-};
+use crate::storage::instructions::{Answer, Instruction, StoreNamespace};
+use crate::storage::kv::{KeyValueEngine};
+use crate::storage::vkv::{ImmuxDBVersionedKeyValueStore, VersionedKeyValueStore};
 
 #[derive(Debug)]
 pub enum TransactionError {
@@ -29,10 +18,6 @@ pub trait TransactionKeyValueStore {
 
 pub struct ImmuxDBTransactionKeyValueStore {
     vkv: ImmuxDBVersionedKeyValueStore,
-    executed_instructions: Vec<Instruction>,
-    last_height_before_transaction: ChainHeight,
-    queue: VecDeque<TransactionId>,
-    current_active_transaction_id: TransactionId,
 }
 
 impl ImmuxDBTransactionKeyValueStore {
@@ -42,220 +27,18 @@ impl ImmuxDBTransactionKeyValueStore {
         namespace: &StoreNamespace,
     ) -> Result<ImmuxDBTransactionKeyValueStore, ImmuxError> {
         let vkv = ImmuxDBVersionedKeyValueStore::new(engine_choice, data_root, namespace)?;
-        let executed_instructions = Vec::new();
-        let last_height_before_transaction = vkv.get_current_height();
-        let queue = VecDeque::new();
-        let current_active_transaction_id = TransactionId::new(INITIAL_TRANSACTION_ID_DATA);
-
-        let tkv = ImmuxDBTransactionKeyValueStore {
-            vkv,
-            executed_instructions,
-            last_height_before_transaction,
-            queue,
-            current_active_transaction_id,
-        };
+        let tkv = ImmuxDBTransactionKeyValueStore { vkv };
         return Ok(tkv);
     }
 
-    pub fn undo_transaction(&mut self) -> ImmuxResult<()> {
-        let target_height = self.last_height_before_transaction;
-        let affected_keys = {
-            let mut keys = HashSet::new();
-            let current_height = self.vkv.get_current_height();
-            for instruction in &self.executed_instructions {
-                match instruction {
-                    Instruction::Data(DataInstruction::Write(write_instruction)) => {
-                        match write_instruction {
-                            DataWriteInstruction::SetMany(set_instruction) => {
-                                for set_target_spec in &set_instruction.targets {
-                                    keys.insert(set_target_spec.key.clone());
-                                }
-                            }
-                            DataWriteInstruction::RevertMany(revert_instruction) => {
-                                for revert_target_spec in &revert_instruction.targets {
-                                    keys.insert(revert_target_spec.key.clone());
-                                }
-                            }
-                            DataWriteInstruction::RevertAll(_revert_all_instruction) => {
-                                let revert_all_affected_keys = extract_affected_keys(
-                                    &self.vkv,
-                                    target_height,
-                                    current_height,
-                                )?;
-                                for key in revert_all_affected_keys {
-                                    keys.insert(key);
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            keys
-        };
-
-        for key in affected_keys {
-            self.vkv
-                .invalidate_update_after_height(&key, target_height)?;
-        }
-        self.vkv
-            .invalidate_instruction_meta_after_height(target_height)?;
-        self.vkv
-            .invalidate_instruction_record_after_height(target_height)?;
-
-        return Ok(());
-    }
     fn pass_to_vkv(&mut self, instruction: &Instruction) -> ImmuxResult<Answer> {
-        if self.queue.is_empty() {
-            self.vkv.execute(instruction)
-        } else {
-            return Err(ImmuxError::Transaction(
-                TransactionError::TransactionInProgress,
-            ));
-        }
+        self.vkv.execute(instruction)
     }
 }
 
 impl TransactionKeyValueStore for ImmuxDBTransactionKeyValueStore {
     fn execute(&mut self, instruction: &Instruction) -> Result<Answer, ImmuxError> {
-        match instruction {
-            Instruction::TransactionMeta(instruction) => match instruction {
-                TransactionMetaInstruction::StartTransaction => {
-                    self.current_active_transaction_id.increment();
-                    let transaction_id = self.current_active_transaction_id;
-                    if self.queue.is_empty() {
-                        self.queue.push_back(transaction_id);
-                        self.last_height_before_transaction = self.vkv.get_current_height();
-                        self.executed_instructions.clear();
-                        return Ok(Answer::TransactionMeta(
-                            TransactionMetaAnswer::StartTransactionOk(StartTransactionOkAnswer {
-                                transaction_id,
-                            }),
-                        ));
-                    } else {
-                        self.queue.push_back(transaction_id);
-                        let _transaction_pending_answer =
-                            TransactionPendingAnswer { transaction_id };
-                        return Ok(Answer::TransactionMeta(
-                            TransactionMetaAnswer::AppendTransactionOk(TransactionPendingAnswer {
-                                transaction_id,
-                            }),
-                        ));
-                    }
-                }
-                TransactionMetaInstruction::CommitTransaction(commit_transaction_instruction) => {
-                    match self.queue.front() {
-                        Some(transaction_id) => {
-                            if *transaction_id == commit_transaction_instruction.transaction_id {
-                                let transaction_id = commit_transaction_instruction.transaction_id;
-                                self.executed_instructions.clear();
-                                self.last_height_before_transaction = self.vkv.get_current_height();
-                                self.queue.pop_front();
-                                let next_active_transaction_id = self.queue.pop_front();
-                                return Ok(Answer::TransactionMeta(
-                                    TransactionMetaAnswer::CommitTransactionOk(
-                                        CommitTransactionOkAnswer {
-                                            committed_transaction_id: transaction_id,
-                                            next_active_transaction_id,
-                                        },
-                                    ),
-                                ));
-                            } else {
-                                return Err(ImmuxError::Transaction(
-                                    TransactionError::TransactionNotStarted,
-                                ));
-                            }
-                        }
-                        None => {
-                            return Err(ImmuxError::Transaction(
-                                TransactionError::TransactionNotStarted,
-                            ));
-                        }
-                    }
-                }
-                TransactionMetaInstruction::AbortTransaction(abort_transaction_instruction) => {
-                    match self.queue.front() {
-                        Some(transaction_id) => {
-                            if *transaction_id == abort_transaction_instruction.transaction_id {
-                                let transaction_id = abort_transaction_instruction.transaction_id;
-                                match self.undo_transaction() {
-                                    Ok(()) => {}
-                                    Err(error) => return Err(error),
-                                };
-                                self.executed_instructions.clear();
-                                self.vkv.set_height(self.last_height_before_transaction)?;
-                                self.queue.pop_front();
-                                return Ok(Answer::TransactionMeta(
-                                    TransactionMetaAnswer::AbortTransactionOk(
-                                        AbortTransactionOkAnswer { transaction_id },
-                                    ),
-                                ));
-                            } else {
-                                return Err(ImmuxError::Transaction(
-                                    TransactionError::TransactionNotStarted,
-                                ));
-                            }
-                        }
-                        None => {
-                            return Err(ImmuxError::Transaction(
-                                TransactionError::TransactionNotStarted,
-                            ));
-                        }
-                    }
-                }
-            },
-            Instruction::TransactionalData(instruction) => match self.queue.front() {
-                None => {
-                    return Err(ImmuxError::Transaction(
-                        TransactionError::TransactionNotStarted,
-                    ));
-                }
-                Some(transaction_id) => {
-                    if *transaction_id == instruction.transaction_id {
-                        match self
-                            .vkv
-                            .execute(&Instruction::Data(instruction.plain_instruction.clone()))?
-                        {
-                            Answer::DataAccess(answer) => {
-                                let transactional = TransactionalDataAnswer {
-                                    transaction_id: *transaction_id,
-                                    answer,
-                                };
-                                return Ok(Answer::TransactionalData(transactional));
-                            }
-                            _ => {
-                                return Err(ImmuxError::Transaction(
-                                    TransactionError::UnexpectedAnswer,
-                                ));
-                            }
-                        }
-                    } else {
-                        return Err(ImmuxError::Transaction(
-                            TransactionError::TransactionNotStarted,
-                        ));
-                    }
-                }
-            },
-            Instruction::DBSystem(sys_instruction) => match sys_instruction {
-                DBSystemInstruction::SwitchNamespace(_switch_namespace) => {
-                    if self.queue.len() == 0 {
-                        return Ok(
-                            self.pass_to_vkv(&Instruction::DBSystem(sys_instruction.clone()))?
-                        );
-                    } else {
-                        return Err(ImmuxError::Transaction(
-                            TransactionError::CannotSwitchNamespaceWhileTransactionIsOngoing,
-                        ));
-                    }
-                }
-                DBSystemInstruction::ReadNamespace(_read_namespace) => {
-                    return Ok(self.pass_to_vkv(&Instruction::DBSystem(sys_instruction.clone()))?);
-                }
-            },
-            Instruction::Data(instruction) => {
-                return Ok(self.pass_to_vkv(&Instruction::Data(instruction.clone()))?);
-            }
-        }
+        self.pass_to_vkv(instruction)
     }
 }
 
@@ -273,13 +56,14 @@ mod tkv_tests {
     use crate::storage::tkv::TransactionKeyValueStore;
 
     #[test]
+    #[ignore]
     fn tkv_start_transaction() {
         let mut core = TKVTestCore::new("tkv_start_transaction");
-        assert_eq!(core.tkv.last_height_before_transaction.as_u64(), 0);
         core.start_transaction().unwrap();
     }
 
     #[test]
+    #[ignore]
     fn tkv_set_answer_type() {
         let mut core = TKVTestCore::new("tkv_set_answer_type");
         let (tid_int, _) = core.start_transaction().unwrap();
@@ -299,6 +83,7 @@ mod tkv_tests {
     }
 
     #[test]
+    #[ignore]
     #[should_panic]
     fn tkv_commit_transaction_not_started() {
         let mut core = TKVTestCore::new("tkv_commit_transaction_not_started");
@@ -307,6 +92,7 @@ mod tkv_tests {
     }
 
     #[test]
+    #[ignore]
     #[should_panic]
     fn tkv_abort_transaction_not_started() {
         let mut core = TKVTestCore::new("tkv_abort_transaction_not_started");
@@ -315,34 +101,23 @@ mod tkv_tests {
     }
 
     #[test]
-    #[should_panic]
-    fn tkv_internal_states() {
-        let mut core = TKVTestCore::new("tkv_internal_states");
-        let (transaction_id, _) = core.start_transaction().unwrap();
-        core.transactional_set("test_key0", "test_value0", transaction_id)
-            .unwrap();
-        core.transactional_set("test_key1", "test_value1", transaction_id)
-            .unwrap();
-        core.transactional_set("test_key2", "test_value2", transaction_id)
-            .unwrap();
-        assert_eq!(core.tkv.executed_instructions.len(), 3);
-        core.abort_transaction(transaction_id).unwrap();
-        assert_eq!(core.tkv.last_height_before_transaction.as_u64(), 0);
-        assert_eq!(core.tkv.executed_instructions.len(), 0);
-    }
-
-    #[test]
-    #[should_panic]
+    #[ignore]
     fn test_abort_transaction() {
+        let key = "test_key";
         let mut core = TKVTestCore::new("test_abort_transaction");
         let (transaction_id, _) = core.start_transaction().unwrap();
-        core.transactional_set("test_key", "test_value", transaction_id)
+        core.transactional_set(key, "test_value", transaction_id)
             .unwrap();
         core.abort_transaction(transaction_id).unwrap();
-        core.simple_get("test_key").unwrap();
+        match core.simple_get(key) {
+            Ok(None) => {}
+            Ok(Some(value)) => panic!("Values should not be accessible, got: {}", value),
+            Err(err) => panic!("error: {}", err),
+        }
     }
 
     #[test]
+    #[ignore]
     fn test_revert_one() -> ImmuxResult<()> {
         let mut core = TKVTestCore::new("test_revert_one");
         let (tid, _) = core.start_transaction()?;
@@ -353,11 +128,12 @@ mod tkv_tests {
         core.commit_transaction(tid)?;
 
         let current_value = core.simple_get("test_key").unwrap();
-        assert_eq!(current_value, "test_value1".to_string());
+        assert_eq!(current_value, Some("test_value1".to_string()));
         Ok(())
     }
 
     #[test]
+    #[ignore]
     fn test_revert_all() -> ImmuxResult<()> {
         let mut core = TKVTestCore::new("test_revert_all");
         let (tid, _) = core.start_transaction()?;
@@ -368,11 +144,12 @@ mod tkv_tests {
         core.commit_transaction(tid)?;
 
         let current_value = core.simple_get("test_key")?;
-        assert_eq!(current_value, "test_value2".to_string());
+        assert_eq!(current_value, Some("test_value2".to_string()));
         Ok(())
     }
 
     #[test]
+    #[ignore]
     fn test_multiple_concurrent_transactions() -> ImmuxResult<()> {
         let mut core = TKVTestCore::new("test_multiple_concurrent_transactions");
 
@@ -433,7 +210,7 @@ mod tkv_test_utils {
     use crate::storage::tkv::{
         ImmuxDBTransactionKeyValueStore, TransactionError, TransactionKeyValueStore,
     };
-    use crate::storage::vkv::ChainHeight;
+    use crate::storage::vkv::{ChainHeight, VkvError};
     use crate::utils::utf8_to_string;
 
     pub struct TKVTestCore {
@@ -492,22 +269,24 @@ mod tkv_test_utils {
             tid_int: u64,
         ) -> Result<Answer, ImmuxError> {
             let key = StoreKey::from(key_str.as_bytes().to_vec());
-            let value = StoreValue::from(value_str.as_bytes().to_vec());
+            let value = StoreValue::new(Some(value_str.as_bytes().to_vec()));
             let instruction =
                 get_transactional_set_instruction(key, value, TransactionId::new(tid_int));
             return self.tkv.execute(&instruction);
         }
-        pub fn simple_get(&mut self, key_str: &str) -> Result<String, ImmuxError> {
+        pub fn simple_get(&mut self, key_str: &str) -> Result<Option<String>, ImmuxError> {
             let key = StoreKey::from(key_str.as_bytes().to_vec());
             let get = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
                 GetOneInstruction { height: None, key },
             )));
             match self.tkv.execute(&get) {
+                Err(ImmuxError::VKV(VkvError::MissingJournal(_))) => Ok(None),
                 Err(error) => return Err(error),
                 Ok(Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(answer)))) => {
-                    let str_in_bytes = answer.value.to_vec();
-                    let res = utf8_to_string(&str_in_bytes);
-                    return Ok(res);
+                    match answer.value.inner() {
+                        None => Ok(None),
+                        Some(data) => Ok(Some(utf8_to_string(data))),
+                    }
                 }
                 Ok(_answer) => {
                     return Err(ImmuxError::Transaction(TransactionError::UnexpectedAnswer))

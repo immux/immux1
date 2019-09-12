@@ -7,6 +7,7 @@ use crate::cortices::mysql::utils::{
     parse_length_encoded_integer, parse_string_with_fixed_length, parse_u32_with_length_3,
 };
 use crate::cortices::utils::{parse_cstring, parse_u32, parse_u8};
+use crate::declarations::basics::StoreValue;
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::core::{CoreStore, ImmuxDBCore};
 use crate::storage::instructions::{
@@ -34,7 +35,7 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxRe
         DataWriteInstruction::SetMany(SetManyInstruction {
             targets: vec![SetTargetSpec {
                 key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec().into(),
-                value: buffer.to_vec().into(),
+                value: StoreValue::new(Some(buffer.to_vec())),
             }],
         }),
     ));
@@ -62,8 +63,16 @@ pub fn load_handshake_response(core: &mut ImmuxDBCore) -> ImmuxResult<HandshakeR
         }
         Ok(answer) => match answer {
             Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(get_answer))) => {
-                let data: Vec<u8> = get_answer.value.into();
-                return Ok(parse_handshake_response(&data)?);
+                match get_answer.value.inner() {
+                    None => {
+                        return Err(ImmuxError::MySQLSerializer(
+                            MySQLSerializeError::CannotReadClientStatus,
+                        ))
+                    }
+                    Some(value) => {
+                        return Ok(parse_handshake_response(&value)?);
+                    }
+                }
             }
             _ => {
                 return Err(ImmuxError::MySQLSerializer(

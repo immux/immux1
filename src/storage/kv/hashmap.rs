@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::declarations::errors::ImmuxResult;
 use crate::storage::kv::{
-    BoxedKVKey, BoxedKVValue, KVError, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueStore,
+    BoxedKVKey, BoxedKVValue, KVKey, KVKeySegment, KVNamespace, KVValue, KeyValueStore,
 };
 
 pub struct HashmapNode {
@@ -30,11 +30,11 @@ impl HashMapStore {
 }
 
 impl KeyValueStore for HashMapStore {
-    fn get(&self, key: &KVKey) -> ImmuxResult<KVValue> {
+    fn get(&self, key: &KVKey) -> ImmuxResult<Option<KVValue>> {
         let node = &self.hashmaps[self.current_node_index];
         match node.hashmap.get(key.into()) {
-            None => Err(KVError::NotFound(key.to_owned()).into()),
-            Some(value) => Ok(value.to_owned()),
+            None => Ok(None),
+            Some(value) => Ok(Some(value.to_owned())),
         }
     }
     fn set(&mut self, key: &KVKey, value: &KVValue) -> ImmuxResult<()> {
