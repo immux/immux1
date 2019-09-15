@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
 
 use tiny_http::{Method, Request, Response};
 use url::Url;
@@ -10,7 +9,7 @@ use crate::declarations::basics::{
 };
 use crate::declarations::commands::{
     Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, InspectCommand, Outcome,
-    PickChainCommand, RevertAllCommand, RevertCommand, RevertCommandTargetSpec, SelectCommand,
+    PickChainCommand, RevertAllCommand, RevertCommandTargetSpec, RevertManyCommand, SelectCommand,
     SelectCondition,
 };
 use crate::declarations::errors::ImmuxError::HttpResponse;
@@ -98,13 +97,13 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 });
                 return Ok(command);
             } else if let Some(_) = url_info.extract_string_query(config::INSPECT_KEYWORD) {
-                let target_id = UnitId::try_from(target_id_str)?;
+                let target_id = UnitId::read_int_in_str(target_id_str)?;
                 let command = Command::Inspect(InspectCommand {
                     specifier: UnitSpecifier::new(target_grouping, target_id),
                 });
                 return Ok(command);
             } else {
-                let target_id = UnitId::try_from(target_id_str)?;
+                let target_id = UnitId::read_int_in_str(target_id_str)?;
                 let command = Command::Select(SelectCommand {
                     grouping: target_grouping,
                     condition: SelectCondition::Id(target_id),
@@ -115,9 +114,9 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
         Method::Put => {
             if let Ok(height_u64) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD) {
                 let height = ChainHeight::new(height_u64);
-                let target_id = UnitId::try_from(target_id_str)?;
+                let target_id = UnitId::read_int_in_str(target_id_str)?;
                 let specifier = UnitSpecifier::new(target_grouping, target_id);
-                let command = Command::RevertOne(RevertCommand {
+                let command = Command::RevertMany(RevertManyCommand {
                     specs: vec![RevertCommandTargetSpec {
                         specifier,
                         target_height: height,
@@ -155,7 +154,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     let id_str = id_property[0];
                     let property_str = id_property[1];
                     let insert_command_spec = InsertCommandSpec {
-                        id: UnitId::try_from(id_str)?,
+                        id: UnitId::read_int_in_str(id_str)?,
                         content: UnitContent::JsonString(property_str.to_string()),
                     };
 
@@ -167,7 +166,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 });
                 return Ok(command);
             } else {
-                let target_id = UnitId::try_from(target_id_str)?;
+                let target_id = UnitId::read_int_in_str(target_id_str)?;
                 let command = Command::Insert(InsertCommand {
                     grouping: target_grouping,
                     targets: vec![InsertCommandSpec {

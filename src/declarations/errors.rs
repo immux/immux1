@@ -13,7 +13,7 @@ use crate::declarations::basics::store_value::StoreValueError;
 use crate::declarations::basics::unit_id::UnitIdError;
 use crate::declarations::basics::{StoreKeyError, UnitContentError};
 use crate::executor::errors::ExecutorError;
-use crate::executor::reverse_index::ReverseIndexError;
+use crate::executor::shared::ReverseIndexError;
 use crate::storage::kv::KVError;
 use crate::storage::tkv::TransactionError;
 use crate::storage::vkv::{ChainHeightError, VkvError};
@@ -112,12 +112,6 @@ impl From<VkvError> for ImmuxError {
 impl From<DeserializationError> for ImmuxError {
     fn from(error: DeserializationError) -> ImmuxError {
         ImmuxError::Deserialization(error)
-    }
-}
-
-impl From<ExecutorError> for ImmuxError {
-    fn from(error: ExecutorError) -> ImmuxError {
-        ImmuxError::Executor(error)
     }
 }
 

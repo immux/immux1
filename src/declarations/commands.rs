@@ -55,7 +55,7 @@ pub struct RevertCommandTargetSpec {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RevertCommand {
+pub struct RevertManyCommand {
     pub specs: Vec<RevertCommandTargetSpec>,
 }
 
@@ -76,7 +76,7 @@ pub enum Command {
     NameChain,
     Select(SelectCommand),
     CreateIndex(CreateIndexCommand),
-    RevertOne(RevertCommand),
+    RevertMany(RevertManyCommand),
     RevertAll(RevertAllCommand),
     Inspect(InspectCommand),
 }
@@ -115,7 +115,7 @@ pub struct RevertOutcome {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RevertAllOutcome {}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Inspection {
     pub height: ChainHeight,
     pub content: Option<UnitContent>,
@@ -144,7 +144,7 @@ pub enum Outcome {
     Select(SelectOutcome),
     NameChain(NameChainOutcome),
     CreateIndex(CreateIndexOutcome),
-    Revert(RevertOutcome),
+    RevertMany(RevertOutcome),
     RevertAll(RevertAllOutcome),
     Inspect(InspectOutcome),
 }

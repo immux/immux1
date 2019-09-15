@@ -1,4 +1,4 @@
-use std::convert::{From, TryFrom};
+use std::convert::{From};
 
 use serde::{Deserialize, Serialize};
 
@@ -29,22 +29,9 @@ impl UnitId {
     pub fn marshal(&self) -> Vec<u8> {
         u128_to_u8_array(self.0).to_vec()
     }
-    pub fn as_int(&self) -> u128 {
-        self.0
-    }
-}
-
-impl From<&[u8; 16]> for UnitId {
-    fn from(data: &[u8; UNIT_ID_BYTES]) -> Self {
-        UnitId::new(u8_array_to_u128(data))
-    }
-}
-
-impl TryFrom<Vec<u8>> for UnitId {
-    type Error = UnitIdError;
-    fn try_from(data: Vec<u8>) -> Result<UnitId, UnitIdError> {
+    pub fn parse(data: &[u8]) ->  Result<Self, UnitIdError> {
         if data.len() < UNIT_ID_BYTES {
-            Err(UnitIdError::InsufficientLength(data))
+            Err(UnitIdError::InsufficientLength(data.to_vec()))
         } else {
             let array: [u8; UNIT_ID_BYTES] = [
                 data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
@@ -53,14 +40,19 @@ impl TryFrom<Vec<u8>> for UnitId {
             Ok(UnitId::from(&array))
         }
     }
-}
-
-impl TryFrom<&str> for UnitId {
-    type Error = UnitIdError;
-    fn try_from(data: &str) -> Result<UnitId, UnitIdError> {
+    pub fn read_int_in_str(data: &str) -> Result<Self, UnitIdError> {
         match data.parse::<u128>() {
             Err(_) => Err(UnitIdError::CannotParseString(data.to_owned())),
             Ok(u) => Ok(UnitId::new(u)),
         }
+    }
+    pub fn as_int(&self) -> u128 {
+        self.0
+    }
+}
+
+impl From<&[u8; 16]> for UnitId {
+    fn from(data: &[u8; UNIT_ID_BYTES]) -> Self {
+        UnitId::new(u8_array_to_u128(data))
     }
 }

@@ -9,16 +9,19 @@ use crate::declarations::commands::{Outcome, SelectCommand, SelectCondition, Sel
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::executor::errors::ExecutorError;
 use crate::executor::shared::get_store_key_of_indexed_id_list;
-use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::storage::core::CoreStore;
 use crate::storage::instructions::{
     Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, GetManyInstruction,
     GetManyTargetSpec, GetOneInstruction, Instruction,
 };
 use crate::storage::vkv::VkvError;
 
-fn get_all_in_grouping(grouping: &GroupingLabel, core: &mut ImmuxDBCore) -> ImmuxResult<Vec<Unit>> {
+fn get_all_in_grouping(
+    grouping: &GroupingLabel,
+    core: &mut impl CoreStore,
+) -> ImmuxResult<Vec<Unit>> {
     let prefix: StoreKeyFragment = grouping.marshal().into();
-    let get_all = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetMany(
+    let get_all = Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetMany(
         GetManyInstruction {
             height: None,
             targets: GetManyTargetSpec::KeyPrefix(prefix),
@@ -38,7 +41,7 @@ fn get_all_in_grouping(grouping: &GroupingLabel, core: &mut ImmuxDBCore) -> Immu
                 let store_key = StoreKey::new(boxed_store_key.as_slice());
                 let specifier = UnitSpecifier::try_from(store_key)?;
                 let id = specifier.get_id();
-                let content = UnitContent::parse(&store_value)?;
+                let content = UnitContent::parse_data(&store_value)?;
                 units.push(Unit { id, content })
             }
             return Ok(units);
@@ -47,13 +50,13 @@ fn get_all_in_grouping(grouping: &GroupingLabel, core: &mut ImmuxDBCore) -> Immu
     }
 }
 
-pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {
+pub fn execute_select(select: SelectCommand, core: &mut impl CoreStore) -> ImmuxResult<Outcome> {
     match &select.condition {
         SelectCondition::UnconditionalMatch => get_all_in_grouping(&select.grouping, core)
             .map(|units| Ok(Outcome::Select(SelectOutcome { units })))?,
         SelectCondition::Id(id) => {
             let key = StoreKey::build(&select.grouping, id.to_owned());
-            let instruction = Instruction::Data(DataInstruction::Read(
+            let instruction = Instruction::DataAccess(DataInstruction::Read(
                 DataReadInstruction::GetOne(GetOneInstruction { key, height: None }),
             ));
             match core.execute(&instruction) {
@@ -62,7 +65,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                     match answer.value.inner() {
                         None => Err(ExecutorError::CannotFindId(*id).into()),
                         Some(data) => {
-                            let content = UnitContent::parse(data)?;
+                            let content = UnitContent::parse_data(data)?;
                             let units = vec![Unit { id: *id, content }];
                             Ok(Outcome::Select(SelectOutcome { units }))
                         }
@@ -76,7 +79,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
 
             let units: Vec<Unit> = {
                 let mut result: Vec<Unit> = Vec::new();
-                let get_indexed_id_list = Instruction::Data(DataInstruction::Read(
+                let get_indexed_id_list = Instruction::DataAccess(DataInstruction::Read(
                     DataReadInstruction::GetOne(GetOneInstruction {
                         key: get_store_key_of_indexed_id_list(grouping, name, property),
                         height: None,
@@ -114,7 +117,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                             Some(data) => {
                                 let id_list = IdList::try_from(data.as_slice())?;
                                 for id in id_list {
-                                    let get_data = Instruction::Data(DataInstruction::Read(
+                                    let get_data = Instruction::DataAccess(DataInstruction::Read(
                                         DataReadInstruction::GetOne(GetOneInstruction {
                                             key: StoreKey::build(grouping, id),
                                             height: None,
@@ -129,7 +132,7 @@ pub fn execute_select(select: SelectCommand, core: &mut ImmuxDBCore) -> ImmuxRes
                                             let _content = match answer.value.inner() {
                                                 None => (),
                                                 Some(data) => {
-                                                    let content = UnitContent::parse(data)?;
+                                                    let content = UnitContent::parse_data(data)?;
                                                     let unit = Unit { id, content };
                                                     result.push(unit);
                                                 }

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::config::MAX_GROUPING_LABEL_LENGTH;
 use crate::utils::utf8_to_string;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -7,7 +8,11 @@ pub struct GroupingLabel(Vec<u8>);
 
 impl GroupingLabel {
     pub fn new(data: &[u8]) -> Self {
-        GroupingLabel(data.to_vec())
+        if data.len() < MAX_GROUPING_LABEL_LENGTH {
+            GroupingLabel(data.to_vec())
+        } else {
+            GroupingLabel(data[0..MAX_GROUPING_LABEL_LENGTH].to_vec())
+        }
     }
     pub fn marshal(&self) -> Vec<u8> {
         let data = &self.0;
@@ -60,6 +65,13 @@ impl ToString for GroupingLabel {
 #[cfg(test)]
 mod grouping_label_tests {
     use crate::declarations::basics::GroupingLabel;
+
+    #[test]
+    fn test_grouping_label_overflow() {
+        let data = [0; 1000];
+        let label = GroupingLabel::new(&data);
+        assert_eq!(label.as_bytes().len(), 128)
+    }
 
     #[test]
     fn test_serialize() {

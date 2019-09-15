@@ -1,5 +1,6 @@
-use crate::declarations::basics::{GroupingLabel, UnitId};
+use crate::declarations::basics::UnitId;
 use crate::declarations::commands::SelectCondition;
+use crate::declarations::errors::ImmuxError;
 use crate::storage::instructions::Answer;
 
 #[derive(Debug)]
@@ -9,7 +10,12 @@ pub enum ExecutorError {
     UnimplementedSelectCondition(SelectCondition),
     CannotDeserialize,
     UnexpectedNumberType,
-    NoIndexedNamesList(GroupingLabel),
     CannotFindId(UnitId),
     NoneReverseIndex,
+}
+
+impl From<ExecutorError> for ImmuxError {
+    fn from(error: ExecutorError) -> ImmuxError {
+        ImmuxError::Executor(error)
+    }
 }
