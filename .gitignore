@@ -8,3 +8,5 @@ build
 tmp*
 foldr.json
 data-raw
+
+tests/coverage-report
