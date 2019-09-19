@@ -15,34 +15,29 @@ cargo run
 
 ### Test
 
-
-#### Unit tests
+#### Execute tests (both unit tests and end-to-end tests)
 ```
 cargo test
 ```
 
-To include print outs with `println!()` in test cases
-```bash
-cargo test -- --nocapture
-```
+#### Gather test coverage
 
-#### End-to-end tests
+##### 1. Prepare
 
 ```bash
-
-# Remove existing data
-cd /tmp
-rm -rf immuxtest-*
-
-# run an ImmuxDB instance in the background
-./target/debug/immuxdb
-
-# Execute test
-# Note1. End-to-end tests are ignored by default
-# Note2. Currently Immux does not support multi-threading, which means tests
-# must be executed one by one.
-cargo test -- --ignored --test-threads 1
+rustup toolchain install nightly # add nightly
+cargo install grcov # install grcov
 ```
+
+##### 2. Gather data
+
+```bash
+sh coverage.sh
+```
+
+##### 3. Check result
+
+Look at `tests/coverage-report/index.html`.
 
 #### Benchmarking
 
