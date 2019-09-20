@@ -52,9 +52,19 @@ There are two sets of benchmarks:
 
 ##### Artificial benchmarks
 
+Currently, we totally have 3 different artificial data set. `indexed_set`, `journal` and `unindex_set`,
+ you can bench specific data set by running the command: 
+
 ```bash
-cargo bench --bench artificial
+cargo bench --bench indexed_set -- 100000 100 10 0
 ```
+
+In the above example, parameters explanation:
+ 
+1. 100000 is `row_count`.
+2. 100 is `num_jsons_per_command`.
+3. 10 is `report_period`.
+4. 0 is `verify_correctness`.
 
 ##### Realistic benchmarks
 

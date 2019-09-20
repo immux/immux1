@@ -146,7 +146,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 });
                 return Ok(command);
             } else if target_id_str == config::INTERNAL_API_TARGET_ID_IDENTIFIER {
-                //                this is an internal API
+                //                This is an internal API
                 let mut targets: Vec<InsertCommandSpec> = vec![];
 
                 let units_string_vec: Vec<&str> = body.split("\r\n").collect();

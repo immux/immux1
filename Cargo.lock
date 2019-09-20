@@ -635,6 +635,7 @@ version = "0.1.0"
 dependencies = [
  "csv 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "immuxdb 0.1.0",
+ "immuxdb_client 0.1.0",
  "immuxdb_dev_utils 0.1.0",
  "serde 1.0.98 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -2,14 +2,33 @@ use std::error::Error;
 use std::fs::read;
 use std::io;
 use std::num::ParseIntError;
+use std::thread;
 use std::time::Instant;
 
 pub use serde::de::{Deserialize, DeserializeOwned};
 pub use serde::ser::Serialize;
 
-use libimmuxdb::declarations::basics::{Unit, UnitContent, UnitId};
+use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
+use immuxdb_dev_utils::{launch_db, notified_sleep};
+use libimmuxdb::declarations::basics::{GroupingLabel, Unit, UnitContent, UnitId};
 
-pub type UnitList = Vec<Unit>;
+use crate::declarations::{ArtificialDataBenchSpec, UnitList};
+
+pub fn launch_db_and_start_bench(bench_spec: &ArtificialDataBenchSpec) {
+    println!("\nExecuting bench {}", bench_spec.name);
+
+    let bench_name = bench_spec.name;
+    let db_port = bench_spec.unicus_port;
+    thread::spawn(move || launch_db(bench_name, db_port));
+    notified_sleep(5);
+
+    println!("Start benching...");
+    let f = bench_spec.main;
+    match f(&bench_spec) {
+        Err(error) => eprintln!("Failed to bench {}: {:?}", bench_spec.name, error),
+        Ok(_) => {}
+    }
+}
 
 pub fn measure_iteration<D, F>(
     data: &[D],
@@ -89,43 +108,50 @@ pub fn read_usize_from_arguments(position: usize) -> Result<usize, ParseIntError
         .parse::<usize>()
 }
 
-pub mod least_squares {
-    fn average(data: &[f64]) -> f64 {
-        let sum: f64 = data.iter().sum();
-        return sum / (data.len() as f64);
+pub fn verify_units_against_db(
+    client: &ImmuxDBClient,
+    grouping_label: &GroupingLabel,
+    units: &[Unit],
+) -> bool {
+    for unit in units {
+        let data = client.get_by_id(grouping_label, &unit.id).unwrap();
+        if data != unit.content.to_string() {
+            return false;
+        }
     }
+    return true;
+}
 
-    // for y = kx+b
-    // data: [(x1, y1), (x2, y2)...] -> (k, b)
-    pub fn solve(data: &[(f64, f64)]) -> (f64, f64) {
-        let xs: Vec<f64> = data.iter().map(|pair| pair.0).collect();
-        let ys: Vec<f64> = data.iter().map(|pair| pair.1).collect();
-        let x_average = average(&xs);
-        let y_average = average(&ys);
-
-        let slope: f64 = {
-            let numerator: f64 = {
-                let mut sum: f64 = 0.0;
-                for i in 0..data.len() {
-                    sum += (xs[i] - x_average) * (ys[i] - y_average)
-                }
-                sum
+pub fn verify_journal_against_db(
+    client: &ImmuxDBClient,
+    grouping_label: &GroupingLabel,
+    units: &Vec<Unit>,
+) -> bool {
+    let id = units[0].id;
+    let data = client.inspect_by_id(grouping_label, &id).unwrap();
+    let height_unit_vec: Vec<(&str, Unit)> = data
+        .split("\r\n")
+        .filter(|datum| *datum != "")
+        .map(|height_content_str| {
+            let res_str: Vec<&str> = height_content_str.split("|").collect();
+            let height = res_str[0];
+            let content = res_str[1];
+            let unit = Unit {
+                id: id,
+                content: UnitContent::JsonString(content.to_string()),
             };
-            let denominator: f64 = {
-                let mut sum: f64 = 0.0;
-                for i in 0..data.len() {
-                    sum += (xs[i] - x_average).powi(2)
-                }
-                sum
-            };
-            if denominator == 0.0 {
-                0.0
-            } else {
-                numerator / denominator
-            }
-        };
+            return (height, unit);
+        })
+        .collect();
 
-        let intercept = y_average - slope * x_average;
-        return (slope, intercept);
+    let mut index = 0;
+    let mut height = 2;
+    for unit in units {
+        if *unit != height_unit_vec[index].1 || height.to_string() != height_unit_vec[index].0 {
+            return false;
+        }
+        index += 1;
+        height += 1;
     }
+    return true;
 }

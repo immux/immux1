@@ -44,9 +44,19 @@ harness = false
 path = "benches/realistic/berka99/berka99.rs"
 
 [[bench]]
-name = "artificial"
+name = "indexed_set"
 harness = false
-path = "benches/artificial/mod.rs"
+path = "benches/artificial/indexed_set.rs"
+
+[[bench]]
+name = "unindexed_set"
+harness = false
+path = "benches/artificial/unindexed_set.rs"
+
+[[bench]]
+name = "journal"
+harness = false
+path = "benches/artificial/journal.rs"
 
 [workspace]
 members = [

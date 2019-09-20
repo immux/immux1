@@ -1,14 +1,15 @@
 use std::error::Error;
+use std::thread;
 
 use serde::{Deserialize, Serialize};
 
-use immuxdb_bench_utils::{
-    csv_to_json_table, measure_iteration, read_usize_from_arguments, UnitList,
+use immuxdb_bench_utils::declarations::UnitList;
+use immuxdb_bench_utils::toolkits::{
+    csv_to_json_table, measure_iteration, read_usize_from_arguments, verify_units_against_db,
 };
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
 use libimmuxdb::declarations::basics::GroupingLabel;
-use std::thread;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Account {
@@ -164,10 +165,8 @@ fn main() {
         for (table_name, table) in dataset.iter() {
             println!("Verifying table '{}'", table_name);
             let grouping_label = GroupingLabel::from(table_name.as_str());
-            for unit in table {
-                let data = client.get_by_id(&grouping_label, &unit.id).unwrap();
-                assert_eq!(data, unit.content.to_string())
-            }
+            let verification_result = verify_units_against_db(&client, &grouping_label, table);
+            assert_eq!(verification_result, true);
         }
         println!("Database entries match input tables")
     } else {
