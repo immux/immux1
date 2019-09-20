@@ -209,7 +209,7 @@ pub fn transform_outcome_to_mongo_msg(
         }
         Outcome::NameChain(_ok) => unimplemented!(),
         Outcome::CreateIndex(_ok) => unimplemented!(),
-        Outcome::Revert(_) => unimplemented!(),
+        Outcome::RevertMany(_) => unimplemented!(),
         Outcome::RevertAll(_) => unimplemented!(),
         Outcome::Inspect(_) => unimplemented!(),
     }

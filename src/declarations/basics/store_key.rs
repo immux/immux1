@@ -53,7 +53,7 @@ impl TryFrom<StoreKey> for UnitSpecifier {
         let grouping_bytes = &data[1..1 + grouping_length];
         let grouping = GroupingLabel::from(grouping_bytes.to_owned());
         let unit_id_bytes = &data[1 + grouping_length..];
-        match UnitId::try_from(unit_id_bytes.to_vec()) {
+        match UnitId::parse(unit_id_bytes) {
             Err(_) => return Err(StoreKeyError::CannotParseToUnitSpecifier.into()),
             Ok(unit_id) => {
                 return Ok(UnitSpecifier::new(grouping, unit_id));

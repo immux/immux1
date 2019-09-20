@@ -276,7 +276,7 @@ mod tkv_test_utils {
         }
         pub fn simple_get(&mut self, key_str: &str) -> Result<Option<String>, ImmuxError> {
             let key = StoreKey::from(key_str.as_bytes().to_vec());
-            let get = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+            let get = Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetOne(
                 GetOneInstruction { height: None, key },
             )));
             match self.tkv.execute(&get) {

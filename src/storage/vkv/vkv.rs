@@ -219,7 +219,7 @@ impl ImmuxDBVersionedKeyValueStore {
                     let record = self.load_instruction_record(&height)?;
                     let instruction = &record.instruction;
                     match instruction {
-                        Instruction::Data(DataInstruction::Write(write)) => match write {
+                        Instruction::DataAccess(DataInstruction::Write(write)) => match write {
                             DataWriteInstruction::SetMany(set_many) => {
                                 for target in &set_many.targets {
                                     if target.key == *key {
@@ -356,8 +356,8 @@ pub fn extract_affected_keys(
             match instruction {
                 Instruction::DBSystem(_) => (),
                 Instruction::TransactionMeta(_) => (),
-                Instruction::Data(DataInstruction::Read(_)) => (),
-                Instruction::Data(DataInstruction::Write(write_instruction)) => {
+                Instruction::DataAccess(DataInstruction::Read(_)) => (),
+                Instruction::DataAccess(DataInstruction::Write(write_instruction)) => {
                     match write_instruction {
                         DataWriteInstruction::SetMany(set) => {
                             for target in set.targets {
@@ -417,7 +417,7 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                 }
             },
 
-            Instruction::Data(DataInstruction::Read(read_instruction)) => match read_instruction {
+            Instruction::DataAccess(DataInstruction::Read(read_instruction)) => match read_instruction {
                 DataReadInstruction::GetMany(get_many) => {
                     match &get_many.targets {
                         GetManyTargetSpec::Keys(keys) => {
@@ -493,7 +493,7 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                     }
                 }
             },
-            Instruction::Data(DataInstruction::Write(write_instruction)) => {
+            Instruction::DataAccess(DataInstruction::Write(write_instruction)) => {
                 // Only data writes triggers height increment and instruction record saving
                 let next_height = self.increment_chain_height()?;
                 match write_instruction {

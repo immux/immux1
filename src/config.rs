@@ -1,5 +1,6 @@
+use std::convert::TryFrom;
+
 use bincode::{deserialize, serialize};
-use serde::export::TryFrom;
 use serde::{Deserialize, Serialize};
 
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
@@ -39,6 +40,12 @@ const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
 
 pub const MAX_KVKEY_LENGTH: usize = 8 * 1024; // 8KB
 pub const MAX_KVVALUE_LENGTH: usize = 32 * 1024 * 1024; // 32MB
+
+pub const MAX_GROUPING_LABEL_LENGTH: usize = 128;
+
+pub const MAX_CHAIN_NAME_LENGTH: usize = 128;
+
+pub const MAX_PROPERTY_NAME_LENGTH: usize = 128;
 
 const IS_MASTER: bool = true;
 const MAX_MESSAGE_SIZE_BYTES: u32 = 48000000;
@@ -181,7 +188,7 @@ pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> Imm
         Ok(bytes) => {
             let key: StoreKey = GLOBAL_CONFIG_KEY.as_bytes().into();
             let value = StoreValue::new(Some(bytes));
-            let instruction = Instruction::Data(DataInstruction::Write(
+            let instruction = Instruction::DataAccess(DataInstruction::Write(
                 DataWriteInstruction::SetMany(SetManyInstruction {
                     targets: vec![SetTargetSpec { key, value }],
                 }),
@@ -196,7 +203,7 @@ pub fn save_config(config: &ImmuxDBConfiguration, core: &mut ImmuxDBCore) -> Imm
 
 pub fn load_config(core: &mut ImmuxDBCore) -> ImmuxResult<ImmuxDBConfiguration> {
     let key: StoreKey = GLOBAL_CONFIG_KEY.as_bytes().into();
-    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+    let instruction = Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetOne(
         GetOneInstruction { key, height: None },
     )));
     match core.execute(&instruction) {

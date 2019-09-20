@@ -31,7 +31,7 @@ pub struct HandshakeResponse {
 const MYSQL_HANDSHAKE_RESPONSE_KEY: &str = "_MYSQL_HANDSHAKE_RESPONSE";
 
 pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
-    let instruction: Instruction = Instruction::Data(DataInstruction::Write(
+    let instruction: Instruction = Instruction::DataAccess(DataInstruction::Write(
         DataWriteInstruction::SetMany(SetManyInstruction {
             targets: vec![SetTargetSpec {
                 key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec().into(),
@@ -49,7 +49,7 @@ pub fn save_handshake_response(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxRe
 }
 
 pub fn load_handshake_response(core: &mut ImmuxDBCore) -> ImmuxResult<HandshakeResponse> {
-    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+    let instruction = Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetOne(
         GetOneInstruction {
             key: MYSQL_HANDSHAKE_RESPONSE_KEY.as_bytes().to_vec().into(),
             height: None,

@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 use crate::declarations::errors::ImmuxResult;
-use crate::utils::{bool_to_u8, f64_to_u8_array, u8_array_to_f64, u8_to_bool, utf8_to_string};
+use crate::utils::{
+    bool_to_u8, f64_to_u8_array, u8_array_to_f64, u8_to_bool, utf8_to_string, varint_decode,
+    varint_encode,
+};
 
 #[repr(u8)]
 pub enum ContentTypePrefix {
@@ -60,65 +63,125 @@ pub enum UnitContent {
 pub enum UnitContentError {
     UnexpectedTypePrefix(u8),
     EmptyInput,
+    MissingDataBytes,
+    UnexpectedLengthBytes,
 }
 
 impl UnitContent {
     pub fn marshal(&self) -> Vec<u8> {
-        let prefix_data_pair: (u8, Vec<u8>) = match &self {
-            UnitContent::Nil => (ContentTypePrefix::Nil as u8, vec![]),
-            UnitContent::Bytes(bytes) => (ContentTypePrefix::Bytes as u8, bytes.to_vec()),
-            UnitContent::JsonString(string) => (
-                ContentTypePrefix::JsonString as u8,
-                string.as_bytes().to_vec(),
-            ),
-            UnitContent::BsonBytes(bytes) => (ContentTypePrefix::BsonBytes as u8, bytes.to_vec()),
-            UnitContent::String(string) => {
-                (ContentTypePrefix::String as u8, string.as_bytes().to_vec())
-            }
+        let mut result = Vec::with_capacity(1);
+        match &self {
+            UnitContent::Nil => result.push(ContentTypePrefix::Nil as u8),
             UnitContent::Bool(boolean) => {
-                (ContentTypePrefix::Boolean as u8, vec![bool_to_u8(*boolean)])
+                result.push(ContentTypePrefix::Boolean as u8);
+                result.push(bool_to_u8(*boolean));
             }
-            UnitContent::Float64(number_f64) => (
-                ContentTypePrefix::Float64 as u8,
-                f64_to_u8_array(*number_f64).to_vec(),
-            ),
-        };
-        let mut result = Vec::with_capacity(1 + prefix_data_pair.1.len());
-        result.push(prefix_data_pair.0);
-        result.extend_from_slice(&prefix_data_pair.1);
+            UnitContent::Float64(number_f64) => {
+                result.push(ContentTypePrefix::Float64 as u8);
+                result.extend_from_slice(&f64_to_u8_array(*number_f64));
+            }
+            UnitContent::Bytes(bytes) => {
+                result.push(ContentTypePrefix::Bytes as u8);
+                result.extend_from_slice(&varint_encode(bytes.len() as u64));
+                result.extend_from_slice(bytes)
+            }
+            UnitContent::JsonString(string) => {
+                let bytes = string.as_bytes();
+                result.push(ContentTypePrefix::JsonString as u8);
+                result.extend_from_slice(&varint_encode(bytes.len() as u64));
+                result.extend_from_slice(bytes)
+            }
+            UnitContent::BsonBytes(bytes) => {
+                result.push(ContentTypePrefix::BsonBytes as u8);
+                result.extend_from_slice(&varint_encode(bytes.len() as u64));
+                result.extend_from_slice(bytes)
+            }
+            UnitContent::String(string) => {
+                let bytes = string.as_bytes();
+                result.push(ContentTypePrefix::String as u8);
+                result.extend_from_slice(&varint_encode(bytes.len() as u64));
+                result.extend_from_slice(bytes)
+            }
+        }
         return result;
     }
-    pub fn parse(data: &[u8]) -> ImmuxResult<Self> {
-        if data.len() == 0 {
-            return Err(UnitContentError::EmptyInput.into());
+    pub fn parse(data: &[u8]) -> ImmuxResult<(Self, usize)> {
+        match data.get(0) {
+            None => return Err(UnitContentError::EmptyInput.into()),
+            Some(first_byte) => {
+                let type_prefix = ContentTypePrefix::try_from(*first_byte)?;
+                let remaining_bytes = &data[1..];
+                match type_prefix {
+                    ContentTypePrefix::Nil => {
+                        return Ok((UnitContent::Nil, 1));
+                    }
+                    ContentTypePrefix::Boolean => match remaining_bytes.get(0) {
+                        None => return Err(UnitContentError::MissingDataBytes.into()),
+                        Some(data_byte) => {
+                            return Ok((UnitContent::Bool(u8_to_bool(*data_byte)), 2));
+                        }
+                    },
+                    ContentTypePrefix::Float64 => {
+                        if remaining_bytes.len() < 8 {
+                            return Err(UnitContentError::MissingDataBytes.into());
+                        } else {
+                            let array: [u8; 8] = [
+                                remaining_bytes[0],
+                                remaining_bytes[1],
+                                remaining_bytes[2],
+                                remaining_bytes[3],
+                                remaining_bytes[4],
+                                remaining_bytes[5],
+                                remaining_bytes[6],
+                                remaining_bytes[7],
+                            ];
+                            return Ok((UnitContent::Float64(u8_array_to_f64(&array)), 9));
+                        }
+                    }
+                    ContentTypePrefix::Bytes => {
+                        let (length, offset) = varint_decode(&remaining_bytes)
+                            .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
+                        return Ok((
+                            UnitContent::Bytes(
+                                remaining_bytes[offset..offset + length as usize].to_vec(),
+                            ),
+                            1 + length as usize,
+                        ));
+                    }
+                    ContentTypePrefix::JsonString => {
+                        let (length, offset) = varint_decode(&remaining_bytes)
+                            .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
+                        let string_bytes = &remaining_bytes[offset..offset + length as usize];
+                        return Ok((
+                            UnitContent::JsonString(utf8_to_string(string_bytes)),
+                            1 + length as usize,
+                        ));
+                    }
+                    ContentTypePrefix::BsonBytes => {
+                        let (length, offset) = varint_decode(&remaining_bytes)
+                            .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
+                        return Ok((
+                            UnitContent::BsonBytes(
+                                remaining_bytes[offset..offset + length as usize].to_vec(),
+                            ),
+                            1 + length as usize,
+                        ));
+                    }
+                    ContentTypePrefix::String => {
+                        let (length, offset) = varint_decode(&remaining_bytes)
+                            .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
+                        let string_bytes = &remaining_bytes[offset..offset + length as usize];
+                        return Ok((
+                            UnitContent::String(utf8_to_string(string_bytes)),
+                            1 + length as usize,
+                        ));
+                    }
+                }
+            }
         }
-        let type_prefix = ContentTypePrefix::try_from(data[0])?;
-        match type_prefix {
-            ContentTypePrefix::Nil => {
-                return Ok(UnitContent::Nil);
-            }
-            ContentTypePrefix::Bytes => {
-                return Ok(UnitContent::Bytes(data[1..].to_vec()));
-            }
-            ContentTypePrefix::JsonString => {
-                return Ok(UnitContent::JsonString(utf8_to_string(&data[1..])));
-            }
-            ContentTypePrefix::BsonBytes => {
-                return Ok(UnitContent::BsonBytes(data[1..].to_vec()));
-            }
-            ContentTypePrefix::String => {
-                return Ok(UnitContent::String(utf8_to_string(&data[1..])));
-            }
-            ContentTypePrefix::Boolean => {
-                return Ok(UnitContent::Bool(u8_to_bool(data[1])));
-            }
-            ContentTypePrefix::Float64 => {
-                let array: [u8; 8] = [
-                    data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
-                ];
-                return Ok(UnitContent::Float64(u8_array_to_f64(&array)));
-            }
-        }
+    }
+    pub fn parse_data(data: &[u8]) -> ImmuxResult<(Self)> {
+        Self::parse(data).map(|(content, _offset)| content)
     }
 }
 
@@ -171,13 +234,14 @@ mod unit_content_tests {
         vec![
             (Some(UnitContent::Nil), vec![0x00]),
             (Some(UnitContent::Bool(true)), vec![0x11, 0x01]),
+            (Some(UnitContent::Bool(false)), vec![0x11, 0x00]),
             (
                 Some(UnitContent::Float64(1.5)),
                 vec![0x12, 0, 0, 0, 0, 0, 0, 0xf8, 0x3f],
             ),
             (
                 Some(UnitContent::String(String::from("hello"))),
-                vec![0x10, 0x68, 0x65, 0x6c, 0x6c, 0x6f],
+                vec![0x10, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f],
             ),
             (
                 Some(UnitContent::JsonString(String::from(
@@ -185,6 +249,7 @@ mod unit_content_tests {
                 ))),
                 vec![
                     0x21, // type
+                    0x2d, // length
                     0x7b, 0x22, 0x66, 0x36, 0x34, 0x22, 0x3a, 0x20, 0x30, 0x2e, 0x30, 0x2c, 0x20,
                     0x22, 0x73, 0x74, 0x72, 0x22, 0x3a, 0x20, 0x22, 0x73, 0x74, 0x72, 0x69, 0x6e,
                     0x67, 0x5f, 0x30, 0x22, 0x2c, 0x20, 0x22, 0x62, 0x6f, 0x6f, 0x6c, 0x22, 0x3a,
@@ -193,14 +258,32 @@ mod unit_content_tests {
             ),
             (
                 Some(UnitContent::BsonBytes(vec![0x01, 0x02, 0x03])),
-                vec![0x22, 0x01, 0x02, 0x03],
+                vec![0x22, 0x03, 0x01, 0x02, 0x03],
             ),
             (
-                Some(UnitContent::Bytes(vec![0x05, 0x06, 0x07])),
-                vec![0xff, 0x05, 0x06, 0x07],
+                Some(UnitContent::Bytes(
+                    vec![0].into_iter().cycle().take(255).collect(),
+                )),
+                vec![
+                    0xff, 0xfd, 0xff, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0,
+                ],
             ),
             // Non-existing type
             (None, vec![0xaa, 0x01, 0x02, 0x03]),
+            // Malformed boolean
+            (None, vec![0x11]),
+            // Malformed bytes with wrong varint length
+            (None, vec![0xff, 0xff, 0x10]),
             // Empty input
             (None, vec![]),
         ]
@@ -227,7 +310,7 @@ mod unit_content_tests {
         for row in table {
             let (expected, data) = row;
             if let Some(expected_content) = expected {
-                let parsed = UnitContent::parse(&data).unwrap();
+                let parsed = UnitContent::parse_data(&data).unwrap();
                 assert_eq!(expected_content, parsed);
             } else {
                 match UnitContent::parse(&data) {

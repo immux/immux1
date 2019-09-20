@@ -6,11 +6,10 @@ use crate::declarations::basics::{IdList, StoreKey, StoreValue, UnitContent};
 use crate::declarations::commands::{InsertCommand, InsertOutcome, Outcome};
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::executor::errors::ExecutorError;
-use crate::executor::reverse_index::ReverseIndex;
 use crate::executor::shared::{
-    get_indexed_names_list_with_fallback, get_store_key_of_indexed_id_list,
+    get_indexed_names_list_with_empty_fallback, get_store_key_of_indexed_id_list, ReverseIndex,
 };
-use crate::storage::core::{CoreStore, ImmuxDBCore};
+use crate::storage::core::CoreStore;
 use crate::storage::instructions::{
     Answer, DataAnswer, DataInstruction, DataReadAnswer, DataReadInstruction, DataWriteAnswer,
     DataWriteInstruction, GetOneInstruction, Instruction, SetManyInstruction, SetTargetSpec,
@@ -19,9 +18,9 @@ use crate::storage::vkv::VkvError;
 
 pub fn get_updates_for_index(
     insert: InsertCommand,
-    core: &mut ImmuxDBCore,
+    core: &mut impl CoreStore,
 ) -> ImmuxResult<Vec<SetTargetSpec>> {
-    let indexed_names = get_indexed_names_list_with_fallback(&insert.grouping, core)?;
+    let indexed_names = get_indexed_names_list_with_empty_fallback(&insert.grouping, core)?;
     let reverse_index: ReverseIndex = {
         let mut index = ReverseIndex::new();
         for target in &insert.targets {
@@ -45,14 +44,14 @@ pub fn get_updates_for_index(
     let mut updates_for_index: Vec<SetTargetSpec> = Vec::new();
 
     for ((name, property_bytes), new_ids) in reverse_index {
-        let property = UnitContent::parse(&property_bytes)?;
+        let property = UnitContent::parse_data(&property_bytes)?;
         let id_list_key = get_store_key_of_indexed_id_list(&insert.grouping, &name, &property);
-        let get_id_list = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
-            GetOneInstruction {
+        let get_id_list = Instruction::DataAccess(DataInstruction::Read(
+            DataReadInstruction::GetOne(GetOneInstruction {
                 key: id_list_key.clone(),
                 height: None,
-            },
-        )));
+            }),
+        ));
         match core.execute(&get_id_list) {
             Err(ImmuxError::VKV(VkvError::MissingJournal(_))) => {
                 updates_for_index.push(SetTargetSpec {
@@ -83,7 +82,7 @@ pub fn get_updates_for_index(
     return Ok(updates_for_index);
 }
 
-pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxResult<Outcome> {
+pub fn execute_insert(insert: InsertCommand, core: &mut impl CoreStore) -> ImmuxResult<Outcome> {
     let original_insertions: Vec<SetTargetSpec> = insert
         .targets
         .iter()
@@ -99,7 +98,7 @@ pub fn execute_insert(insert: InsertCommand, core: &mut ImmuxDBCore) -> ImmuxRes
     set_targets.extend(original_insertions);
     set_targets.extend(updates_for_index);
 
-    let batch_update: Instruction = Instruction::Data(DataInstruction::Write(
+    let batch_update: Instruction = Instruction::DataAccess(DataInstruction::Write(
         DataWriteInstruction::SetMany(SetManyInstruction {
             targets: set_targets,
         }),

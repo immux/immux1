@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod indexing_test {
-    use serde_json::Value as JsonValue;
     use std::vec::IntoIter as VecIntoIter;
+
+    use serde_json::Value as JsonValue;
+
+    use immuxdb_dev_utils::reset_db_dir;
 
     use crate::config::DEFAULT_PERMANENCE_PATH;
     use crate::declarations::basics::{
@@ -11,13 +14,11 @@ mod indexing_test {
         Command, CreateIndexCommand, InsertCommand, InsertCommandSpec, Outcome, SelectCommand,
         SelectCondition,
     };
-
     use crate::executor::execute::execute;
-    use crate::executor::reverse_index::ReverseIndex;
-    use crate::storage::core::ImmuxDBCore;
+    use crate::executor::shared::ReverseIndex;
+    use crate::storage::core::{CoreStore, ImmuxDBCore};
     use crate::storage::instructions::StoreNamespace;
     use crate::storage::kv::KeyValueEngine;
-    use immuxdb_dev_utils::reset_db_dir;
 
     type JsonTableRow = (UnitId, String);
 
@@ -161,7 +162,7 @@ mod indexing_test {
         }
     }
 
-    fn insert_table_to_db(table: &JsonTable, grouping: &GroupingLabel, mut core: &mut ImmuxDBCore) {
+    fn insert_table_to_db(table: &JsonTable, grouping: &GroupingLabel, core: &mut impl CoreStore) {
         let specs: Vec<InsertCommandSpec> = table
             .clone()
             .into_iter()
@@ -176,7 +177,7 @@ mod indexing_test {
             targets: specs,
         });
 
-        match execute(insert_command, &mut core) {
+        match execute(insert_command, core) {
             Err(error) => panic!("Failed to execute insert command {:x?}", error),
             Ok(Outcome::Insert(_outcome)) => {}
             Ok(_) => panic!("Unexpected outcome type"),
@@ -185,7 +186,7 @@ mod indexing_test {
 
     fn create_indices_for_grouping(
         grouping: &GroupingLabel,
-        mut core: &mut ImmuxDBCore,
+        core: &mut impl CoreStore,
         names: &PropertyNameList,
     ) {
         for name in names.clone() {
@@ -194,7 +195,7 @@ mod indexing_test {
                 name,
             });
 
-            match execute(create_index_command, &mut core) {
+            match execute(create_index_command, core) {
                 Err(error) => panic!("Failed to execute insert command {:x?}", error),
                 Ok(Outcome::CreateIndex(_outcome)) => {}
                 Ok(_) => panic!("Unexpected outcome type"),
@@ -237,7 +238,7 @@ mod indexing_test {
     ) -> () {
         let reverse_index = ReverseIndex::from_jsons(table.get_inner(), indexed_names).unwrap();
         for ((name, property_bytes), _ids) in reverse_index.into_iter() {
-            let content = UnitContent::parse(&property_bytes).unwrap();
+            let content = UnitContent::parse_data(&property_bytes).unwrap();
             let units_from_db =
                 filter_db_with_name_property(&mut core, grouping, &(name.clone(), content.clone()));
             let units_from_memory_table =

@@ -73,7 +73,7 @@ pub struct GetOneInstruction {
 
 impl From<GetOneInstruction> for Instruction {
     fn from(instruction: GetOneInstruction) -> Instruction {
-        Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+        Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetOne(
             instruction,
         )))
     }
@@ -86,7 +86,7 @@ pub struct SetManyInstruction {
 
 impl From<SetManyInstruction> for Instruction {
     fn from(instruction: SetManyInstruction) -> Instruction {
-        Instruction::Data(DataInstruction::Write(DataWriteInstruction::SetMany(
+        Instruction::DataAccess(DataInstruction::Write(DataWriteInstruction::SetMany(
             instruction,
         )))
     }
@@ -117,7 +117,7 @@ pub struct GetJournalInstruction {
 
 impl From<GetJournalInstruction> for Instruction {
     fn from(instruction: GetJournalInstruction) -> Instruction {
-        Instruction::Data(DataInstruction::Read(DataReadInstruction::GetJournal(
+        Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetJournal(
             instruction,
         )))
     }
@@ -145,7 +145,7 @@ pub enum DataInstruction {
 
 impl From<DataInstruction> for Instruction {
     fn from(instruction: DataInstruction) -> Instruction {
-        Instruction::Data(instruction)
+        Instruction::DataAccess(instruction)
     }
 }
 
@@ -188,7 +188,7 @@ impl From<DBSystemInstruction> for Instruction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Instruction {
-    Data(DataInstruction),
+    DataAccess(DataInstruction),
     TransactionalData(TransactionalDataInstruction),
     TransactionMeta(TransactionMetaInstruction),
     DBSystem(DBSystemInstruction),
@@ -225,6 +225,12 @@ pub struct GetOneOkAnswer {
     pub value: StoreValue,
 }
 
+impl From<GetOneOkAnswer> for Answer {
+    fn from(answer: GetOneOkAnswer) -> Answer {
+        Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetOneOk(answer)))
+    }
+}
+
 #[derive(Debug)]
 pub struct SetOkAnswer {
     pub count: usize,
@@ -233,9 +239,21 @@ pub struct SetOkAnswer {
 #[derive(Debug)]
 pub struct RevertOkAnswer {}
 
+impl From<RevertOkAnswer> for Answer {
+    fn from(answer: RevertOkAnswer) -> Answer {
+        Answer::DataAccess(DataAnswer::Write(DataWriteAnswer::RevertOk(answer)))
+    }
+}
+
 #[derive(Debug)]
 pub struct RevertAllOkAnswer {
     pub reverted_keys: Vec<StoreKey>,
+}
+
+impl From<RevertAllOkAnswer> for Answer {
+    fn from(answer: RevertAllOkAnswer) -> Answer {
+        Answer::DataAccess(DataAnswer::Write(DataWriteAnswer::RevertAllOk(answer)))
+    }
 }
 
 #[derive(Debug)]
@@ -243,14 +261,32 @@ pub struct SwitchNamespaceOkAnswer {
     pub new_namespace: StoreNamespace,
 }
 
+impl From<SwitchNamespaceOkAnswer> for Answer {
+    fn from(answer: SwitchNamespaceOkAnswer) -> Answer {
+        Answer::DBSystem(DBSystemAnswer::SwitchNamespaceOk(answer))
+    }
+}
+
 #[derive(Debug)]
 pub struct ReadNamespaceOkAnswer {
     pub namespace: StoreNamespace,
 }
 
+impl From<ReadNamespaceOkAnswer> for Answer {
+    fn from(answer: ReadNamespaceOkAnswer) -> Answer {
+        Answer::DBSystem(DBSystemAnswer::ReadNamespaceOk(answer))
+    }
+}
+
 #[derive(Debug)]
 pub struct GetJournalOkAnswer {
     pub journal: UnitJournal,
+}
+
+impl From<GetJournalOkAnswer> for Answer {
+    fn from(answer: GetJournalOkAnswer) -> Answer {
+        Answer::DataAccess(DataAnswer::Read(DataReadAnswer::GetJournalOk(answer)))
+    }
 }
 
 #[derive(Debug)]

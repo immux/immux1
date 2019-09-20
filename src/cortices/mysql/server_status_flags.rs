@@ -86,7 +86,7 @@ pub fn parse_status_flags(flags_vec: u16) -> ServerStatusFlags {
 const SERVER_STATUS_FLAGS_KEY: &str = "_SERVER_STATUS_FLAGS";
 
 pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
-    let instruction = Instruction::Data(DataInstruction::Write(DataWriteInstruction::SetMany(
+    let instruction = Instruction::DataAccess(DataInstruction::Write(DataWriteInstruction::SetMany(
         SetManyInstruction {
             targets: vec![SetTargetSpec {
                 key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
@@ -104,7 +104,7 @@ pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxR
 }
 
 pub fn load_server_status_flags(core: &mut ImmuxDBCore) -> ImmuxResult<ServerStatusFlags> {
-    let instruction = Instruction::Data(DataInstruction::Read(DataReadInstruction::GetOne(
+    let instruction = Instruction::DataAccess(DataInstruction::Read(DataReadInstruction::GetOne(
         GetOneInstruction {
             key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
             height: None,

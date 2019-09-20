@@ -2,6 +2,7 @@ use std::vec::IntoIter as VecIntoIter;
 
 use serde::{Deserialize, Serialize};
 
+use crate::config::MAX_PROPERTY_NAME_LENGTH;
 use crate::declarations::errors::ImmuxError;
 use crate::utils::utf8_to_string;
 
@@ -21,10 +22,20 @@ pub struct PropertyName(Vec<u8>);
 
 impl PropertyName {
     pub fn new(bytes: &[u8]) -> Self {
-        Self(bytes.to_vec())
+        if bytes.len() < MAX_PROPERTY_NAME_LENGTH {
+            Self(bytes.to_vec())
+        } else {
+            Self(bytes[0..MAX_PROPERTY_NAME_LENGTH].to_vec())
+        }
     }
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+    pub fn marshal(&self) -> Vec<u8> {
+        let mut result = Vec::new();
+        result.push(self.as_bytes().len() as u8);
+        result.extend_from_slice(self.as_bytes());
+        result
     }
 }
 
@@ -105,6 +116,22 @@ mod property_names_tests {
         let name = PropertyName::new(&[0, 1, 2, 3]);
         let v: Vec<_> = name.into();
         assert_eq!(v, [0, 1, 2, 3])
+    }
+
+    #[test]
+    fn test_as_bytes() {
+        let name = PropertyName::new(&[0xaa, 0xbb, 0xcc]);
+        let serialized = name.as_bytes();
+        let expected = &[0xaa, 0xbb, 0xcc];
+        assert_eq!(serialized, expected)
+    }
+
+    #[test]
+    fn test_serialize() {
+        let name = PropertyName::new(&[0xaa, 0xbb, 0xcc]);
+        let serialized = name.marshal();
+        let expected = vec![0x03, 0xaa, 0xbb, 0xcc];
+        assert_eq!(serialized, expected)
     }
 }
 

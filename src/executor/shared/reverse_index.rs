@@ -140,7 +140,7 @@ mod reverse_index_test {
     use serde_json::Value as JsonValue;
 
     use crate::declarations::basics::{PropertyName, PropertyNameList, UnitContent, UnitId};
-    use crate::executor::reverse_index::ReverseIndex;
+    use crate::executor::shared::ReverseIndex;
     use crate::utils::utf8_to_string;
 
     #[test]
