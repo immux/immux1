@@ -1,6 +1,6 @@
 use crate::declarations::errors::{ImmuxError, ImmuxResult};
 use crate::storage::instructions::{Answer, Instruction, StoreNamespace};
-use crate::storage::kv::{KeyValueEngine};
+use crate::storage::kv::KeyValueEngine;
 use crate::storage::vkv::{ImmuxDBVersionedKeyValueStore, VersionedKeyValueStore};
 
 #[derive(Debug)]

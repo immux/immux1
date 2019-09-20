@@ -6,10 +6,11 @@ edition = "2018"
 
 [lib]
 name = "immuxdb_bench_utils"
-path = "immuxdb_bench_utils.rs"
+path = "mod.rs"
 
 [dependencies]
 immuxdb_dev_utils = { path = "../../src/dev" }
+immuxdb_client = { path = "../../src/connectors/rust" }
 immuxdb = { path = "../.." }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

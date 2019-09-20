@@ -1,38 +1,11 @@
 use std::error::Error;
 
-use immuxdb_bench_utils::measure_iteration;
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
-use libimmuxdb::declarations::basics::{GroupingLabel, NameProperty, PropertyName, Unit, UnitId};
+use libimmuxdb::declarations::basics::{GroupingLabel, PropertyName, Unit, UnitId};
 
 use crate::data_generator::generate_json_table;
-
-pub type PropertySpec = Box<dyn Fn(&UnitId, usize) -> NameProperty>;
-pub type JsonSpec = Vec<PropertySpec>;
-pub type UnitIdSpec = Box<dyn Fn(u64) -> UnitId>;
-pub type RowCount = usize;
-pub type JsonTableSpec = (RowCount, UnitIdSpec, JsonSpec);
-
-pub enum Action {
-    CreateIndex {
-        property_name_vec: Vec<PropertyName>,
-    },
-    Insert {
-        table_spec: JsonTableSpec,
-        num_jsons_per_command: usize,
-    },
-    Select {
-        start: UnitId,
-        end: UnitId,
-    },
-}
-
-pub struct ArtificialDataBenchSpec {
-    pub name: &'static str,
-    pub unicus_port: u16,
-    pub main: &'static dyn Fn(&ArtificialDataBenchSpec) -> Result<(), Box<dyn Error>>,
-    pub actions: Vec<Action>,
-    pub report_period: usize,
-}
+use crate::declarations::{Action, ArtificialDataBenchSpec};
+use crate::toolkits::measure_iteration;
 
 pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error>> {
     let client = ImmuxDBClient::new(&format!("localhost:{}", bench_spec.unicus_port))?;
@@ -61,6 +34,8 @@ pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error
                     &client,
                     &units_vec,
                     &bench_spec.name,
+                    bench_spec.verify_correctness,
+                    &bench_spec.verification_fn,
                     bench_spec.report_period,
                 )?;
             }
@@ -119,13 +94,18 @@ fn batch_select(
     )
 }
 
-fn batch_insert(
+fn batch_insert<F>(
     client: &ImmuxDBClient,
     units_vec: &[Vec<Unit>],
     bench_name: &str,
+    verify_correctness: bool,
+    verification_fn: F,
     report_period: usize,
-) -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
-    measure_iteration(
+) -> Result<Vec<(f64, f64)>, Box<dyn Error>>
+where
+    F: Fn(&ImmuxDBClient, &GroupingLabel, &[Unit]) -> bool,
+{
+    let res = measure_iteration(
         &units_vec,
         |units| {
             client
@@ -134,5 +114,21 @@ fn batch_insert(
         },
         "batch_insert",
         report_period,
-    )
+    )?;
+
+    if verify_correctness {
+        let units: Vec<Unit> = units_vec
+            .iter()
+            .flat_map(|units| units.to_owned())
+            .collect();
+        let verification_result =
+            verification_fn(client, &GroupingLabel::new(bench_name.as_bytes()), &units);
+        assert_eq!(verification_result, true);
+
+        println!("Database entries match input tables");
+    } else {
+        println!("Data verification is skipped");
+    }
+
+    return Ok(res);
 }

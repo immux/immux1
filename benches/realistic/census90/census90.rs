@@ -4,7 +4,9 @@ use std::thread;
 use serde::{Deserialize, Serialize};
 
 use immuxdb_bench_utils::least_squares::solve;
-use immuxdb_bench_utils::{csv_to_json_table, measure_iteration, read_usize_from_arguments};
+use immuxdb_bench_utils::toolkits::{
+    csv_to_json_table, measure_iteration, read_usize_from_arguments,
+};
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
 use libimmuxdb::declarations::basics::GroupingLabel;

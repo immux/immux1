@@ -1,8 +1,7 @@
-use immuxdb_bench_utils::UnitList;
-use libimmuxdb::declarations::basics::{Unit, UnitContent, UnitId};
+use libimmuxdb::declarations::basics::{Unit, UnitContent};
 use serde_json::{json, Number, Value};
 
-use crate::bench::{PropertySpec, UnitIdSpec};
+use crate::declarations::{PropertySpec, UnitIdSpec, UnitList};
 
 pub fn get_string_with_fix_size(size: usize, pattern: char) -> String {
     let mut res: String = "".to_string();
@@ -19,9 +18,9 @@ pub fn generate_json_table(
 ) -> UnitList {
     let mut res = vec![];
 
-    for id_int in 0..(row_count as u64) {
-        let id = unit_id_spec(id_int);
-        let json = get_json(json_spec, &UnitId::new(id_int as u128), row_count);
+    for row_number in 0..(row_count as u64) {
+        let id = unit_id_spec(row_number);
+        let json = get_json(json_spec, row_number, row_count);
         let content = UnitContent::JsonString(json.to_string());
         let unit = Unit { id, content };
         res.push(unit);
@@ -30,11 +29,11 @@ pub fn generate_json_table(
     return res;
 }
 
-fn get_json(json_spec: &[PropertySpec], id: &UnitId, row_count: usize) -> Value {
+fn get_json(json_spec: &[PropertySpec], row_number: u64, row_count: usize) -> Value {
     let mut json = json!({});
 
     for property_spec in json_spec {
-        let (property_name, unit_content) = property_spec(id, row_count);
+        let (property_name, unit_content) = property_spec(row_number, row_count);
 
         match unit_content {
             UnitContent::String(string) => {
