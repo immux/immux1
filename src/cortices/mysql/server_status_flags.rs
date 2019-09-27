@@ -86,14 +86,14 @@ pub fn parse_status_flags(flags_vec: u16) -> ServerStatusFlags {
 const SERVER_STATUS_FLAGS_KEY: &str = "_SERVER_STATUS_FLAGS";
 
 pub fn save_server_status_flags(buffer: &[u8], core: &mut ImmuxDBCore) -> ImmuxResult<()> {
-    let instruction = Instruction::DataAccess(DataInstruction::Write(DataWriteInstruction::SetMany(
-        SetManyInstruction {
+    let instruction = Instruction::DataAccess(DataInstruction::Write(
+        DataWriteInstruction::SetMany(SetManyInstruction {
             targets: vec![SetTargetSpec {
                 key: StoreKey::new(SERVER_STATUS_FLAGS_KEY.as_bytes()),
                 value: StoreValue::new(Some(buffer.to_vec())),
             }],
-        },
-    )));
+        }),
+    ));
 
     match core.execute(&instruction) {
         Err(_error) => Err(ImmuxError::MySQLParser(

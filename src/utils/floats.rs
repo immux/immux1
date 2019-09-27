@@ -41,5 +41,4 @@ mod float_utils_test {
             }
         }
     }
-
 }

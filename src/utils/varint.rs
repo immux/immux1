@@ -177,5 +177,4 @@ mod varint_utils_tests {
             assert_eq!(varint_encode(u), v)
         }
     }
-
 }

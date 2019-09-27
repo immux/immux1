@@ -106,7 +106,6 @@ mod store_value_tests {
         assert_eq!(value, StoreValue::new(Some(vec![0x00, 0x01])));
         assert_eq!(width, 4);
     }
-
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

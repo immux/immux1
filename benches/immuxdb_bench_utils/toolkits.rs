@@ -125,7 +125,7 @@ pub fn verify_units_against_db(
 pub fn verify_journal_against_db(
     client: &ImmuxDBClient,
     grouping_label: &GroupingLabel,
-    units: &Vec<Unit>,
+    units: &[Unit],
 ) -> bool {
     let id = units[0].id;
     let data = client.inspect_by_id(grouping_label, &id).unwrap();

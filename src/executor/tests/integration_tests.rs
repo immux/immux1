@@ -7,9 +7,7 @@ use crate::declarations::commands::{
 };
 use crate::executor::execute::execute;
 use crate::storage::core::ImmuxDBCore;
-use crate::storage::instructions::{
-    StoreNamespace,
-};
+use crate::storage::instructions::StoreNamespace;
 use crate::storage::kv::KeyValueEngine;
 
 /// Insert some simple data and get them back.

@@ -98,5 +98,4 @@ mod journal_tests {
             }
         }
     }
-
 }

@@ -367,5 +367,4 @@ mod unit_content_tests {
         assert_ne!(UnitContent::Bool(true), JsonValue::from(false));
         assert_ne!(UnitContent::Bool(false), JsonValue::from(true));
     }
-
 }
