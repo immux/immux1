@@ -61,5 +61,4 @@ mod pick_chain_executor_tests {
             _ => panic!("Unexpected outcome"),
         }
     }
-
 }

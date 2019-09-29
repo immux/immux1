@@ -72,7 +72,6 @@ mod kvvalue_tests {
         let value = KVValue::from("aaa");
         assert_eq!(value.as_bytes(), &[97, 97, 97])
     }
-
 }
 
 #[cfg(test)]

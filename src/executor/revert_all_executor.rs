@@ -63,5 +63,4 @@ mod revert_all_executor_tests {
             _ => panic!("Unexpected outcome"),
         }
     }
-
 }

@@ -489,5 +489,4 @@ mod base_kv_tests {
     fn test_set_many_identical_keys_rocks() -> Result<(), Box<dyn Error>> {
         test_set_many_identical_keys(&mut get_rocks_store("test_set_many_identical_keys"))
     }
-
 }

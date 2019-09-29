@@ -1,4 +1,4 @@
-use std::convert::{From};
+use std::convert::From;
 
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ impl UnitId {
     pub fn marshal(&self) -> Vec<u8> {
         u128_to_u8_array(self.0).to_vec()
     }
-    pub fn parse(data: &[u8]) ->  Result<Self, UnitIdError> {
+    pub fn parse(data: &[u8]) -> Result<Self, UnitIdError> {
         if data.len() < UNIT_ID_BYTES {
             Err(UnitIdError::InsufficientLength(data.to_vec()))
         } else {

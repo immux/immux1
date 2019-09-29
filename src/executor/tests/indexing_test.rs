@@ -316,5 +316,4 @@ mod indexing_test {
             r#"{"f64": "ss", "str": false, "bool": 1.0}"#, // keys containing various types
         ]);
     }
-
 }

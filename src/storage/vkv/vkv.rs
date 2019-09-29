@@ -417,82 +417,87 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                 }
             },
 
-            Instruction::DataAccess(DataInstruction::Read(read_instruction)) => match read_instruction {
-                DataReadInstruction::GetMany(get_many) => {
-                    match &get_many.targets {
-                        GetManyTargetSpec::Keys(keys) => {
-                            let mut data: Vec<(BoxedStoreKey, BoxedStoreValue)> =
-                                Vec::with_capacity(keys.len());
-                            for key in keys {
-                                let value = match get_many.height {
-                                    None => self.get_latest_value(&key)?,
-                                    Some(height) => self.get_value_after_height(key, &height)?,
-                                };
-                                data.push((key.to_owned().into(), value.into()))
-                            }
-                            return Ok(Answer::DataAccess(DataAnswer::Read(
-                                DataReadAnswer::GetManyOk(GetManyOkAnswer { data }),
-                            )));
-                        }
-                        GetManyTargetSpec::KeyPrefix(key_prefix) => {
-                            let basekey_prefix: KVKeySegment = {
-                                let mut result =
-                                    Vec::with_capacity(1 + key_prefix.as_slice().len());
-                                result.push(KVKeySigil::UnitJournal as u8);
-                                result.extend_from_slice(key_prefix.as_slice());
-                                result.into()
-                            };
-                            let base_pairs = self.kv_engine.filter_prefix(&basekey_prefix);
-                            let parsed_pairs: Vec<(BoxedStoreKey, Box<UnitJournal>)> = {
-                                let mut result = Vec::with_capacity(base_pairs.len());
-                                for pair in base_pairs.into_iter() {
-                                    // Remove Sigil
-                                    let (kvkey, kvvalue) = pair;
-                                    let store_key = extract_journal_store_key(&kvkey.into());
-                                    let journal = UnitJournal::parse(kvvalue.as_bytes())?;
-                                    result.push((store_key.into(), Box::new(journal)));
+            Instruction::DataAccess(DataInstruction::Read(read_instruction)) => {
+                match read_instruction {
+                    DataReadInstruction::GetMany(get_many) => {
+                        match &get_many.targets {
+                            GetManyTargetSpec::Keys(keys) => {
+                                let mut data: Vec<(BoxedStoreKey, BoxedStoreValue)> =
+                                    Vec::with_capacity(keys.len());
+                                for key in keys {
+                                    let value = match get_many.height {
+                                        None => self.get_latest_value(&key)?,
+                                        Some(height) => {
+                                            self.get_value_after_height(key, &height)?
+                                        }
+                                    };
+                                    data.push((key.to_owned().into(), value.into()))
                                 }
-                                result
-                            };
-                            let data: Vec<(BoxedStoreKey, BoxedStoreValue)> = {
-                                let mut result = Vec::with_capacity(parsed_pairs.len());
-                                for pair in parsed_pairs {
-                                    let journal = pair.1;
-                                    match journal.value.inner() {
-                                        None => {}
-                                        Some(data) => {
-                                            let value = BoxedStoreValue::new(Some(data.clone()));
-                                            result.push((pair.0, value));
+                                return Ok(Answer::DataAccess(DataAnswer::Read(
+                                    DataReadAnswer::GetManyOk(GetManyOkAnswer { data }),
+                                )));
+                            }
+                            GetManyTargetSpec::KeyPrefix(key_prefix) => {
+                                let basekey_prefix: KVKeySegment = {
+                                    let mut result =
+                                        Vec::with_capacity(1 + key_prefix.as_slice().len());
+                                    result.push(KVKeySigil::UnitJournal as u8);
+                                    result.extend_from_slice(key_prefix.as_slice());
+                                    result.into()
+                                };
+                                let base_pairs = self.kv_engine.filter_prefix(&basekey_prefix);
+                                let parsed_pairs: Vec<(BoxedStoreKey, Box<UnitJournal>)> = {
+                                    let mut result = Vec::with_capacity(base_pairs.len());
+                                    for pair in base_pairs.into_iter() {
+                                        // Remove Sigil
+                                        let (kvkey, kvvalue) = pair;
+                                        let store_key = extract_journal_store_key(&kvkey.into());
+                                        let journal = UnitJournal::parse(kvvalue.as_bytes())?;
+                                        result.push((store_key.into(), Box::new(journal)));
+                                    }
+                                    result
+                                };
+                                let data: Vec<(BoxedStoreKey, BoxedStoreValue)> = {
+                                    let mut result = Vec::with_capacity(parsed_pairs.len());
+                                    for pair in parsed_pairs {
+                                        let journal = pair.1;
+                                        match journal.value.inner() {
+                                            None => {}
+                                            Some(data) => {
+                                                let value =
+                                                    BoxedStoreValue::new(Some(data.clone()));
+                                                result.push((pair.0, value));
+                                            }
                                         }
                                     }
-                                }
-                                result
-                            };
+                                    result
+                                };
 
-                            return Ok(Answer::DataAccess(DataAnswer::Read(
-                                DataReadAnswer::GetManyOk(GetManyOkAnswer { data }),
-                            )));
+                                return Ok(Answer::DataAccess(DataAnswer::Read(
+                                    DataReadAnswer::GetManyOk(GetManyOkAnswer { data }),
+                                )));
+                            }
+                        }
+                    }
+                    DataReadInstruction::GetOne(get_one) => {
+                        let result = match get_one.height {
+                            None => self.get_latest_value(&get_one.key)?,
+                            Some(height) => self.get_value_after_height(&get_one.key, &height)?,
+                        };
+                        return Ok(Answer::DataAccess(DataAnswer::Read(
+                            DataReadAnswer::GetOneOk(GetOneOkAnswer { value: result }),
+                        )));
+                    }
+                    DataReadInstruction::GetJournal(get_journal) => {
+                        match self.get_journal(&get_journal.key) {
+                            Err(error) => Err(error),
+                            Ok(journal) => Ok(Answer::DataAccess(DataAnswer::Read(
+                                DataReadAnswer::GetJournalOk(GetJournalOkAnswer { journal }),
+                            ))),
                         }
                     }
                 }
-                DataReadInstruction::GetOne(get_one) => {
-                    let result = match get_one.height {
-                        None => self.get_latest_value(&get_one.key)?,
-                        Some(height) => self.get_value_after_height(&get_one.key, &height)?,
-                    };
-                    return Ok(Answer::DataAccess(DataAnswer::Read(
-                        DataReadAnswer::GetOneOk(GetOneOkAnswer { value: result }),
-                    )));
-                }
-                DataReadInstruction::GetJournal(get_journal) => {
-                    match self.get_journal(&get_journal.key) {
-                        Err(error) => Err(error),
-                        Ok(journal) => Ok(Answer::DataAccess(DataAnswer::Read(
-                            DataReadAnswer::GetJournalOk(GetJournalOkAnswer { journal }),
-                        ))),
-                    }
-                }
-            },
+            }
             Instruction::DataAccess(DataInstruction::Write(write_instruction)) => {
                 // Only data writes triggers height increment and instruction record saving
                 let next_height = self.increment_chain_height()?;
