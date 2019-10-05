@@ -16,6 +16,7 @@ fn main() {
         name: "indexed_set",
         unicus_port: 10099,
         main: &execute,
+        chain_name: "default_chain",
         actions: vec![
             Action::CreateIndex {
                 property_name_vec: vec![

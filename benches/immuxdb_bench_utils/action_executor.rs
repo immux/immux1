@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
-use libimmuxdb::declarations::basics::{GroupingLabel, PropertyName, Unit, UnitId};
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
 
 use crate::data_generator::generate_json_table;
 use crate::declarations::{Action, ArtificialDataBenchSpec};
@@ -16,6 +16,7 @@ pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error
                 create_index(
                     &client,
                     &property_name_vec,
+                    &bench_spec.chain_name,
                     &bench_spec.name,
                     bench_spec.report_period,
                 )?;
@@ -32,8 +33,9 @@ pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error
                     .collect();
                 batch_insert(
                     &client,
-                    &units_vec,
+                    &bench_spec.chain_name,
                     &bench_spec.name,
+                    &units_vec,
                     bench_spec.verify_correctness,
                     &bench_spec.verification_fn,
                     bench_spec.report_period,
@@ -44,6 +46,7 @@ pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error
                     &client,
                     &start,
                     &end,
+                    &bench_spec.chain_name,
                     &bench_spec.name,
                     bench_spec.report_period,
                 )?;
@@ -56,6 +59,7 @@ pub fn execute(bench_spec: &ArtificialDataBenchSpec) -> Result<(), Box<dyn Error
 fn create_index(
     client: &ImmuxDBClient,
     property_name_vec: &[PropertyName],
+    chain_name: &str,
     bench_name: &str,
     report_period: usize,
 ) -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
@@ -63,7 +67,11 @@ fn create_index(
         property_name_vec,
         |property_name| {
             client
-                .create_index(&GroupingLabel::new(bench_name.as_bytes()), property_name)
+                .create_index(
+                    &ChainName::from(chain_name),
+                    &GroupingLabel::new(bench_name.as_bytes()),
+                    property_name,
+                )
                 .map_err(|err| err.into())
         },
         "create_index",
@@ -75,6 +83,7 @@ fn batch_select(
     client: &ImmuxDBClient,
     start: &UnitId,
     end: &UnitId,
+    chain_name: &str,
     bench_name: &str,
     report_period: usize,
 ) -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
@@ -86,7 +95,11 @@ fn batch_select(
         &ids,
         |id| {
             client
-                .get_by_id(&GroupingLabel::new(bench_name.as_bytes()), id)
+                .get_by_id(
+                    &ChainName::from(chain_name),
+                    &GroupingLabel::new(bench_name.as_bytes()),
+                    id,
+                )
                 .map_err(|err| err.into())
         },
         "batch_select",
@@ -96,20 +109,25 @@ fn batch_select(
 
 fn batch_insert<F>(
     client: &ImmuxDBClient,
-    units_vec: &[Vec<Unit>],
+    chain_name: &str,
     bench_name: &str,
+    units_vec: &[Vec<Unit>],
     verify_correctness: bool,
     verification_fn: F,
     report_period: usize,
 ) -> Result<Vec<(f64, f64)>, Box<dyn Error>>
 where
-    F: Fn(&ImmuxDBClient, &GroupingLabel, &[Unit]) -> bool,
+    F: Fn(&ImmuxDBClient, &ChainName, &GroupingLabel, &[Unit]) -> bool,
 {
     let res = measure_iteration(
         &units_vec,
         |units| {
             client
-                .set_batch_units(&GroupingLabel::new(bench_name.as_bytes()), units)
+                .set_batch_units(
+                    &ChainName::from(chain_name),
+                    &GroupingLabel::new(bench_name.as_bytes()),
+                    units,
+                )
                 .map_err(|err| err.into())
         },
         "batch_insert",
@@ -121,8 +139,12 @@ where
             .iter()
             .flat_map(|units| units.to_owned())
             .collect();
-        let verification_result =
-            verification_fn(client, &GroupingLabel::new(bench_name.as_bytes()), &units);
+        let verification_result = verification_fn(
+            client,
+            &ChainName::from(chain_name),
+            &GroupingLabel::new(bench_name.as_bytes()),
+            &units,
+        );
         assert_eq!(verification_result, true);
 
         println!("Database entries match input tables");

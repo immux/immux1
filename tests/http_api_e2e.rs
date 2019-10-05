@@ -1,5 +1,6 @@
 #[cfg(test)]
 use std::error::Error;
+use std::str::FromStr;
 use std::thread;
 
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
@@ -37,16 +38,16 @@ fn e2e_change_database_namespace() -> Result<(), Box<dyn Error>> {
     assert_ne!(data_in_a, data_in_b);
 
     client.switch_chain(&chain_name_a)?;
-    client.set_unit(&grouping, &unit_a)?;
+    client.set_unit(&chain_name_a, &grouping, &unit_a)?;
 
     client.switch_chain(&chain_name_b)?;
-    client.set_unit(&grouping, &unit_b)?;
+    client.set_unit(&chain_name_b, &grouping, &unit_b)?;
 
-    let data_out_b = client.get_by_id(&grouping, &id)?;
+    let data_out_b = client.get_by_id(&chain_name_b, &grouping, &id)?;
     assert_eq!(data_in_b.to_string(), data_out_b.to_string());
 
     client.switch_chain(&chain_name_a)?;
-    let data_out_a = client.get_by_id(&grouping, &id)?;
+    let data_out_a = client.get_by_id(&chain_name_a, &grouping, &id)?;
     assert_eq!(data_in_a.to_string(), data_out_a.to_string());
 
     Ok(())
@@ -64,49 +65,56 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port))?;
     let chain_name = ChainName::from("immuxtest-single-document-versioning");
     client.switch_chain(&chain_name)?;
-    let id = UnitId::new(1);
     let grouping = GroupingLabel::new("GROUPING".as_bytes());
+    let heights: Vec<u64> = (INITIAL_HEIGHT..100).collect();
+    let id = UnitId::new(1);
 
-    fn dummy_data(height: u64) -> String {
-        format!("data-at-height-{}", height)
-    }
+    let expected_data: Vec<(ChainHeight, UnitContent)> = heights
+        .iter()
+        .map(|height| {
+            let chain_height = ChainHeight::new(*height);
+            let content = UnitContent::String(format!("data-at-height-{}", height));
 
-    let range = INITIAL_HEIGHT..100;
+            return (chain_height, content);
+        })
+        .collect();
 
-    for height in range.clone() {
+    for data in &expected_data {
         let unit = Unit {
             id,
-            content: UnitContent::String(dummy_data(height)),
+            content: data.1.clone(),
         };
-        client.set_unit(&grouping, &unit)?;
+        client.set_unit(&chain_name, &grouping, &unit)?;
     }
 
-    let body_text = client.inspect_by_id(&grouping, &id)?;
-    let data: Vec<(&str, &str)> = body_text
+    let actual_data: Vec<(ChainHeight, UnitContent)> = client
+        .inspect_by_id(&chain_name, &grouping, &id)?
         .split("\r\n")
         .filter(|line| line.len() > 0)
         .map(|line| {
             let segments: Vec<_> = line.split("|").collect();
-            return (segments[0], segments[1]);
+            let unit_content = UnitContent::from_str(segments[1]).unwrap();
+            return (
+                ChainHeight::new(segments[0].parse::<u64>().unwrap()),
+                unit_content,
+            );
         })
         .collect();
 
-    // Test inspection of version changes
-    for expected_height in range.clone() {
+    for expected_height in heights {
+        // Test inspection of version changes
         let index = (expected_height - INITIAL_HEIGHT) as usize;
-        let (actual_height, actual_data) = data[index];
-        let expected_data = dummy_data(expected_height);
-        assert_eq!(expected_height, actual_height.parse::<u64>().unwrap());
-        assert_eq!(expected_data, actual_data);
-    }
+        assert_eq!(expected_height, actual_data[index].0.as_u64());
+        assert_eq!(expected_data[index].1, actual_data[index].1);
 
-    // Test revert
-    for target_height in range.clone() {
-        let chain_height = ChainHeight::new(target_height);
-        client.revert_by_id(&grouping, &id, &chain_height)?;
-        let current_value = client.get_by_id(&grouping, &id)?;
-        let expected_value = dummy_data(target_height);
-        assert_eq!(current_value, expected_value);
+        // Test revert
+        let chain_height = ChainHeight::new(expected_height);
+        client.revert_by_id(&chain_name, &grouping, &id, &chain_height)?;
+        let current_content_str = client.get_by_id(&chain_name, &grouping, &id)?;
+        assert_eq!(
+            UnitContent::from_str(&current_content_str).unwrap(),
+            actual_data[index].1
+        );
     }
 
     Ok(())
@@ -144,15 +152,15 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
 
     // Store data in specified order
     for unit in units.iter() {
-        client.set_unit(&grouping, unit)?;
+        client.set_unit(&chain_name, &grouping, unit)?;
     }
 
     // Revert in input order and check consistency
     for (index, unit) in units.iter().enumerate() {
         let height = INITIAL_HEIGHT + (index as u64);
         let chain_height = ChainHeight::new(height);
-        client.revert_by_id(&grouping, &unit.id, &chain_height)?;
-        let current_data = client.get_by_id(&grouping, &unit.id)?;
+        client.revert_by_id(&chain_name, &grouping, &unit.id, &chain_height)?;
+        let current_data = client.get_by_id(&chain_name, &grouping, &unit.id)?;
         assert_eq!(current_data, unit.content.to_string());
     }
 

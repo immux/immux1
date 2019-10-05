@@ -9,7 +9,7 @@ use immuxdb_bench_utils::toolkits::{
 };
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
-use libimmuxdb::declarations::basics::GroupingLabel;
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CensusEntry {
@@ -113,13 +113,13 @@ fn main() {
 
     let grouping_label = GroupingLabel::new("GROUPING".as_bytes());
     let client = ImmuxDBClient::new(&format!("localhost:{}", db_port)).unwrap();
-
+    let chain_name = ChainName::from("realistic_bench");
     let insert = || -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
         measure_iteration(
             &table,
             |unit| {
                 client
-                    .set_unit(&grouping_label, unit)
+                    .set_unit(&chain_name, &grouping_label, unit)
                     .map_err(|err| err.into())
             },
             "insert",
@@ -132,7 +132,7 @@ fn main() {
             &table,
             |unit| {
                 client
-                    .get_by_id(&grouping_label, &unit.id)
+                    .get_by_id(&chain_name, &grouping_label, &unit.id)
                     .map(|output| {
                         if verify_correctness {
                             let original = &unit.content;

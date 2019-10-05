@@ -14,6 +14,7 @@ fn main() {
 
     let bench_spec = ArtificialDataBenchSpec {
         name: "unindex_set",
+        chain_name: "default_chain",
         unicus_port: 10099,
         main: &execute,
         actions: vec![Action::Insert {

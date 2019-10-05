@@ -133,6 +133,12 @@ impl From<UnitContentError> for ImmuxError {
     }
 }
 
+impl From<UnitIdError> for ImmuxError {
+    fn from(error: UnitIdError) -> Self {
+        ImmuxError::UnitId(error)
+    }
+}
+
 impl From<ReverseIndexError> for ImmuxError {
     fn from(error: ReverseIndexError) -> ImmuxError {
         ImmuxError::ReverseIndexProcessing(error)

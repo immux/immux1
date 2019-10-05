@@ -9,7 +9,7 @@ use immuxdb_bench_utils::toolkits::{
 };
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
-use libimmuxdb::declarations::basics::GroupingLabel;
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Account {
@@ -144,7 +144,7 @@ fn main() {
         .collect();
 
     let client = ImmuxDBClient::new(&format!("localhost:{}", port)).unwrap();
-
+    let chain_name = ChainName::from("realistic_bench");
     for (table_name, table) in dataset.iter() {
         println!("Loading table '{}'", table_name);
         let grouping_label = GroupingLabel::from(table_name.as_str());
@@ -152,7 +152,7 @@ fn main() {
             table,
             |unit| {
                 client
-                    .set_unit(&grouping_label, &unit)
+                    .set_unit(&chain_name, &grouping_label, &unit)
                     .map_err(|err| err.into())
             },
             "get",
@@ -165,7 +165,8 @@ fn main() {
         for (table_name, table) in dataset.iter() {
             println!("Verifying table '{}'", table_name);
             let grouping_label = GroupingLabel::from(table_name.as_str());
-            let verification_result = verify_units_against_db(&client, &grouping_label, table);
+            let verification_result =
+                verify_units_against_db(&client, &chain_name, &grouping_label, table);
             assert_eq!(verification_result, true);
         }
         println!("Database entries match input tables")
