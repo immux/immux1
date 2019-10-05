@@ -1,4 +1,7 @@
 use std::convert::TryFrom;
+use std::fmt::{Display, Error as FormatError, Formatter, Result as FormatResult, Write};
+use std::num::ParseIntError;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -9,8 +12,66 @@ use crate::utils::{
     varint_encode,
 };
 
+const CONTENT_TYPE_VALUE_SEPARATOR: &str = "#";
+const CONTENT_NIL_TYPE_STR_PREFIX: &str = "_nil";
+const CONTENT_STRING_TYPE_STR_PREFIX: &str = "_str";
+const CONTENT_JSON_STRING_TYPE_STR_PREFIX: &str = "_json_str";
+const CONTENT_FLOAT64_TYPE_STR_PREFIX: &str = "_f64";
+const CONTENT_BOOL_TYPE_STR_PREFIX: &str = "_bool";
+const CONTENT_BYTES_TYPE_STR_PREFIX: &str = "_bytes";
+const CONTENT_BSON_BYTES_TYPE_STR_PREFIX: &str = "_bson_bytes";
+
+fn get_content_type_str_prefix(unit_content: &UnitContent) -> &str {
+    match unit_content {
+        UnitContent::Nil => CONTENT_NIL_TYPE_STR_PREFIX,
+        UnitContent::String(_string) => CONTENT_STRING_TYPE_STR_PREFIX,
+        UnitContent::JsonString(_string) => CONTENT_JSON_STRING_TYPE_STR_PREFIX,
+        UnitContent::Float64(_f) => CONTENT_FLOAT64_TYPE_STR_PREFIX,
+        UnitContent::Bool(_b) => CONTENT_BOOL_TYPE_STR_PREFIX,
+        UnitContent::Bytes(_bytes) => CONTENT_BYTES_TYPE_STR_PREFIX,
+        UnitContent::BsonBytes(_bytes) => CONTENT_BSON_BYTES_TYPE_STR_PREFIX,
+    }
+}
+
+fn encode_hex(bytes: &[u8]) -> Result<String, FormatError> {
+    let bytes_str_vec: Result<Vec<String>, FormatError> = bytes
+        .iter()
+        .map(|byte| {
+            let mut s = String::new();
+            match write!(&mut s, "{:#04x}", byte) {
+                Ok(_) => Ok(s),
+                Err(error) => Err(error),
+            }
+        })
+        .collect();
+
+    match bytes_str_vec {
+        Ok(vec) => {
+            let result: String = vec.join(",");
+            return Ok(result);
+        }
+        Err(error) => {
+            return Err(error);
+        }
+    };
+}
+
+fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    //    Input is gonna be a str like "[0x01,0x02,0xff]"
+    let bytes_str = s.replace("[", "").replace("]", "");
+    let bytes_str_vec: Vec<&str> = bytes_str.split(",").collect();
+
+    bytes_str_vec
+        .iter()
+        .map(|byte_str| {
+            //            byte_str is in the format like 0x03, so we only take the last two chars
+            u8::from_str_radix(&byte_str[2..], 16)
+        })
+        .collect()
+}
+
 #[repr(u8)]
-pub enum ContentTypePrefix {
+pub enum ContentTypeBytePrefix {
     Nil = 0x00,
 
     String = 0x10,
@@ -23,25 +84,25 @@ pub enum ContentTypePrefix {
     Bytes = 0xff,
 }
 
-impl TryFrom<u8> for ContentTypePrefix {
+impl TryFrom<u8> for ContentTypeBytePrefix {
     type Error = UnitContentError;
     fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        if byte == ContentTypePrefix::Nil as u8 {
-            return Ok(ContentTypePrefix::Nil);
-        } else if byte == ContentTypePrefix::Bytes as u8 {
-            return Ok(ContentTypePrefix::Bytes);
-        } else if byte == ContentTypePrefix::JsonString as u8 {
-            return Ok(ContentTypePrefix::JsonString);
-        } else if byte == ContentTypePrefix::BsonBytes as u8 {
-            return Ok(ContentTypePrefix::BsonBytes);
-        } else if byte == ContentTypePrefix::String as u8 {
-            return Ok(ContentTypePrefix::String);
-        } else if byte == ContentTypePrefix::Boolean as u8 {
-            return Ok(ContentTypePrefix::Boolean);
-        } else if byte == ContentTypePrefix::Float64 as u8 {
-            return Ok(ContentTypePrefix::Float64);
+        if byte == ContentTypeBytePrefix::Nil as u8 {
+            return Ok(ContentTypeBytePrefix::Nil);
+        } else if byte == ContentTypeBytePrefix::Bytes as u8 {
+            return Ok(ContentTypeBytePrefix::Bytes);
+        } else if byte == ContentTypeBytePrefix::JsonString as u8 {
+            return Ok(ContentTypeBytePrefix::JsonString);
+        } else if byte == ContentTypeBytePrefix::BsonBytes as u8 {
+            return Ok(ContentTypeBytePrefix::BsonBytes);
+        } else if byte == ContentTypeBytePrefix::String as u8 {
+            return Ok(ContentTypeBytePrefix::String);
+        } else if byte == ContentTypeBytePrefix::Boolean as u8 {
+            return Ok(ContentTypeBytePrefix::Boolean);
+        } else if byte == ContentTypeBytePrefix::Float64 as u8 {
+            return Ok(ContentTypeBytePrefix::Float64);
         } else {
-            return Err(UnitContentError::UnexpectedTypePrefix(byte));
+            return Err(UnitContentError::UnexpectedTypeBytePrefix(byte));
         }
     }
 }
@@ -61,7 +122,9 @@ pub enum UnitContent {
 
 #[derive(Debug)]
 pub enum UnitContentError {
-    UnexpectedTypePrefix(u8),
+    UnexpectedTypeBytePrefix(u8),
+    UnexpectedTypeStringPrefix,
+    ParseStringError,
     EmptyInput,
     MissingDataBytes,
     UnexpectedLengthBytes,
@@ -71,34 +134,34 @@ impl UnitContent {
     pub fn marshal(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(1);
         match &self {
-            UnitContent::Nil => result.push(ContentTypePrefix::Nil as u8),
+            UnitContent::Nil => result.push(ContentTypeBytePrefix::Nil as u8),
             UnitContent::Bool(boolean) => {
-                result.push(ContentTypePrefix::Boolean as u8);
+                result.push(ContentTypeBytePrefix::Boolean as u8);
                 result.push(bool_to_u8(*boolean));
             }
             UnitContent::Float64(number_f64) => {
-                result.push(ContentTypePrefix::Float64 as u8);
+                result.push(ContentTypeBytePrefix::Float64 as u8);
                 result.extend_from_slice(&f64_to_u8_array(*number_f64));
             }
             UnitContent::Bytes(bytes) => {
-                result.push(ContentTypePrefix::Bytes as u8);
+                result.push(ContentTypeBytePrefix::Bytes as u8);
                 result.extend_from_slice(&varint_encode(bytes.len() as u64));
                 result.extend_from_slice(bytes)
             }
             UnitContent::JsonString(string) => {
                 let bytes = string.as_bytes();
-                result.push(ContentTypePrefix::JsonString as u8);
+                result.push(ContentTypeBytePrefix::JsonString as u8);
                 result.extend_from_slice(&varint_encode(bytes.len() as u64));
                 result.extend_from_slice(bytes)
             }
             UnitContent::BsonBytes(bytes) => {
-                result.push(ContentTypePrefix::BsonBytes as u8);
+                result.push(ContentTypeBytePrefix::BsonBytes as u8);
                 result.extend_from_slice(&varint_encode(bytes.len() as u64));
                 result.extend_from_slice(bytes)
             }
             UnitContent::String(string) => {
                 let bytes = string.as_bytes();
-                result.push(ContentTypePrefix::String as u8);
+                result.push(ContentTypeBytePrefix::String as u8);
                 result.extend_from_slice(&varint_encode(bytes.len() as u64));
                 result.extend_from_slice(bytes)
             }
@@ -109,19 +172,19 @@ impl UnitContent {
         match data.get(0) {
             None => return Err(UnitContentError::EmptyInput.into()),
             Some(first_byte) => {
-                let type_prefix = ContentTypePrefix::try_from(*first_byte)?;
+                let type_prefix = ContentTypeBytePrefix::try_from(*first_byte)?;
                 let remaining_bytes = &data[1..];
                 match type_prefix {
-                    ContentTypePrefix::Nil => {
+                    ContentTypeBytePrefix::Nil => {
                         return Ok((UnitContent::Nil, 1));
                     }
-                    ContentTypePrefix::Boolean => match remaining_bytes.get(0) {
+                    ContentTypeBytePrefix::Boolean => match remaining_bytes.get(0) {
                         None => return Err(UnitContentError::MissingDataBytes.into()),
                         Some(data_byte) => {
                             return Ok((UnitContent::Bool(u8_to_bool(*data_byte)), 2));
                         }
                     },
-                    ContentTypePrefix::Float64 => {
+                    ContentTypeBytePrefix::Float64 => {
                         if remaining_bytes.len() < 8 {
                             return Err(UnitContentError::MissingDataBytes.into());
                         } else {
@@ -138,7 +201,7 @@ impl UnitContent {
                             return Ok((UnitContent::Float64(u8_array_to_f64(&array)), 9));
                         }
                     }
-                    ContentTypePrefix::Bytes => {
+                    ContentTypeBytePrefix::Bytes => {
                         let (length, offset) = varint_decode(&remaining_bytes)
                             .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
                         return Ok((
@@ -148,7 +211,7 @@ impl UnitContent {
                             1 + length as usize,
                         ));
                     }
-                    ContentTypePrefix::JsonString => {
+                    ContentTypeBytePrefix::JsonString => {
                         let (length, offset) = varint_decode(&remaining_bytes)
                             .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
                         let string_bytes = &remaining_bytes[offset..offset + length as usize];
@@ -157,7 +220,7 @@ impl UnitContent {
                             1 + length as usize,
                         ));
                     }
-                    ContentTypePrefix::BsonBytes => {
+                    ContentTypeBytePrefix::BsonBytes => {
                         let (length, offset) = varint_decode(&remaining_bytes)
                             .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
                         return Ok((
@@ -167,7 +230,7 @@ impl UnitContent {
                             1 + length as usize,
                         ));
                     }
-                    ContentTypePrefix::String => {
+                    ContentTypeBytePrefix::String => {
                         let (length, offset) = varint_decode(&remaining_bytes)
                             .map_err(|_| UnitContentError::UnexpectedLengthBytes)?;
                         let string_bytes = &remaining_bytes[offset..offset + length as usize];
@@ -210,22 +273,126 @@ impl PartialEq<JsonValue> for UnitContent {
     }
 }
 
-impl ToString for UnitContent {
-    fn to_string(&self) -> String {
+impl Display for UnitContent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
+        let unit_content_prefix = get_content_type_str_prefix(&self);
+
         match self {
-            UnitContent::Nil => String::from("nil"),
-            UnitContent::String(string) => string.clone(),
-            UnitContent::JsonString(string) => string.clone(),
-            UnitContent::Float64(f) => format!("{}", f),
-            UnitContent::Bool(b) => (if *b { "true" } else { "false" }).to_string(),
-            UnitContent::Bytes(bytes) => utf8_to_string(bytes),
-            UnitContent::BsonBytes(bytes) => utf8_to_string(bytes),
+            UnitContent::Nil => write!(
+                f,
+                "{}{}{}",
+                unit_content_prefix,
+                CONTENT_TYPE_VALUE_SEPARATOR,
+                String::from("nil")
+            ),
+            UnitContent::String(string) => write!(
+                f,
+                "{}{}{}",
+                unit_content_prefix,
+                CONTENT_TYPE_VALUE_SEPARATOR,
+                string.clone()
+            ),
+            UnitContent::JsonString(string) => write!(
+                f,
+                "{}{}{}",
+                unit_content_prefix,
+                CONTENT_TYPE_VALUE_SEPARATOR,
+                string.clone()
+            ),
+            UnitContent::Float64(number) => write!(
+                f,
+                "{}{}{}",
+                unit_content_prefix, CONTENT_TYPE_VALUE_SEPARATOR, number
+            ),
+            UnitContent::Bool(b) => write!(
+                f,
+                "{}{}{}",
+                unit_content_prefix, CONTENT_TYPE_VALUE_SEPARATOR, b
+            ),
+            UnitContent::Bytes(bytes) => {
+                let bytes_str = encode_hex(bytes)?;
+                return write!(
+                    f,
+                    "{}{}[{}]",
+                    unit_content_prefix, CONTENT_TYPE_VALUE_SEPARATOR, bytes_str
+                );
+            }
+            UnitContent::BsonBytes(bytes) => {
+                let bytes_str = encode_hex(bytes)?;
+                return write!(
+                    f,
+                    "{}{}[{}]",
+                    unit_content_prefix, CONTENT_TYPE_VALUE_SEPARATOR, bytes_str
+                );
+            }
+        }
+    }
+}
+
+impl FromStr for UnitContent {
+    type Err = UnitContentError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let data: Vec<&str> = s.split(CONTENT_TYPE_VALUE_SEPARATOR).collect();
+        if let Some(content_type_str) = data.get(0) {
+            match content_type_str {
+                &CONTENT_NIL_TYPE_STR_PREFIX => {
+                    return Ok(UnitContent::Nil);
+                }
+                &CONTENT_STRING_TYPE_STR_PREFIX => {
+                    return Ok(UnitContent::String(
+                        data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR),
+                    ));
+                }
+                &CONTENT_JSON_STRING_TYPE_STR_PREFIX => {
+                    return Ok(UnitContent::JsonString(
+                        data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR),
+                    ));
+                }
+                &CONTENT_FLOAT64_TYPE_STR_PREFIX => {
+                    let f64_str = data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR);
+                    if let Ok(f64_num) = f64_str.parse() {
+                        return Ok(UnitContent::Float64(f64_num));
+                    } else {
+                        return Err(UnitContentError::ParseStringError);
+                    }
+                }
+                &CONTENT_BOOL_TYPE_STR_PREFIX => {
+                    let bool_str: &str = &data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR);
+                    if let Ok(bool) = bool_str.parse() {
+                        return Ok(UnitContent::Bool(bool));
+                    } else {
+                        Err(UnitContentError::ParseStringError)
+                    }
+                }
+                &CONTENT_BYTES_TYPE_STR_PREFIX => {
+                    if let Ok(bytes) = decode_hex(&data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR)) {
+                        return Ok(UnitContent::Bytes(bytes));
+                    } else {
+                        Err(UnitContentError::ParseStringError)
+                    }
+                }
+                &CONTENT_BSON_BYTES_TYPE_STR_PREFIX => {
+                    if let Ok(bytes) = decode_hex(&data[1..].join(CONTENT_TYPE_VALUE_SEPARATOR)) {
+                        return Ok(UnitContent::BsonBytes(bytes));
+                    } else {
+                        Err(UnitContentError::ParseStringError)
+                    }
+                }
+                _ => {
+                    return Err(UnitContentError::UnexpectedTypeStringPrefix);
+                }
+            }
+        } else {
+            return Err(UnitContentError::UnexpectedTypeStringPrefix);
         }
     }
 }
 
 #[cfg(test)]
 mod unit_content_tests {
+    use std::str::FromStr;
+
     use serde_json::Value as JsonValue;
 
     use crate::declarations::basics::UnitContent;
@@ -366,5 +533,49 @@ mod unit_content_tests {
         assert_eq!(UnitContent::Bool(false), JsonValue::from(false));
         assert_ne!(UnitContent::Bool(true), JsonValue::from(false));
         assert_ne!(UnitContent::Bool(false), JsonValue::from(true));
+    }
+
+    #[test]
+    fn test_from_str_and_to_str() {
+        let strs = [
+            "_nil#nil",
+            "_str#hello#world",
+            "_bool#true",
+            "_bool#false",
+            "_f64#1.534",
+            r#"_json_str#{"f64": 0.0, "str": "string_0", "bool": true}"#,
+            "_bson_bytes#[0x01,0x02,0x03,0xff,0x3f,0x00]",
+            "_bytes#[0x7b,0x22,0x66,0x36,0x34,0x00,0xff]",
+        ];
+
+        let unit_contents = [
+            UnitContent::Nil,
+            UnitContent::String("hello#world".to_string()),
+            UnitContent::Bool(true),
+            UnitContent::Bool(false),
+            UnitContent::Float64(1.534),
+            UnitContent::JsonString(r#"{"f64": 0.0, "str": "string_0", "bool": true}"#.to_string()),
+            UnitContent::BsonBytes(vec![0x01, 0x02, 0x03, 0xff, 0x3f, 0x00]),
+            UnitContent::Bytes(vec![0x7b, 0x22, 0x66, 0x36, 0x34, 0x00, 0xff]),
+        ];
+
+        for (index, string) in strs.iter().enumerate() {
+            let expected_data = string;
+            let actual_data = &unit_contents[index].to_string();
+            assert_eq!(expected_data, actual_data);
+
+            let expected_data = &unit_contents[index];
+            let actual_data = &UnitContent::from_str(string).unwrap();
+            assert_eq!(expected_data, actual_data);
+
+            assert_eq!(
+                string,
+                &(UnitContent::from_str(string)).unwrap().to_string()
+            );
+            assert_eq!(
+                unit_contents[index],
+                UnitContent::from_str(&unit_contents[index].to_string()).unwrap()
+            );
+        }
     }
 }

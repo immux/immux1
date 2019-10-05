@@ -21,24 +21,21 @@ pub const UNICUS_ENDPOINT: &str = "127.0.0.1:1991";
 pub const MONGO_ENDPOINT: &str = "127.0.0.1:27017";
 pub const MYSQL_ENDPOINT: &str = "127.0.0.1:3306";
 
-pub const INSPECT_KEYWORD: &str = "inspect";
-pub const REVERT_QUERY_KEYWORD: &str = "revert";
-pub const REVERTALL_QUERY_KEYWORD: &str = "revert_all";
-pub const CHAIN_KEYWORD: &str = "chain";
-pub const SELECT_CONDITION_KEYWORD: &str = "select";
-pub const CREATE_INDEX_KEYWORD: &str = "index";
-pub const INTERNAL_API_TARGET_ID_IDENTIFIER: &str = "internal_api_target_id_identifier";
-
-pub const MULTIFIELD_SEPARATOR: &str = "|";
+pub const CURRENT_CHAIN_KEYWORD: &str = "current_chain";
+pub const INDICES_KEYWORD: &str = "indices";
+pub const BY_KV_KEYWORD: &str = "by_kv";
+pub const PROPERTY_NAME_KEYWORD: &str = "property_name";
+pub const REVERT_TO_KEYWORD: &str = "revert_to";
+pub const LIST_KEYWORD: &str = "_list";
+pub const ALL_KEYWORD: &str = "_all";
 
 pub const DEFAULT_CHAIN_NAME: &str = "default";
 pub const DEFAULT_PERMANENCE_PATH: &str = "/tmp/";
 
-pub const INITIAL_TRANSACTION_ID_DATA: u64 = 1;
-
 const DEFAULT_KV_ENGINE: KeyValueEngine = KeyValueEngine::Rocks;
 
-pub const MAX_KVKEY_LENGTH: usize = 8 * 1024; // 8KB
+pub const MAX_KVKEY_LENGTH: usize = 8 * 1024;
+// 8KB
 pub const MAX_KVVALUE_LENGTH: usize = 32 * 1024 * 1024; // 32MB
 
 pub const MAX_GROUPING_LABEL_LENGTH: usize = 128;

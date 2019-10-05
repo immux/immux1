@@ -1,27 +1,55 @@
 use std::fmt::Formatter;
 
+use libimmuxdb::config;
 use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
 use libimmuxdb::storage::vkv::ChainHeight;
+
 use reqwest;
 
 pub trait ImmuxDBConnector {
-    fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
-    fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
+    fn get_by_id(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+    ) -> ClientResult;
+    fn inspect_by_id(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+    ) -> ClientResult;
     fn revert_by_id(
         &self,
+        chain_name: &ChainName,
         grouping: &GroupingLabel,
         id: &UnitId,
         height: &ChainHeight,
     ) -> ClientResult;
-    fn set_unit(&self, grouping: &GroupingLabel, unit: &Unit) -> ClientResult;
-    fn set_batch_units(&self, grouping: &GroupingLabel, units: &[Unit]) -> ClientResult;
-    fn create_index(&self, grouping: &GroupingLabel, property_name: &PropertyName) -> ClientResult;
+    fn set_unit(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        unit: &Unit,
+    ) -> ClientResult;
+    fn set_batch_units(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        units: &[Unit],
+    ) -> ClientResult;
+    fn create_index(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        property_name: &PropertyName,
+    ) -> ClientResult;
     fn switch_chain(&self, chain_name: &ChainName) -> ClientResult;
 }
 
 #[derive(Debug)]
 pub enum ImmuxDBClientError {
-    Everything,
+    ParameterError,
     Reqwest(reqwest::Error),
 }
 
@@ -58,10 +86,16 @@ impl ImmuxDBClient {
 }
 
 impl ImmuxDBConnector for ImmuxDBClient {
-    fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
+    fn get_by_id(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+    ) -> ClientResult {
         let url = format!(
-            "http://{}/{}/{}",
+            "http://{}/{}/{}/{}",
             &self.host,
+            chain_name.to_string(),
             grouping.to_string(),
             id.as_int()
         );
@@ -69,27 +103,36 @@ impl ImmuxDBConnector for ImmuxDBClient {
         return response.text().map_err(|e| e.into());
     }
 
-    fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
+    fn inspect_by_id(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        id: &UnitId,
+    ) -> ClientResult {
         let mut response = reqwest::get(&format!(
-            "http://{}/{}/{}?inspect",
+            "http://{}/{}/{}/{}/{}",
             &self.host,
+            chain_name.to_string(),
             grouping.to_string(),
-            id.as_int()
+            id.as_int(),
+            config::ALL_KEYWORD,
         ))?;
         return response.text().map_err(|e| e.into());
     }
 
     fn revert_by_id(
         &self,
+        chain_name: &ChainName,
         grouping: &GroupingLabel,
         id: &UnitId,
         height: &ChainHeight,
     ) -> ClientResult {
         let client = reqwest::Client::new();
         let mut response = client
-            .put(&format!(
-                "http://{}/{}/{}?revert={}",
+            .post(&format!(
+                "http://{}/{}/{}/{}?revert_to={}",
                 &self.host,
+                chain_name.to_string(),
                 grouping.to_string(),
                 id.as_int(),
                 height.as_u64()
@@ -98,33 +141,45 @@ impl ImmuxDBConnector for ImmuxDBClient {
         return response.text().map_err(|e| e.into());
     }
 
-    fn set_unit(&self, grouping: &GroupingLabel, unit: &Unit) -> ClientResult {
+    fn set_unit(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        unit: &Unit,
+    ) -> ClientResult {
         let client = reqwest::Client::new();
-        let id = unit.id;
-        let property = unit.content.to_string();
-
         let mut response = client
-            .put(&format!(
-                "http://{}/{}/{}",
+            .post(&format!(
+                "http://{}/{}/{}/{}",
                 &self.host,
+                chain_name.to_string(),
                 grouping.to_string(),
-                id.as_int()
+                unit.id.as_int()
             ))
-            .body(property)
+            .body(unit.content.to_string())
             .send()?;
         return response.text().map_err(|e| e.into());
     }
 
-    fn set_batch_units(&self, grouping: &GroupingLabel, units: &[Unit]) -> ClientResult {
+    fn set_batch_units(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        units: &[Unit],
+    ) -> ClientResult {
         let client = reqwest::Client::new();
         let string_vec: Vec<String> = units
             .iter()
-            .map(|unit| -> String { format!("{}|{}", unit.id.as_int(), unit.content.to_string()) })
+            .map(|unit| -> String {
+                format!("{}\r\n{}", unit.id.as_int(), unit.content.to_string())
+            })
             .collect();
+
         let mut response = client
-            .put(&format!(
-                "http://{}/{}/internal_api_target_id_identifier",
+            .post(&format!(
+                "http://{}/{}/{}",
                 &self.host,
+                chain_name.to_string(),
                 grouping.to_string()
             ))
             .body(string_vec.join("\r\n"))
@@ -132,14 +187,22 @@ impl ImmuxDBConnector for ImmuxDBClient {
         return response.text().map_err(|e| e.into());
     }
 
-    fn create_index(&self, grouping: &GroupingLabel, property_name: &PropertyName) -> ClientResult {
+    fn create_index(
+        &self,
+        chain_name: &ChainName,
+        grouping: &GroupingLabel,
+        property_name: &PropertyName,
+    ) -> ClientResult {
         let client = reqwest::Client::new();
+
         let mut response = client
             .put(&format!(
-                "http://{}/{}?index={}",
+                "http://{}/{}/{}?indices&by_kv&{}={}",
                 &self.host,
+                chain_name.to_string(),
                 grouping.to_string(),
-                property_name.to_string()
+                config::PROPERTY_NAME_KEYWORD,
+                property_name.to_string(),
             ))
             .send()?;
         return response.text().map_err(|e| e.into());
@@ -147,12 +210,14 @@ impl ImmuxDBConnector for ImmuxDBClient {
 
     fn switch_chain(&self, chain_name: &ChainName) -> ClientResult {
         let client = reqwest::Client::new();
+
         let mut response = client
             .put(&format!(
-                "http://{}/?chain={}",
+                "http://{}?{}",
                 &self.host,
-                chain_name.to_string()
+                config::CURRENT_CHAIN_KEYWORD
             ))
+            .body(chain_name.to_string())
             .send()?;
         return response.text().map_err(|e| e.into());
     }

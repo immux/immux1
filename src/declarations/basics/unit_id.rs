@@ -2,7 +2,6 @@ use std::convert::From;
 
 use serde::{Deserialize, Serialize};
 
-use crate::declarations::errors::ImmuxError;
 use crate::utils::{u128_to_u8_array, u8_array_to_u128};
 
 pub const UNIT_ID_BYTES: usize = 16;
@@ -11,12 +10,6 @@ pub const UNIT_ID_BYTES: usize = 16;
 pub enum UnitIdError {
     InsufficientLength(Vec<u8>),
     CannotParseString(String),
-}
-
-impl From<UnitIdError> for ImmuxError {
-    fn from(error: UnitIdError) -> Self {
-        ImmuxError::UnitId(error)
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]

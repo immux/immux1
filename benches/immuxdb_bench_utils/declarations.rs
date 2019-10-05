@@ -1,7 +1,9 @@
 use std::error::Error;
 
 use immuxdb_client::ImmuxDBClient;
-use libimmuxdb::declarations::basics::{GroupingLabel, NameProperty, PropertyName, Unit, UnitId};
+use libimmuxdb::declarations::basics::{
+    ChainName, GroupingLabel, NameProperty, PropertyName, Unit, UnitId,
+};
 
 pub type UnitList = Vec<Unit>;
 
@@ -28,9 +30,11 @@ pub enum Action {
 pub struct ArtificialDataBenchSpec {
     pub name: &'static str,
     pub unicus_port: u16,
+    pub chain_name: &'static str,
     pub main: &'static dyn Fn(&ArtificialDataBenchSpec) -> Result<(), Box<dyn Error>>,
     pub actions: Vec<Action>,
     pub verify_correctness: bool,
-    pub verification_fn: &'static dyn Fn(&ImmuxDBClient, &GroupingLabel, &[Unit]) -> bool,
+    pub verification_fn:
+        &'static dyn Fn(&ImmuxDBClient, &ChainName, &GroupingLabel, &[Unit]) -> bool,
     pub report_period: usize,
 }

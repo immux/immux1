@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::read;
 use std::io;
 use std::num::ParseIntError;
+use std::str::FromStr;
 use std::thread;
 use std::time::Instant;
 
@@ -10,7 +11,7 @@ pub use serde::ser::Serialize;
 
 use immuxdb_client::{ImmuxDBClient, ImmuxDBConnector};
 use immuxdb_dev_utils::{launch_db, notified_sleep};
-use libimmuxdb::declarations::basics::{GroupingLabel, Unit, UnitContent, UnitId};
+use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, Unit, UnitContent, UnitId};
 
 use crate::declarations::{ArtificialDataBenchSpec, UnitList};
 
@@ -36,8 +37,8 @@ pub fn measure_iteration<D, F>(
     operation_name: &str,
     report_period: usize,
 ) -> Result<Vec<(f64, f64)>, Box<dyn Error>>
-where
-    F: Fn(&D) -> Result<String, Box<dyn Error>>,
+    where
+        F: Fn(&D) -> Result<String, Box<dyn Error>>,
 {
     let mut start = Instant::now();
     let mut count = 0;
@@ -110,12 +111,16 @@ pub fn read_usize_from_arguments(position: usize) -> Result<usize, ParseIntError
 
 pub fn verify_units_against_db(
     client: &ImmuxDBClient,
+    chain_name: &ChainName,
     grouping_label: &GroupingLabel,
     units: &[Unit],
 ) -> bool {
     for unit in units {
-        let data = client.get_by_id(grouping_label, &unit.id).unwrap();
-        if data != unit.content.to_string() {
+        let data = client
+            .get_by_id(chain_name, grouping_label, &unit.id)
+            .unwrap();
+
+        if UnitContent::from_str(&data).unwrap() != unit.content {
             return false;
         }
     }
@@ -124,11 +129,14 @@ pub fn verify_units_against_db(
 
 pub fn verify_journal_against_db(
     client: &ImmuxDBClient,
+    chain_name: &ChainName,
     grouping_label: &GroupingLabel,
     units: &[Unit],
 ) -> bool {
     let id = units[0].id;
-    let data = client.inspect_by_id(grouping_label, &id).unwrap();
+    let data = client
+        .inspect_by_id(chain_name, grouping_label, &id)
+        .unwrap();
     let height_unit_vec: Vec<(&str, Unit)> = data
         .split("\r\n")
         .filter(|datum| *datum != "")
@@ -138,7 +146,7 @@ pub fn verify_journal_against_db(
             let content = res_str[1];
             let unit = Unit {
                 id: id,
-                content: UnitContent::JsonString(content.to_string()),
+                content: UnitContent::from_str(content).unwrap(),
             };
             return (height, unit);
         })
