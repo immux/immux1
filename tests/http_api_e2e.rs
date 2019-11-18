@@ -83,7 +83,7 @@ fn e2e_single_document_versioning() -> Result<(), Box<dyn Error>> {
 
     let body_text = client.inspect_by_id(&grouping, &id)?;
     let data: Vec<(&str, &str)> = body_text
-        .split("\r\n")
+        .split("\\r\\n")
         .filter(|line| line.len() > 0)
         .map(|line| {
             let segments: Vec<_> = line.split("|").collect();
@@ -135,12 +135,12 @@ fn e2e_multiple_document_versioning() -> Result<(), Box<dyn Error>> {
         (1, "b2"),
         (2, "c2"),
     ]
-    .iter()
-    .map(|(id, data)| Unit {
-        id: UnitId::new(*id),
-        content: UnitContent::String(data.to_string()),
-    })
-    .collect();
+        .iter()
+        .map(|(id, data)| Unit {
+            id: UnitId::new(*id),
+            content: UnitContent::String(data.to_string()),
+        })
+        .collect();
 
     // Store data in specified order
     for unit in units.iter() {

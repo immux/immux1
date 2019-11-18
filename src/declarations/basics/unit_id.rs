@@ -1,5 +1,3 @@
-use std::convert::From;
-
 use serde::{Deserialize, Serialize};
 
 use crate::declarations::errors::ImmuxError;
@@ -26,9 +24,11 @@ impl UnitId {
     pub fn new(id: u128) -> Self {
         Self(id)
     }
+
     pub fn marshal(&self) -> Vec<u8> {
         u128_to_u8_array(self.0).to_vec()
     }
+
     pub fn parse(data: &[u8]) -> Result<Self, UnitIdError> {
         if data.len() < UNIT_ID_BYTES {
             Err(UnitIdError::InsufficientLength(data.to_vec()))
@@ -40,12 +40,24 @@ impl UnitId {
             Ok(UnitId::from(&array))
         }
     }
-    pub fn read_int_in_str(data: &str) -> Result<Self, UnitIdError> {
-        match data.parse::<u128>() {
-            Err(_) => Err(UnitIdError::CannotParseString(data.to_owned())),
-            Ok(u) => Ok(UnitId::new(u)),
+
+    pub fn read_u128_in_str(data: &str) -> Result<Self, UnitIdError> {
+        let num_str_vec: Vec<&str> = data.split(",").collect();
+        let byte_vec: Vec<u8> = num_str_vec
+            .into_iter()
+            .map(|num_str| num_str.parse::<u8>())
+            .filter_map(Result::ok)
+            .collect();
+
+        if byte_vec.len() != UNIT_ID_BYTES {
+            return Err(UnitIdError::CannotParseString(data.to_owned()));
+        } else {
+            let mut array = [0; UNIT_ID_BYTES];
+            array.copy_from_slice(&byte_vec);
+            return Ok(UnitId::new(u8_array_to_u128(&array)));
         }
     }
+
     pub fn as_int(&self) -> u128 {
         self.0
     }
