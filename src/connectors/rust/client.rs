@@ -59,22 +59,29 @@ impl ImmuxDBClient {
 
 impl ImmuxDBConnector for ImmuxDBClient {
     fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
-        let url = format!(
-            "http://{}/{}/{}",
-            &self.host,
-            grouping.to_string(),
-            id.as_int()
-        );
+        let id_byte_vec: Vec<String> = id
+            .marshal()
+            .into_iter()
+            .map(|byte| byte.to_string())
+            .collect();
+        let id_str = id_byte_vec.join(",");
+        let url = format!("http://{}/{}/{}", &self.host, grouping.to_string(), id_str);
         let mut response = reqwest::get(&url)?;
         return response.text().map_err(|e| e.into());
     }
 
     fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult {
+        let id_byte_vec: Vec<String> = id
+            .marshal()
+            .into_iter()
+            .map(|byte| byte.to_string())
+            .collect();
+        let id_str = id_byte_vec.join(",");
         let mut response = reqwest::get(&format!(
             "http://{}/{}/{}?inspect",
             &self.host,
             grouping.to_string(),
-            id.as_int()
+            id_str
         ))?;
         return response.text().map_err(|e| e.into());
     }
@@ -86,12 +93,18 @@ impl ImmuxDBConnector for ImmuxDBClient {
         height: &ChainHeight,
     ) -> ClientResult {
         let client = reqwest::Client::new();
+        let id_byte_vec: Vec<String> = id
+            .marshal()
+            .into_iter()
+            .map(|byte| byte.to_string())
+            .collect();
+        let id_str = id_byte_vec.join(",");
         let mut response = client
             .put(&format!(
                 "http://{}/{}/{}?revert={}",
                 &self.host,
                 grouping.to_string(),
-                id.as_int(),
+                id_str,
                 height.as_u64()
             ))
             .send()?;
@@ -103,12 +116,19 @@ impl ImmuxDBConnector for ImmuxDBClient {
         let id = unit.id;
         let property = unit.content.to_string();
 
+        let id_byte_vec: Vec<String> = id
+            .marshal()
+            .into_iter()
+            .map(|byte| byte.to_string())
+            .collect();
+        let id_str = id_byte_vec.join(",");
+
         let mut response = client
             .put(&format!(
                 "http://{}/{}/{}",
                 &self.host,
                 grouping.to_string(),
-                id.as_int()
+                id_str
             ))
             .body(property)
             .send()?;

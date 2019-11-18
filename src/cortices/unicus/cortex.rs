@@ -97,13 +97,13 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 });
                 return Ok(command);
             } else if let Some(_) = url_info.extract_string_query(config::INSPECT_KEYWORD) {
-                let target_id = UnitId::read_int_in_str(target_id_str)?;
+                let target_id = UnitId::read_u128_in_str(target_id_str)?;
                 let command = Command::Inspect(InspectCommand {
                     specifier: UnitSpecifier::new(target_grouping, target_id),
                 });
                 return Ok(command);
             } else {
-                let target_id = UnitId::read_int_in_str(target_id_str)?;
+                let target_id = UnitId::read_u128_in_str(target_id_str)?;
                 let command = Command::Select(SelectCommand {
                     grouping: target_grouping,
                     condition: SelectCondition::Id(target_id),
@@ -114,7 +114,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
         Method::Put => {
             if let Ok(height_u64) = url_info.extract_numeric_query(config::REVERT_QUERY_KEYWORD) {
                 let height = ChainHeight::new(height_u64);
-                let target_id = UnitId::read_int_in_str(target_id_str)?;
+                let target_id = UnitId::read_u128_in_str(target_id_str)?;
                 let specifier = UnitSpecifier::new(target_grouping, target_id);
                 let command = Command::RevertMany(RevertManyCommand {
                     specs: vec![RevertCommandTargetSpec {
@@ -154,7 +154,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                     let id_str = id_property[0];
                     let property_str = id_property[1];
                     let insert_command_spec = InsertCommandSpec {
-                        id: UnitId::read_int_in_str(id_str)?,
+                        id: UnitId::read_u128_in_str(id_str)?,
                         content: UnitContent::JsonString(property_str.to_string()),
                     };
 
@@ -166,7 +166,7 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
                 });
                 return Ok(command);
             } else {
-                let target_id = UnitId::read_int_in_str(target_id_str)?;
+                let target_id = UnitId::read_u128_in_str(target_id_str)?;
                 let command = Command::Insert(InsertCommand {
                     grouping: target_grouping,
                     targets: vec![InsertCommandSpec {
@@ -196,11 +196,10 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
             Ok(outcome) => match outcome {
                 Outcome::Select(outcome) => {
                     let mut body = String::new();
-                    let should_break_line = outcome.units.len() >= 2;
-                    for unit in outcome.units {
+                    for (index, unit) in outcome.units.iter().enumerate() {
                         body += &unit.content.to_string();
-                        if should_break_line {
-                            body += "\r\n";
+                        if index != outcome.units.len() - 1 {
+                            body += "\\r\\n";
                         }
                     }
                     (200, body)
@@ -209,9 +208,11 @@ pub fn responder(request: Request, core: &mut ImmuxDBCore) -> ImmuxResult<()> {
                 Outcome::Insert(outcome) => (200, format!("Inserted {} items", outcome.count)),
                 Outcome::Inspect(outcome) => {
                     let mut body = String::new();
-                    for inspection in outcome.inspections {
+                    for (index, inspection) in outcome.inspections.iter().enumerate() {
                         body += &inspection.to_string();
-                        body += "\r\n";
+                        if index != outcome.inspections.len() - 1 {
+                            body += "\\r\\n";
+                        }
                     }
                     (200, body)
                 }
