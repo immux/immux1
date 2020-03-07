@@ -438,6 +438,7 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                                 )));
                             }
                             GetManyTargetSpec::KeyPrefix(key_prefix) => {
+                                //                                Index comes here
                                 let basekey_prefix: KVKeySegment = {
                                     let mut result =
                                         Vec::with_capacity(1 + key_prefix.as_slice().len());
@@ -446,6 +447,7 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                                     result.into()
                                 };
                                 let base_pairs = self.kv_engine.filter_prefix(&basekey_prefix);
+
                                 let parsed_pairs: Vec<(BoxedStoreKey, Box<UnitJournal>)> = {
                                     let mut result = Vec::with_capacity(base_pairs.len());
                                     for pair in base_pairs.into_iter() {
@@ -560,10 +562,10 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             }
             // Transactional instructions should have been handled in TKV above VKV
             Instruction::TransactionalData(_) => {
-                return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction))
+                return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction));
             }
             Instruction::TransactionMeta(_) => {
-                return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction))
+                return Err(ImmuxError::VKV(VkvError::UnexpectedInstruction));
             }
         }
     }
