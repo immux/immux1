@@ -79,6 +79,7 @@ impl ReverseIndex {
         target_name: &PropertyName,
     ) -> ImmuxResult<()> {
         let name_str = target_name.to_string();
+
         match json.get(name_str) {
             // property doesn't exist on the json
             None => return Ok(()),
@@ -112,6 +113,17 @@ impl ReverseIndex {
             None => IdList::new(vec![]),
             Some(list) => list.to_owned(),
         }
+    }
+
+    pub fn set(
+        &mut self,
+        name: &PropertyName,
+        property: &UnitContent,
+        id_list: IdList,
+    ) -> ImmuxResult<()> {
+        let key = (name.to_owned(), property.marshal());
+        self.inner.insert(key, id_list);
+        return Ok(());
     }
 
     /// Add multiple JSONs with multiple names to index; basically a stronger `index_new_json`.

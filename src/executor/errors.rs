@@ -9,7 +9,7 @@ pub enum ExecutorError {
     CannotSerialize,
     UnimplementedSelectCondition(SelectCondition),
     CannotDeserialize,
-    UnexpectedNumberType,
+    CannotParseJson,
     CannotFindId(UnitId),
     NoneReverseIndex,
 }

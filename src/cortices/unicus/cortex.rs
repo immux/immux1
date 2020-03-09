@@ -88,14 +88,41 @@ fn parse_http_request(request: &Request, body: &str) -> Result<Command, HttpPars
             if let Some(_namespace) = url_info.extract_string_query(config::CHAIN_KEYWORD) {
                 let command = Command::NameChain;
                 return Ok(command);
-            } else if let Some(_condition) =
+            } else if let Some(condition) =
                 url_info.extract_string_query(config::SELECT_CONDITION_KEYWORD)
             {
-                let command = Command::Select(SelectCommand {
-                    grouping: target_grouping,
-                    condition: SelectCondition::UnconditionalMatch,
-                });
-                return Ok(command);
+                match condition.as_str() {
+                    //                    This is an internal API
+                    config::NAME_PROPERTY => {
+                        for (property_name_str, unit_content_str) in url_info.queries.iter() {
+                            if property_name_str == config::SELECT_CONDITION_KEYWORD {
+                                continue;
+                            }
+                            let property_name = PropertyName::from(property_name_str.as_str());
+                            if let Ok(unit_content_f64) = unit_content_str.parse::<f64>() {
+                                let unit_content = UnitContent::Float64(unit_content_f64);
+                                let command = Command::Select(SelectCommand {
+                                    grouping: target_grouping,
+                                    condition: SelectCondition::NameProperty(
+                                        property_name,
+                                        unit_content,
+                                    ),
+                                });
+                                return Ok(command);
+                            } else {
+                                return Err(HttpParsingError::BodyParsingError);
+                            }
+                        }
+                        return Err(HttpParsingError::BodyParsingError);
+                    }
+                    _ => {
+                        let command = Command::Select(SelectCommand {
+                            grouping: target_grouping,
+                            condition: SelectCondition::UnconditionalMatch,
+                        });
+                        return Ok(command);
+                    }
+                }
             } else if let Some(_) = url_info.extract_string_query(config::INSPECT_KEYWORD) {
                 let target_id = UnitId::read_int_in_str(target_id_str)?;
                 let command = Command::Inspect(InspectCommand {

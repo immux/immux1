@@ -1,11 +1,19 @@
 use std::fmt::Formatter;
 
-use libimmuxdb::declarations::basics::{ChainName, GroupingLabel, PropertyName, Unit, UnitId};
+use libimmuxdb::declarations::basics::{
+    ChainName, GroupingLabel, PropertyName, Unit, UnitContent, UnitId,
+};
 use libimmuxdb::storage::vkv::ChainHeight;
 use reqwest;
 
 pub trait ImmuxDBConnector {
     fn get_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
+    fn get_by_property_name(
+        &self,
+        grouping: &GroupingLabel,
+        property_name: &PropertyName,
+        unit_content: &UnitContent,
+    ) -> ClientResult;
     fn inspect_by_id(&self, grouping: &GroupingLabel, id: &UnitId) -> ClientResult;
     fn revert_by_id(
         &self,
@@ -64,6 +72,23 @@ impl ImmuxDBConnector for ImmuxDBClient {
             &self.host,
             grouping.to_string(),
             id.as_int()
+        );
+        let mut response = reqwest::get(&url)?;
+        return response.text().map_err(|e| e.into());
+    }
+
+    fn get_by_property_name(
+        &self,
+        grouping: &GroupingLabel,
+        property_name: &PropertyName,
+        unit_content: &UnitContent,
+    ) -> ClientResult {
+        let url = format!(
+            "http://{}/{}?select=name_property&{}={}",
+            &self.host,
+            grouping.to_string(),
+            property_name.to_string(),
+            unit_content.to_string()
         );
         let mut response = reqwest::get(&url)?;
         return response.text().map_err(|e| e.into());

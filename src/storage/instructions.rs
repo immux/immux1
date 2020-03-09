@@ -236,6 +236,12 @@ pub struct SetOkAnswer {
     pub count: usize,
 }
 
+impl From<SetOkAnswer> for Answer {
+    fn from(answer: SetOkAnswer) -> Answer {
+        Answer::DataAccess(DataAnswer::Write(DataWriteAnswer::SetOk(answer)))
+    }
+}
+
 #[derive(Debug)]
 pub struct RevertOkAnswer {}
 

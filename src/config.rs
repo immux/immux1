@@ -28,6 +28,7 @@ pub const CHAIN_KEYWORD: &str = "chain";
 pub const SELECT_CONDITION_KEYWORD: &str = "select";
 pub const CREATE_INDEX_KEYWORD: &str = "index";
 pub const INTERNAL_API_TARGET_ID_IDENTIFIER: &str = "internal_api_target_id_identifier";
+pub const NAME_PROPERTY: &str = "name_property";
 
 pub const MULTIFIELD_SEPARATOR: &str = "|";
 

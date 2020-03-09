@@ -42,6 +42,12 @@ impl IdList {
         self.0.dedup_by(|v1, v2| v1 == v2);
     }
 
+    pub fn remove_items(&mut self, ids: &IdList) -> () {
+        for id in ids.as_slice() {
+            self.0.retain(|existed_id| existed_id != id);
+        }
+    }
+
     pub fn marshal(&self) -> Vec<u8> {
         let list = &self.0;
         let mut result: Vec<u8> = Vec::with_capacity(list.len() * UNIT_ID_BYTES);
@@ -49,6 +55,10 @@ impl IdList {
             result.extend(id.marshal())
         }
         return result;
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.0.is_empty();
     }
 
     pub fn parse(data: &[u8]) -> Result<Self, IdListError> {

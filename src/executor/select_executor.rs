@@ -87,7 +87,7 @@ pub fn execute_select(select: SelectCommand, core: &mut impl CoreStore) -> Immux
                 ));
 
                 match core.execute(&get_indexed_id_list) {
-                    Err(ImmuxError::VKV(VkvError::MissingJournal(_))) => {
+                    Err(ImmuxError::VKV(VkvError::MissingJournal(_error))) => {
                         // No index for the name-property
                         let all_units = get_all_in_grouping(&select.grouping, core)?;
                         let proper_units =
