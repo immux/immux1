@@ -18,7 +18,7 @@ impl From<KVError> for ImmuxError {
 pub trait KeyValueStore {
     fn get(&self, kvkey: &KVKey) -> ImmuxResult<Option<KVValue>>;
     fn set(&mut self, kvkey: &KVKey, value: &KVValue) -> ImmuxResult<()>;
-    fn set_many(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()>;
+    fn atomic_batch_set(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()>;
     fn switch_namespace(&mut self, namespace: &KVNamespace) -> ImmuxResult<()>;
     fn read_namespace(&self) -> KVNamespace;
     fn filter_prefix(&self, prefix: &KVKeySegment) -> Box<Vec<(BoxedKVKey, BoxedKVValue)>>;
@@ -175,7 +175,7 @@ mod base_kv_tests {
             .collect();
         assert_eq!(input_data.len(), 10_000);
 
-        store.set_many(&input_data)?;
+        store.atomic_batch_set(&input_data)?;
 
         let unique_prefixes: HashSet<KVKeySegment> = {
             let mut prefix_set = HashSet::new();
@@ -220,21 +220,21 @@ mod base_kv_tests {
             vec![("b", 5), ("a", 20)],          // data existing data
             vec![("a", 10), ("d", 100)],        // update while inserting new value
         ]
-        .iter()
-        .map(|data_table| {
-            data_table
-                .iter()
-                .map(|pair| {
-                    let key = KVKey::new(pair.0.as_bytes());
-                    let value = KVValue::new(&u64_to_u8_array(pair.1));
-                    (key, value)
-                })
-                .collect()
-        })
-        .collect();
+            .iter()
+            .map(|data_table| {
+                data_table
+                    .iter()
+                    .map(|pair| {
+                        let key = KVKey::new(pair.0.as_bytes());
+                        let value = KVValue::new(&u64_to_u8_array(pair.1));
+                        (key, value)
+                    })
+                    .collect()
+            })
+            .collect();
 
         for table in &data_tables {
-            store.set_many(table)?;
+            store.atomic_batch_set(table)?;
         }
 
         let key_a = KVKey::new("a".as_bytes());
@@ -360,7 +360,7 @@ mod base_kv_tests {
             (KVKey::from("key"), KVValue::from("value-4")),
             (KVKey::from("key"), KVValue::from("value-final")),
         ];
-        store.set_many(&pairs)?;
+        store.atomic_batch_set(&pairs)?;
         match store.get(&KVKey::from("key"))? {
             None => panic!("Cannget read back"),
             Some(value) => assert_eq!(value, KVValue::from("value-final")),

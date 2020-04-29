@@ -86,7 +86,7 @@ impl KeyValueStore for RocksStore {
         }
     }
 
-    fn set_many(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()> {
+    fn atomic_batch_set(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()> {
         let mut batch = WriteBatch::default();
         for pair in pairs {
             let (key, value) = pair;
