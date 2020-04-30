@@ -45,7 +45,7 @@ impl KeyValueStore for HashMapStore {
             Some(_old_value) => Ok(()),
         }
     }
-    fn set_many(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()> {
+    fn atomic_batch_set(&mut self, pairs: &[(KVKey, KVValue)]) -> ImmuxResult<()> {
         let hashmap = &mut self.hashmaps[self.current_node_index].hashmap;
         for pair in pairs {
             let (key, value) = pair;

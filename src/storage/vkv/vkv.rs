@@ -121,26 +121,10 @@ impl ImmuxDBVersionedKeyValueStore {
         }
     }
 
-    fn set_height(&mut self, height: ChainHeight) -> ImmuxResult<()> {
-        let key = &get_chain_height_kvkey();
+    fn get_height_kv_pair(&mut self, height: ChainHeight) -> (KVKey, KVValue) {
+        let key = get_chain_height_kvkey();
         let value = KVValue::from(height.marshal());
-        self.kv_engine.set(key, &value)
-    }
-
-    fn save_instruction_record(
-        &mut self,
-        height: &ChainHeight,
-        record: &InstructionRecord,
-    ) -> ImmuxResult<()> {
-        match serialize(record) {
-            Err(_error) => Err(VkvError::CannotSerializeInstructionRecord.into()),
-            Ok(serialized) => {
-                let key = get_instruction_kvkey(height);
-                let value = KVValue::new(&serialized);
-                self.kv_engine.set(&key, &value)?;
-                Ok(())
-            }
-        }
+        return (key, value);
     }
 
     fn load_instruction_record(&self, height: &ChainHeight) -> ImmuxResult<InstructionRecord> {
@@ -152,6 +136,21 @@ impl ImmuxDBVersionedKeyValueStore {
                 Err(_error) => Err(VkvError::DeserializationFail.into()),
                 Ok(instruction_record) => Ok(instruction_record),
             },
+        }
+    }
+
+    fn get_instruction_record_kv_pair(
+        &mut self,
+        height: &ChainHeight,
+        record: &InstructionRecord,
+    ) -> ImmuxResult<(KVKey, KVValue)> {
+        match serialize(record) {
+            Err(_error) => Err(VkvError::CannotSerializeInstructionRecord.into()),
+            Ok(serialized) => {
+                let key = get_instruction_kvkey(height);
+                let value = KVValue::new(&serialized);
+                Ok((key, value))
+            }
         }
     }
 
@@ -167,18 +166,12 @@ impl ImmuxDBVersionedKeyValueStore {
         }
     }
 
-    fn set_journal(&mut self, key: &StoreKey, journal: &UnitJournal) -> ImmuxResult<()> {
-        let kvkey = get_journal_kvkey(key);
-        let value = KVValue::new(&journal.marshal());
-        self.kv_engine.set(&kvkey, &value)
-    }
-
-    fn execute_versioned_set(
+    fn update_journal(
         &mut self,
         store_key: &StoreKey,
         value: &StoreValue,
         height: ChainHeight,
-    ) -> ImmuxResult<()> {
+    ) -> UnitJournal {
         let journal: UnitJournal = match self.get_journal(store_key) {
             Err(_error) => UnitJournal {
                 value: value.to_owned(),
@@ -190,7 +183,7 @@ impl ImmuxDBVersionedKeyValueStore {
                 existing_journal
             }
         };
-        self.set_journal(store_key, &journal)
+        return journal;
     }
 
     fn get_latest_value(&mut self, key: &StoreKey) -> ImmuxResult<StoreValue> {
@@ -263,12 +256,12 @@ impl ImmuxDBVersionedKeyValueStore {
         self.get_value_after_height_recurse(key, requested_height, 0)
     }
 
-    fn revert_one(
+    fn get_reverted_journal(
         &mut self,
         key: &StoreKey,
         target_height: ChainHeight,
         next_height: ChainHeight,
-    ) -> ImmuxResult<()> {
+    ) -> ImmuxResult<UnitJournal> {
         fn find_appropriate_height(
             heights: &HeightList,
             requested_height: &ChainHeight,
@@ -297,21 +290,17 @@ impl ImmuxDBVersionedKeyValueStore {
                         let value = self.get_value_after_height(key, &height)?;
                         journal.update_heights.push(next_height);
                         journal.value = value;
-                        self.set_journal(key, &journal)
+                        return Ok(journal);
                     }
                 }
             }
         }
     }
 
-    fn increment_chain_height(&mut self) -> Result<ChainHeight, ImmuxError> {
+    fn increment_chain_height(&mut self) -> ChainHeight {
         let mut height = self.get_height();
         height.increment();
-        match self.set_height(height) {
-            Err(error) => return Err(error),
-            Ok(_) => {}
-        }
-        return Ok(height);
+        return height;
     }
 }
 
@@ -399,14 +388,14 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                     match self
                         .kv_engine
                         .switch_namespace(&set_namespace.new_namespace.to_owned().into())
-                    {
-                        Err(error) => Err(error),
-                        Ok(_) => Ok(Answer::DBSystem(DBSystemAnswer::SwitchNamespaceOk(
-                            SwitchNamespaceOkAnswer {
-                                new_namespace: self.kv_engine.read_namespace().into(),
-                            },
-                        ))),
-                    }
+                        {
+                            Err(error) => Err(error),
+                            Ok(_) => Ok(Answer::DBSystem(DBSystemAnswer::SwitchNamespaceOk(
+                                SwitchNamespaceOkAnswer {
+                                    new_namespace: self.kv_engine.read_namespace().into(),
+                                },
+                            ))),
+                        }
                 }
                 DBSystemInstruction::ReadNamespace(_get_namespace) => {
                     return Ok(Answer::DBSystem(DBSystemAnswer::ReadNamespaceOk(
@@ -438,7 +427,6 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                                 )));
                             }
                             GetManyTargetSpec::KeyPrefix(key_prefix) => {
-                                //                                Index comes here
                                 let basekey_prefix: KVKeySegment = {
                                     let mut result =
                                         Vec::with_capacity(1 + key_prefix.as_slice().len());
@@ -502,15 +490,30 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
             }
             Instruction::DataAccess(DataInstruction::Write(write_instruction)) => {
                 // Only data writes triggers height increment and instruction record saving
-                let next_height = self.increment_chain_height()?;
+                let next_height = self.increment_chain_height();
                 match write_instruction {
                     DataWriteInstruction::SetMany(set_many) => {
-                        for target in set_many.targets.iter() {
-                            self.execute_versioned_set(&target.key, &target.value, next_height)?
-                        }
+                        let mut target_kv_pairs: Vec<(KVKey, KVValue)> = set_many
+                            .targets
+                            .iter()
+                            .map(|target| {
+                                let journal: UnitJournal =
+                                    self.update_journal(&target.key, &target.value, next_height);
+                                let kvkey = get_journal_kvkey(&target.key);
+                                let value = KVValue::new(&journal.marshal());
+                                return (kvkey, value);
+                            })
+                            .collect();
+
                         let record: InstructionRecord = instruction.to_owned().into();
-                        if let Err(_) = self.save_instruction_record(&next_height, &record) {
-                            return Err(VkvError::SaveInstructionFail.into());
+                        let instruction_kv_pair =
+                            self.get_instruction_record_kv_pair(&next_height, &record)?;
+                        let height_kv_pair = self.get_height_kv_pair(next_height);
+                        target_kv_pairs.push(instruction_kv_pair);
+                        target_kv_pairs.push(height_kv_pair);
+                        match self.kv_engine.atomic_batch_set(&target_kv_pairs) {
+                            Err(error) => return Err(error),
+                            Ok(_) => {}
                         }
                         let count = set_many.targets.len();
                         return Ok(Answer::DataAccess(DataAnswer::Write(
@@ -518,16 +521,40 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                         )));
                     }
                     DataWriteInstruction::RevertMany(revert) => {
-                        for target in revert.targets.iter() {
-                            self.revert_one(&target.key, target.height, next_height)?;
+                        let target_kv_pairs: ImmuxResult<Vec<(KVKey, KVValue)>> = revert
+                            .targets
+                            .iter()
+                            .map(|target| {
+                                let reverted_journal = self.get_reverted_journal(
+                                    &target.key,
+                                    target.height,
+                                    next_height,
+                                )?;
+                                let kvkey = get_journal_kvkey(&target.key);
+                                let value = KVValue::new(&reverted_journal.marshal());
+                                Ok((kvkey, value))
+                            })
+                            .collect();
+
+                        match target_kv_pairs {
+                            Ok(mut kv_pairs) => {
+                                let record: InstructionRecord = instruction.to_owned().into();
+                                let instruction_kv_pair =
+                                    self.get_instruction_record_kv_pair(&next_height, &record)?;
+                                let height_kv_pair = self.get_height_kv_pair(next_height);
+                                kv_pairs.push(instruction_kv_pair);
+                                kv_pairs.push(height_kv_pair);
+                                match self.kv_engine.atomic_batch_set(&kv_pairs) {
+                                    Err(error) => return Err(error),
+                                    Ok(_) => {
+                                        return Ok(Answer::DataAccess(DataAnswer::Write(
+                                            DataWriteAnswer::RevertOk(RevertOkAnswer {}),
+                                        )));
+                                    }
+                                }
+                            }
+                            Err(error) => return Err(error),
                         }
-                        let record: InstructionRecord = instruction.to_owned().into();
-                        if let Err(_) = self.save_instruction_record(&next_height, &record) {
-                            return Err(VkvError::SaveInstructionFail.into());
-                        }
-                        return Ok(Answer::DataAccess(DataAnswer::Write(
-                            DataWriteAnswer::RevertOk(RevertOkAnswer {}),
-                        )));
                     }
                     DataWriteInstruction::RevertAll(revert_all) => {
                         let target_height = revert_all.target_height;
@@ -539,24 +566,49 @@ impl VersionedKeyValueStore for ImmuxDBVersionedKeyValueStore {
                         let affected_keys =
                             extract_affected_keys(&self, target_height, next_height)?;
 
-                        for key in &affected_keys {
-                            self.revert_one(key, target_height, next_height)?;
-                        }
+                        let target_kv_pairs: ImmuxResult<Vec<(KVKey, KVValue)>> =
+                            affected_keys
+                                .iter()
+                                .map(|affected_key| {
+                                    let reverted_journal = self.get_reverted_journal(
+                                        affected_key,
+                                        target_height,
+                                        next_height,
+                                    )?;
+                                    let kvkey = get_journal_kvkey(affected_key);
+                                    let value = KVValue::new(&reverted_journal.marshal());
+                                    Ok((kvkey, value))
+                                })
+                                .collect();
 
-                        let record: InstructionRecord = {
-                            let mut result: InstructionRecord = instruction.to_owned().into();
-                            result.affected_keys = Some(affected_keys.clone());
-                            result
-                        };
-                        if let Err(_) = self.save_instruction_record(&next_height, &record) {
-                            return Err(VkvError::SaveInstructionFail.into());
-                        }
+                        match target_kv_pairs {
+                            Ok(mut kv_pairs) => {
+                                let record: InstructionRecord = {
+                                    let mut result: InstructionRecord =
+                                        instruction.to_owned().into();
+                                    result.affected_keys = Some(affected_keys.clone());
+                                    result
+                                };
 
-                        return Ok(Answer::DataAccess(DataAnswer::Write(
-                            DataWriteAnswer::RevertAllOk(RevertAllOkAnswer {
-                                reverted_keys: affected_keys,
-                            }),
-                        )));
+                                let instruction_kv_pair =
+                                    self.get_instruction_record_kv_pair(&next_height, &record)?;
+                                let height_kv_pair = self.get_height_kv_pair(next_height);
+                                kv_pairs.push(instruction_kv_pair);
+                                kv_pairs.push(height_kv_pair);
+
+                                match self.kv_engine.atomic_batch_set(&kv_pairs) {
+                                    Err(error) => return Err(error),
+                                    Ok(_) => {
+                                        return Ok(Answer::DataAccess(DataAnswer::Write(
+                                            DataWriteAnswer::RevertAllOk(RevertAllOkAnswer {
+                                                reverted_keys: affected_keys,
+                                            }),
+                                        )));
+                                    }
+                                }
+                            }
+                            Err(error) => return Err(error),
+                        }
                     }
                 }
             }
