@@ -1,3 +1,7 @@
+## Deprecated
+
+This repository contains v1.0 code of Immux systems and is deprecated in favour of `immux/immux`.
+
 ## Description
 
 The master repository for Immux code, currently including:
