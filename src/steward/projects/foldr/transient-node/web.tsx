@@ -13,7 +13,7 @@ import { FoldrClientState } from "./types";
 import ProjectPanel from "./ProjectPanel";
 import store from "../store";
 
-export function dedupeById<T extends { id: string }>(prev: T[], next: T): T[] {
+export function dedupeById<T extends { id: string | number }>(prev: T[], next: T): T[] {
     if (prev.some(element => element.id === next.id)) {
         return prev;
     } else {
