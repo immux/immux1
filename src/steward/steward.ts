@@ -2,11 +2,6 @@ import * as http from "http";
 import * as ws from "ws";
 import * as fetch from "isomorphic-fetch";
 import {
-    createImmuxDbViaHttpsRestrictedAccess,
-    ImmuxDBHttp,
-    makeImmuxDBHttp
-} from "../connectors/immuxdb";
-import {
     Distribution,
     FoldrProject,
     StewardEnhancedIncoming,
@@ -20,9 +15,11 @@ import {
     ProjectNotFound,
     URLParsingError,
 } from "./projects/foldr/types";
-import { ImmuxDbJS } from "../connectors/immuxdb.types";
+import { ImmuxDbJS } from "../connectors/typescript/immuxdb.types";
+
 import { FOLDR_PROJECT_NAME, makeNamespaceForProject } from "./projects/utils";
 import { IncomingMessage } from "http";
+import { createImmuxDbViaHttpsRestrictedAccess, ImmuxDBHttp, makeImmuxDBHttp } from "../connectors/typescript/immuxdb";
 
 interface StewardSocket extends ws {
     host?: string;

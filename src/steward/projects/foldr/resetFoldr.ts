@@ -1,14 +1,11 @@
 import * as fs from "fs";
 import * as fetch from "isomorphic-fetch";
 import { promisify } from "util";
-import {
-    createImmuxDbViaHttpsRestrictedAccess,
-    makeImmuxDBHttp
-} from "../../../connectors/immuxdb";
 import { FOLDR_PROJECT_NAME, makeNamespaceForProject } from "../utils";
 import { FoldrProject } from "../meta";
 import { UserData } from "./types";
 import { adminId, foldrId } from "../init";
+import { createImmuxDbViaHttpsRestrictedAccess, makeImmuxDBHttp } from "../../../connectors/typescript/immuxdb";
 
 const readFileAsync = promisify(fs.readFile);
 

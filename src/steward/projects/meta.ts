@@ -1,8 +1,8 @@
 import { ActionfulAction } from "./foldr/types";
 
 export interface FoldrProject {
-    id: string;
-    owner: string;
+    id: number;
+    owner: number;
     name: string;
     index: string | null;
     responder: string | null;

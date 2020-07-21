@@ -1,4 +1,3 @@
-import { ImmuxDbJS } from "../../../../connectors/immuxdb.types";
 import { TalkimAction } from "../actions/Action";
 import {
     Channel,
@@ -11,6 +10,7 @@ import {
 import { StewardEnhancedIncoming, StewardEnhancedOutgoing } from "../../meta";
 import { ProvideMessages } from "../actions/MessageAction";
 import { ProvideUsers } from "../actions/UserActions";
+import { ImmuxDbJS } from "../../../../connectors/typescript/immuxdb.types";
 
 function dedupe<T>(value: T, index: number, array: T[]) {
     return index === array.indexOf(value);

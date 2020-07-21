@@ -90,10 +90,7 @@ impl KeyValueStore for RocksStore {
         let mut batch = WriteBatch::default();
         for pair in pairs {
             let (key, value) = pair;
-            match batch.put(key.as_bytes(), value.as_bytes()) {
-                Err(error) => return Err(RocksEngineError::BatchPutError(error).into()),
-                Ok(_) => {}
-            };
+            let x = batch.put(key.as_bytes(), value.as_bytes());
         }
         match self.db.write(batch) {
             Err(error) => Err(RocksEngineError::BatchWriteError(error).into()),
@@ -117,7 +114,7 @@ impl KeyValueStore for RocksStore {
             .db
             .iterator_opt(
                 IteratorMode::From(prefix.as_bytes(), Direction::Forward),
-                &read_options,
+                read_options,
             )
             .take_while(|pair| pair.0.starts_with(prefix.as_bytes()));
         let data: Vec<_> = iterator

@@ -1,7 +1,7 @@
 export type ImmuxDBFindCondition<T> = { [key in keyof T]?: T[key] };
 
 export interface ImmuxDbDocument {
-    id?: string;
+    id?: number;
 }
 
 export interface ImmuxDbCollection {

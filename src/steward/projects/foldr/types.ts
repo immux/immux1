@@ -10,7 +10,7 @@ export interface UnknownAction {
 }
 
 export interface UserData {
-    id: string;
+    id: number;
     username: string;
     password: string;
 }

@@ -1,4 +1,4 @@
-import { ImmuxDbJS } from "../../../../connectors/immuxdb.types";
+import { ImmuxDbJS } from "../../../../connectors/typescript/immuxdb.types";
 import { Distribution } from "../../meta";
 import { CompositeAction, TalkimAction } from "../actions/Action";
 import { User } from "../datatypes";

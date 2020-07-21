@@ -12,11 +12,11 @@ interface UpdateRecordJS {
 
 export interface ImmuxDBHttp {
     host: string;
-    simpleGet(collection: string, key: string): Promise<string>;
+    simpleGet(collection: string, key: number): Promise<string>;
     select(collection: string, condition: string): Promise<string>;
-    inspect(collection: string, key: string): Promise<UpdateRecordJS[]>;
-    set(collection: string, key: string, value: string): Promise<string>;
-    revertOne(collection: string, key: string, height: number): Promise<string>;
+    inspect(collection: string, key: number): Promise<UpdateRecordJS[]>;
+    set(collection: string, key: number, value: string): Promise<string>;
+    revertOne(collection: string, key: number, height: number): Promise<string>;
     revertAll(height: number): Promise<string>;
     readNamespace(): Promise<string>;
     switchNamespace(namespace: string): Promise<string>;
@@ -28,7 +28,7 @@ export function makeImmuxDBHttp(
 ): ImmuxDBHttp {
     return {
         host,
-        async simpleGet(collection: string, key: string) {
+        async simpleGet(collection: string, key: number) {
             const response = await fetch(
                 `http://${this.host}/${collection}/${key}`
             );
@@ -40,7 +40,7 @@ export function makeImmuxDBHttp(
             );
             return await response.text();
         },
-        async inspect(collection: string, key: string) {
+        async inspect(collection: string, key: number) {
             const response = await fetch(
                 `http://${this.host}/${collection}/${key}?inspect`
             );
@@ -52,7 +52,7 @@ export function makeImmuxDBHttp(
                            value: segments[1]
                        }))
         },
-        async set(collection: string, key: string, value: string) {
+        async set(collection: string, key: number, value: string) {
             const response = await fetch(
                 `http://${this.host}/${collection}/${key}`,
                 {
@@ -62,7 +62,7 @@ export function makeImmuxDBHttp(
             );
             return await response.text();
         },
-        async revertOne(collection: string, key: string, height: number) {
+        async revertOne(collection: string, key: number, height: number) {
             const response = await fetch(
                 `http://${this.host}/${collection}/${key}?revert=${height}`,
                 {
@@ -113,7 +113,7 @@ export function createImmuxDbViaHttpsRestrictedAccess(
             get: (_, collectionName) => {
                 const collectionObject: ImmuxDbCollection = {
                     upsert: async (doc: ImmuxDbDocument) => {
-                        doc.id = doc.id || Math.random().toString();
+                        doc.id = doc.id || Number.parseInt(Math.random().toString().slice(2));
                         await db.set(
                             collectionName.toString(),
                             doc.id,

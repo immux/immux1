@@ -1,3 +1,3 @@
-export const foldrId = "foldr-project-id";
-export const talkimId = "talkim-project-id";
-export const adminId = "admin-project-id";
+export const foldrId = 1;
+export const talkimId = 2;
+export const adminId = 10;
